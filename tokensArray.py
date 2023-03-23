@@ -1,4 +1,5 @@
-import nltk
+import spacy     #language small model of spacy
+import nltk      #token libraries
 from settings import config
 
 # global variable
@@ -13,9 +14,13 @@ maxContextTokens = config.CONVERSATION_MAX_TOKENS
 # global contextHistory
 # contextHistory = []
 
-def add_new_msg(contextHistory, newMsg):
+def add_new_msg(contextHistory, newMsg, logger):
+
+    logger.debug("received newMsg: " + newMsg)
+
     # get token size of newMsg
     newMsgTokenSize = len(nltk.word_tokenize(newMsg))
+    logger.debug("newMsgTokenSize: " + str(newMsgTokenSize))
 
     # add newMsg and its token size to the beginning of the array
     contextHistory.insert(0, (newMsg, newMsgTokenSize))
@@ -49,6 +54,19 @@ def get_printed_array(order, contextHistory):
         for item in contextHistory:
             arrayString = arrayString + item[0]
     return arrayString
+
+def apply_stop_words_filter(words):
+    removed_words = []
+    #loading the english language small model of spacy
+    en = spacy.load('en_core_web_sm')
+    sw_spacy = en.Defaults.stop_words
+    sw_space.remove('n’t','no','not','nothing','neither','never','almost','more','bottom','latter','three','fifteen','beside')
+    sw_space.extend('besides')    
+    words_list = words.split()
+    words = [word for word in words_list if word.lower() not in sw_spacy]
+    removed_words = [word for word in words_list if word.lower() in sw_spacy]
+    new_text = " ".join(words)
+    return new_text, removed_words
 
 def test_function():
     #loop to prompt user for new text and update array

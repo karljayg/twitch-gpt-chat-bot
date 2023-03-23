@@ -62,8 +62,12 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             #remove open sesame
             msg = msg.replace('open sesame', '')
 
+            if bool(config.STOP_WORDS_FLAG):
+                msg, removedWords = tokensArray.apply_stop_words_filter(msg)
+                self.logger.debug("removed stop words: %s" , removedWords)
+
             #add User msg to conversation context
-            tokensArray.add_new_msg(contextHistory, 'User: ' + msg + "\n")
+            tokensArray.add_new_msg(contextHistory, 'User: ' + msg + "\n", self.logger)
 
             #add complete array as msg to OpenAI
             msg = msg + tokensArray.get_printed_array("reversed", contextHistory)
@@ -105,7 +109,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
                     #add AI response to conversation context
                     print("AI msg to chat: " + chunk)
-                    tokensArray.add_new_msg(contextHistory, 'AI: ' + chunk + "\n")
+                    tokensArray.add_new_msg(contextHistory, 'AI: ' + chunk + "\n", self.logger)
                     #print conversation so far
                     print(tokensArray.get_printed_array("reversed", contextHistory))
 
