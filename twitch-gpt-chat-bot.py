@@ -4,6 +4,15 @@ import logging
 import openai
 import re
 from settings import config
+import tokensArray
+
+# The contextHistory array is a list of tuples, where each tuple contains two elements: the message string and its corresponding token size. This allows us to keep track of both the message content and its size in the array.
+# When a new message is added to the contextHistory array, its token size is determined using the nltk.word_tokenize() function. If the total number of tokens in the array exceeds the maxContextTokens threshold, the function starts deleting items from the end of the array until the total number of tokens is below the threshold.
+# If the last item in the array has a token size less than or equal to the maxContextTokens threshold, the item is removed completely. However, if the last item has a token size greater than the threshold, the function removes tokens from the end of the message string until its token size is less than or equal to the threshold, and keeps the shortened message string in the array.
+# If the total number of tokens in the array is still above the threshold after deleting the last item, the function repeats the process with the second-to-last item in the array, and continues deleting items until the total number of tokens is below the threshold.
+# By using this logic, we can ensure that the contextHistory array always contains a maximum number of tokens specified by maxContextTokens, while keeping the most recent messages in the array.
+global contextHistory
+contextHistory = []
 
 class TwitchBot(irc.bot.SingleServerIRCBot):
     def __init__(self, username, token, channel):
@@ -36,6 +45,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         self.logger.debug('Sending message: %s', greeting_message)
 
     def on_pubmsg(self, connection, event):
+
         # Get message from chat
         msg = event.arguments[0].lower()
         sender = event.source.split('!')[0]
@@ -48,6 +58,16 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
         # Send response to OpenAI query
         if 'open sesame' in msg:
+            
+            #remove open sesame
+            msg = msg.replace('open sesame', '')
+
+            #add User msg to conversation context
+            tokensArray.add_new_msg(contextHistory, 'User: ' + msg + "\n")
+
+            #add complete array as msg to OpenAI
+            msg = msg + tokensArray.get_printed_array("reversed", contextHistory)
+
             completion = openai.ChatCompletion.create(
             model=config.ENGINE,
             messages=[
@@ -56,7 +76,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             )
             if completion.choices[0].message!=None:
                 print(completion.choices[0].message.content)
-                response = f"Hi {sender}! {completion.choices[0].message.content}"
+                #response = f"Hi {sender}! {completion.choices[0].message.content}"
+                response = completion.choices[0].message.content
 
                 # Clean up response
                 print('raw response from OpenAI: %s', response)
@@ -79,8 +100,14 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
                 # Send response chunks to chat
                 for chunk in chunks:
-                    connection.privmsg(self.channel, chunk)
+                    connection.privmsg(self.channel, chunk.replace('AI: ',''))
                     self.logger.debug('Sending openAI response chunk: %s', chunk)
+
+                    #add AI response to conversation context
+                    print("AI msg to chat: " + chunk)
+                    tokensArray.add_new_msg(contextHistory, 'AI: ' + chunk + "\n")
+                    #print conversation so far
+                    print(tokensArray.get_printed_array("reversed", contextHistory))
 
             else:
                 response = 'Failed to generate response!'
