@@ -32,6 +32,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         self.username = config.USERNAME
         self.server = config.HOST
         self.port = config.PORT
+        self.ignore = config.IGNORE
         openai.api_key = config.OPENAI_API_KEY
 
         # Initialize the IRC bot
@@ -112,7 +113,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         prefix="" #if any
         greeting_message = f'{prefix} {random.choice(config.BOT_GREETING_WORDS)}'
         self.msgToChannel(greeting_message)
-        
+
     def on_pubmsg(self, connection, event):
 
         # Get message from chat
@@ -122,7 +123,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         #user = {"name": tags["display-name"], "id": tags["user-id"]}
 
         #ignore certain users
-        if sender in config.IGNORE:
+        if sender.lower() in config.IGNORE:
+            self.logger.debug("ignoring user: " + sender)
             return
 
         toxicity_probability = tokensArray.get_toxicity_probability(msg, self.logger)
@@ -140,7 +142,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             if any(greeting in msg.lower() for greeting in config.GREETINGS_LIST_FROM_OTHERS):
                 response = f"Hi {sender}!"
                 self.msgToChannel(response)
-                return
+                # return - sometimes it matches words so we want mathison to reply anyway
 
             if 'bye' in msg.lower():
                 response = f"bye {sender}!"
