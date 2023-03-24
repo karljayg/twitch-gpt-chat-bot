@@ -60,34 +60,10 @@ def apply_stop_words_filter(words):
     #loading the english language small model of spacy
     en = spacy.load('en_core_web_sm')
     sw_spacy = en.Defaults.stop_words
-    sw_space.remove('n’t','no','not','nothing','neither','never','almost','more','bottom','latter','three','fifteen','beside')
-    sw_space.extend('besides')    
+    sw_spacy.remove('n’t','no','not','nothing','neither','never','almost','more','bottom','latter','three','fifteen','beside')
+    sw_spacy.extend('besides')    
     words_list = words.split()
     words = [word for word in words_list if word.lower() not in sw_spacy]
     removed_words = [word for word in words_list if word.lower() in sw_spacy]
     new_text = " ".join(words)
     return new_text, removed_words
-
-def test_function():
-    #loop to prompt user for new text and update array
-    for i in range(15):
-        try:
-            # prompt user for new text
-            newMsg = input("Enter new message: ")
-
-            # add new message to context history
-            add_new_msg(contextHistory, newMsg)
-
-            # print current state of array and total tokens
-            print("Context history array:")
-            for item in contextHistory:
-                print(item[0], item[1])
-            print("Total tokens:", sum([item[1] for item in contextHistory]))
-        except Exception as e:
-            # print error message and traceback
-            print("Error:", e)
-            import traceback
-            traceback.print_exc()
-        finally:
-            # print debug message after each iteration
-            print(f"Iteration {i+1} complete \n")    

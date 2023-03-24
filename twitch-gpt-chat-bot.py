@@ -5,6 +5,8 @@ import openai
 import re
 from settings import config
 import tokensArray
+import asyncio
+import random
 
 # The contextHistory array is a list of tuples, where each tuple contains two elements: the message string and its corresponding token size. This allows us to keep track of both the message content and its size in the array.
 # When a new message is added to the contextHistory array, its token size is determined using the nltk.word_tokenize() function. If the total number of tokens in the array exceeds the maxContextTokens threshold, the function starts deleting items from the end of the array until the total number of tokens is below the threshold.
@@ -35,30 +37,59 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         # Initialize the IRC bot
         irc.bot.SingleServerIRCBot.__init__(self, [(self.server, self.port, 'oauth:'+self.token)], self.username, self.username)
 
-    def on_welcome(self, connection, event):
-        # Join the channel and say hello
-        self.logger.debug('Connected to Twitch IRC server')
-        connection.join(self.channel)
-        self.logger.debug('Joining channel %s', self.channel)
-        greeting_message = 'hello hello'
-        connection.privmsg(self.channel, greeting_message)
-        self.logger.debug('Sending message: %s', greeting_message)
+    #all msgs to channel are now logged
+    def msgToChannel(self, message):
+        self.connection.privmsg(self.channel, message)
+        self.logger.debug("msg to channel: " + message)
 
+    #function for all openAI requests
+    def sendToOpenAI(self, msg):
+        completion = openai.ChatCompletion.create(
+        model=config.ENGINE,
+            messages=[
+                {"role": "user", "content": msg}
+            ]
+        )
+        msg = completion.choices[0].message.content
+        self.logger.debug("sent to OpenAI: %s" , msg)
+        return msg
+
+    def on_welcome(self, connection, event):
+        # Join the channel and say a greeting
+        connection.join(self.channel)
+        prefix="" #if any
+        greeting_message = f'{prefix} {random.choice(config.BOT_GREETING_WORDS)}'
+        self.msgToChannel(greeting_message)
+        
     def on_pubmsg(self, connection, event):
 
         # Get message from chat
         msg = event.arguments[0].lower()
         sender = event.source.split('!')[0]
 
-        # Send response to greeting
-        if 'hello' in msg:
+        #ignore certain users
+        if sender in config.IGNORE:
+            return
+
+        # any user greets via config keywords will be responded to
+        if any(greeting in msg.lower() for greeting in config.GREETINGS_LIST_FROM_OTHERS):
             response = f"Hi {sender}!"
-            connection.privmsg(self.channel, response)
-            self.logger.debug('Sending message: %s', response)
+            self.msgToChannel(response)
+
+        if 'bye' in msg.lower():
+            response = f"bye {sender}!"
+            self.msgToChannel(response)
+
+        if 'gg' in msg.lower():
+            response = f"HSWP"
+            self.msgToChannel(response)
+
+        if 'bracket' in msg.lower() or '!b' in msg.lower() or 'FSL' in msg.upper() or 'fsl' in msg.lower():
+            response = f"here is some info {config.BRACKET}"
+            self.msgToChannel(response)
 
         # Send response to OpenAI query
-        if 'open sesame' in msg:
-            
+        if 'open sesame' in msg.lower() or any(sub in msg.lower() for sub in config.OPEN_SESAME_SUBSTITUTES):                        
             #remove open sesame
             msg = msg.replace('open sesame', '')
 
@@ -83,6 +114,9 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 #response = f"Hi {sender}! {completion.choices[0].message.content}"
                 response = completion.choices[0].message.content
 
+                #dont make it too obvious its a bot
+                response = response.replace("As an AI language model, ", "")
+
                 # Clean up response
                 print('raw response from OpenAI: %s', response)
                 response = re.sub('[\r\n\t]', ' ', response)  # Remove carriage returns, newlines, and tabs
@@ -104,7 +138,9 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
                 # Send response chunks to chat
                 for chunk in chunks:
-                    connection.privmsg(self.channel, chunk.replace('AI: ',''))
+                    #remove all occurences of "AI: "
+                    chunk = re.sub(r'\bAI: ', '', chunk)
+                    self.msgToChannel(chunk)
                     self.logger.debug('Sending openAI response chunk: %s', chunk)
 
                     #add AI response to conversation context
@@ -115,13 +151,21 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
             else:
                 response = 'Failed to generate response!'
-                connection.privmsg(self.channel, response)
+                self.msgToChannel(response)
                 self.logger.debug('Failed to send response: %s', response)
 
 username = config.USERNAME
 token = config.TOKEN # get this from https://twitchapps.com/tmi/
 channel = config.USERNAME
 
-# Create an instance of the bot and start it
-bot = TwitchBot(username, token, channel)
-bot.start()
+async def tasks_to_do():
+    # Create an instance of the bot and start it
+    bot = TwitchBot(username, token, channel)
+    await bot.start()
+
+async def main():
+    tasks = []
+    tasks.append(asyncio.create_task(tasks_to_do()))
+    await asyncio.gather(tasks)
+
+asyncio.run(main())
