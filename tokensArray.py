@@ -14,6 +14,35 @@ maxContextTokens = config.CONVERSATION_MAX_TOKENS
 # global contextHistory
 # contextHistory = []
 
+import requests
+import json
+
+def get_toxicity_probability(message, logger):
+    logger.debug("checking toxicity score.")
+    # api_key = config.PERSPECTIVE_API_KEY
+    #url = "https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze?key=" + api_key
+    url = config.PERSPECTIVE_URL + config.PERSPECTIVE_API_KEY
+    headers = {'Content-Type': 'application/json'}
+    data = {
+        'comment': {'text': message},
+        'languages': ['en'],
+        'requestedAttributes': {'TOXICITY': {}},
+        'doNotStore': True
+    }
+    response = requests.post(url, headers=headers, data=json.dumps(data))
+    response_dict = json.loads(response.content)
+    if 'attributeScores' in response_dict:
+        toxicity_score = response_dict['attributeScores']['TOXICITY']['summaryScore']['value']
+        logger.debug("toxicity score: " + str(toxicity_score))        
+        return toxicity_score
+    else:
+        logger.debug("no toxicity score received")
+        return None
+
+# Example usage
+# toxicity_score = get_toxicity_probability("You're an idiot.")
+# print("Toxicity probability:", toxicity_score)
+
 def add_new_msg(contextHistory, newMsg, logger):
 
     logger.debug("received newMsg: " + newMsg)
