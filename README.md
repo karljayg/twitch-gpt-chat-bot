@@ -22,11 +22,11 @@ Before you can use this bot, you will need to:
 
 1. Clone this repository to your local machine
 2. Install the required Python packages by running `pip install -r requirements.txt`
-3. Set up the configuration file by copying `settings.example.py` to `settings.py` and replacing the placeholders with your own values
+3. Set up the configuration file in settings folder by copying `config.example.py` to `config.py` and replacing the placeholders with your own values
 
 ### Usage
 
-To start the bot, run `python bot.py` in your terminal.
+To start the bot, run `python twitch-gpt-chat-bot.py` in your terminal.
 
 In your Twitch channel chat, type "open sesame" followed by your message to generate a response from the OpenAI API.
 
