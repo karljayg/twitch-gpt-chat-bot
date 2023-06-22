@@ -16,6 +16,9 @@ import random
 global contextHistory
 contextHistory = []
 
+import sys
+logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+
 class TwitchBot(irc.bot.SingleServerIRCBot):
     def __init__(self, username, token, channel):
         # Initialize logger
@@ -127,7 +130,10 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             self.logger.debug("ignoring user: " + sender)
             return
 
-        toxicity_probability = tokensArray.get_toxicity_probability(msg, self.logger)
+        if config.PERSPECTIVE_DISABLED:
+            toxicity_probability = 0
+        else:
+            toxicity_probability = tokensArray.get_toxicity_probability(msg, self.logger)
         #do not send toxic messages to openAI
         if toxicity_probability < config.TOXICITY_THRESHOLD:                                 
 

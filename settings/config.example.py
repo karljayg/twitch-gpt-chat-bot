@@ -45,6 +45,7 @@ LOG_FILE = "bot.log"
 BOT_GREETING_WORDS = "hello"
 GREETINGS_LIST_FROM_OTHERS = "hi"
 OPEN_SESAME_SUBSTITUTES = "open sesame"
+STOP_WORDS_FLAG = "adios amigo"
 
 #PERSPECTIVE API SETTINGS
 """
@@ -52,6 +53,7 @@ OPEN_SESAME_SUBSTITUTES = "open sesame"
 "PERSPECTIVE_API_KEY - string value, unique identifier required to access Perspective API.
 "PERSPECTIVE_URL - 
 """
+PERSPECTIVE_DISABLED = True
 TOXICITY_THRESHOLD = 0.5
 PERSPECTIVE_API_KEY = ''
 PERSPECTIVE_URL = 'https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze?key='

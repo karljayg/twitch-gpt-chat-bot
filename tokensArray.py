@@ -1,6 +1,7 @@
 import spacy     #language small model of spacy
 import nltk      #token libraries
 from settings import config
+nltk.download('punkt')
 
 # global variable
 maxContextTokens = config.CONVERSATION_MAX_TOKENS
@@ -89,8 +90,17 @@ def apply_stop_words_filter(words):
     #loading the english language small model of spacy
     en = spacy.load('en_core_web_sm')
     sw_spacy = en.Defaults.stop_words
-    sw_spacy.remove('n’t','no','not','nothing','neither','never','almost','more','bottom','latter','three','fifteen','beside')
-    sw_spacy.extend('besides')    
+    
+    #sw_spacy.remove('n’t','no','not','nothing','neither','never','almost','more','bottom','latter','three','fifteen','beside')
+    #spacy remove function changed to only accept 1 argument, hence code change below:
+    words_to_remove = ['n’t', 'no', 'not', 'nothing', 'neither', 'never', 'almost', 'more', 'bottom', 'latter', 'three', 'fifteen', 'beside']
+    for word in words_to_remove:
+        sw_spacy.discard(word)
+
+    #another spacy change
+    #sw_spacy.extend('besides')    
+    sw_spacy.update(['besides'])
+
     words_list = words.split()
     words = [word for word in words_list if word.lower() not in sw_spacy]
     removed_words = [word for word in words_list if word.lower() in sw_spacy]
