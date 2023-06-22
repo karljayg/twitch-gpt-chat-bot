@@ -1,0 +1,8 @@
+nltk
+spacy
+settings
+urllib3==1.26.7
+requests
+twitchio
+openai
+irc
