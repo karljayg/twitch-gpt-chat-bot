@@ -41,6 +41,10 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         # Initialize the IRC bot
         irc.bot.SingleServerIRCBot.__init__(self, [(self.server, self.port, 'oauth:'+self.token)], self.username, self.username)
 
+    def get_random_emote(self):
+        emote_names = config.BOT_GREETING_EMOTES
+        return f'{random.choice(emote_names)}'        
+
     #all msgs to channel are now logged
     def msgToChannel(self, message):
         self.connection.privmsg(self.channel, message)
@@ -60,6 +64,9 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         #add complete array as msg to OpenAI
         msg = msg + tokensArray.get_printed_array("reversed", contextHistory)
 
+        #add custom SC2 viewer perspective
+        msg = "As a subtly funny StarCraft 2 viewer, respond casually without repeating any previous words from here: " + msg
+
         self.logger.debug("sent to OpenAI: %s" , msg)
         completion = openai.ChatCompletion.create(
             model=config.ENGINE,
@@ -73,6 +80,9 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
             #dont make it too obvious its a bot
             response = response.replace("As an AI language model, ", "")
+
+            #add emote
+            response = f'{response} {self.get_random_emote()}'
 
             # Clean up response
             print('raw response from OpenAI: %s', response)
@@ -109,12 +119,12 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             response = 'Failed to generate response!'
             self.msgToChannel(response)
             self.logger.debug('Failed to send response: %s', response)
-  
+
     def on_welcome(self, connection, event):
         # Join the channel and say a greeting
         connection.join(self.channel)
         prefix="" #if any
-        greeting_message = f'{prefix} {random.choice(config.BOT_GREETING_WORDS)}'
+        greeting_message = f'{prefix} {self.get_random_emote()}'
         self.msgToChannel(greeting_message)
 
     def on_pubmsg(self, connection, event):
