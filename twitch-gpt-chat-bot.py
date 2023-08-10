@@ -56,7 +56,7 @@ def get_game_status(previous_game_statuses=None):
         print(f"Received data: {data}")  # Print the JSON data
         print(f"Your player name: {player_names[0]}")
         print(f"Opponent's name: {current_opponent_name}")
-    return game_statuses, previous_game_statuses
+    return game_statuses, previous_game_statuses, current_opponent_name
 
 class TwitchBot(irc.bot.SingleServerIRCBot):
     def __init__(self, username, token, channel):
@@ -80,26 +80,22 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         # Initialize the IRC bot
         irc.bot.SingleServerIRCBot.__init__(self, [(self.server, self.port, 'oauth:'+self.token)], self.username, self.username)
 
-    def handle_game_result(self, player_name, game_status):
+    def handle_game_result(self, player_name, game_status, current_opponent_name):
         if game_status == GameState.STARTED.value:
-            #response = f"{player_name} has started a game vs {current_opponent_name}!"
-            response = f"{player_name} has started a game"
-            self.msgToChannel(response)
+            response = f"{player_name} has started a game vs {current_opponent_name}"
         elif game_status in GameState.ENDED.value:
-            #response = f"{player_name} has a {game_status.lower()} vs {current_opponent_name}"
-            #response = f"{player_name} has a {game_status.lower()}"
-            response = f"last game was a {game_status.lower()}"
-            self.msgToChannel(response)
+            response = f"last game was a {game_status.lower()} vs {current_opponent_name}"
+        self.processMessageForOpenAI(response)
 
     def monitor_game(self):
         previous_game_statuses = {}  # Initialize with an empty dictionary
         while True:
-            game_statuses, previous_game_statuses = get_game_status(previous_game_statuses)
+            game_statuses, previous_game_statuses, current_opponent_name = get_game_status(previous_game_statuses)
             if game_statuses:
                 for player_name, game_status in game_statuses.items():
                     previous_state = previous_game_statuses.get(player_name)
                     if game_status != previous_state:
-                        self.handle_game_result(player_name, game_status)
+                        self.handle_game_result(player_name, game_status, current_opponent_name)
                     previous_game_statuses[player_name] = game_status
             time.sleep(1)  # Wait a second before re-checking
 
@@ -115,6 +111,10 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
     def processMessageForOpenAI(self, msg):
         #remove open sesame
         msg = msg.replace('open sesame', '')
+
+        #remove quotes
+        msg = msg.replace('"', '')
+        msg = msg.replace("'", '')
 
         if bool(config.STOP_WORDS_FLAG):
             msg, removedWords = tokensArray.apply_stop_words_filter(msg)
