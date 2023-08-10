@@ -27,7 +27,7 @@ pip install -r requirements.txt
 ```
    or manually:
 ```
-pip install irc openai logging requests re asyncio random irc.bot spacy nltk en_core_web_sm
+pip install irc openai logging requests re asyncio random irc.bot spacy nltk en_core_web_sm logging urllib3
 python -m spacy download en_core_web_sm
 ```
 

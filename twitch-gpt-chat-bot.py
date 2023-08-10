@@ -32,14 +32,14 @@ logging.getLogger('urllib3').setLevel(logging.WARNING)
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
+# This monitors SC2 game state so bot can comment on it
 class GameState(Enum):
     STARTED = 'Undecided'
     ENDED = ['Defeat', 'Victory', 'Tie']
 
-# Player names to check results for
+# Player names of streamer to check results for
 player_names = config.SC2_PLAYER_ACCOUNTS
 
-# Define the get_game_status function here
 def get_game_status(previous_game_statuses=None):
     response = requests.get('http://localhost:6119/game')
     data = response.json()
@@ -82,10 +82,13 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
     def handle_game_result(self, player_name, game_status):
         if game_status == GameState.STARTED.value:
-            response = f"{player_name} has started a game!"
+            #response = f"{player_name} has started a game vs {current_opponent_name}!"
+            response = f"{player_name} has started a game"
             self.msgToChannel(response)
         elif game_status in GameState.ENDED.value:
-            response = f"{player_name} has {game_status.lower()} the game!"
+            #response = f"{player_name} has a {game_status.lower()} vs {current_opponent_name}"
+            #response = f"{player_name} has a {game_status.lower()}"
+            response = f"last game was a {game_status.lower()}"
             self.msgToChannel(response)
 
     def monitor_game(self):
