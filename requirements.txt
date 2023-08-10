@@ -1,3 +1,7 @@
+#manual:
+#pip install irc openai logging requests re asyncio random irc.bot spacy nltk en_core_web_sm
+#python -m spacy download en_core_web_sm
+
 nltk
 spacy
 en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.0.0/en_core_web_sm-3.0.0-py3-none-any.whl

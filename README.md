@@ -21,15 +21,27 @@ Before you can use this bot, you will need to:
 ### Installing
 
 1. Clone this repository to your local machine
-2. Install the required Python packages by running `pip install -r requirements.txt`
+2. Install the required Python packages by running:
+```
+pip install -r requirements.txt
+```
+   or manually:
+```
+pip install irc openai logging requests re asyncio random irc.bot spacy nltk en_core_web_sm
+python -m spacy download en_core_web_sm
+```
+
 3. Set up the configuration file by copying `settings.example.py` to `settings.py` and replacing the placeholders with your own values
 
 ### Usage
 
-To start the bot, run `python bot.py` in your terminal.
+To start the bot, run in your terminal:
+
+```
+python twitch-gpt-chat-bot.py
+```
 
 In your Twitch channel chat, type "open sesame" followed by your message to generate a response from the OpenAI API.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE.md file for details.
