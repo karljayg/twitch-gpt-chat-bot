@@ -65,7 +65,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         msg = msg + tokensArray.get_printed_array("reversed", contextHistory)
 
         #add custom SC2 viewer perspective
-        msg = "As a subtly funny StarCraft 2 viewer, respond casually without repeating any previous words from here: " + msg
+        msg = "As a subtly funny StarCraft 2 viewer, respond casually and concisely in only 20 words, without repeating any previous words from here: " + msg
 
         self.logger.debug("sent to OpenAI: %s" , msg)
         completion = openai.ChatCompletion.create(
@@ -147,18 +147,20 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         #do not send toxic messages to openAI
         if toxicity_probability < config.TOXICITY_THRESHOLD:                                 
 
+            # any user greets via config keywords will be responded to
+            if any(greeting in msg.lower() for greeting in config.GREETINGS_LIST_FROM_OTHERS):
+                response = f"Hi {sender}!"
+                response = f'{response} {self.get_random_emote()}'
+                self.msgToChannel(response)
+                # return - sometimes it matches words so we want mathison to reply anyway
+                return
+
             # will only respond to a certain percentage of messages per config
             diceRoll=random.randint(0,100)/100
             self.logger.debug("rolled: " + str(diceRoll) + " settings: " + str(config.RESPONSE_PROBABILITY))        
             if diceRoll >= config.RESPONSE_PROBABILITY:
                 self.logger.debug("will not respond")        
                 return
-
-            # any user greets via config keywords will be responded to
-            if any(greeting in msg.lower() for greeting in config.GREETINGS_LIST_FROM_OTHERS):
-                response = f"Hi {sender}!"
-                self.msgToChannel(response)
-                # return - sometimes it matches words so we want mathison to reply anyway
 
             if 'bye' in msg.lower():
                 response = f"bye {sender}!"

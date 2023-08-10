@@ -48,8 +48,7 @@ BOT_GREETING_EMOTES = ['4Head', '8-)', ':(', ':(', ':)', ':-(', ':-)', ':-/', ':
 BOT_KJ_ALL_EMOTES = ['kjfreeLUL', 'kjfreeNOGG', 'kjfreePOG', 'kjfreePOGanimate', 'kjfreePSISTORM', 'kjfreePSISTORManimate', 'kjfreeSCUD', 'kjfreeFSL', 'kjfreeGG']
 BOT_KJ_FOLLOWER_EMOTES = ['kjfreeLUL', 'kjfreeNOGG', 'kjfreePOG', 'kjfreePOGanimate', 'kjfreePSISTORM', 'kjfreePSISTORManimate', 'kjfreeSCUD', 'kjfreeFSL', 'kjfreeGG']
 
-GREETINGS_LIST_FROM_OTHERS = "hi, HeyGuys"
-
+GREETINGS_LIST_FROM_OTHERS = ['hi', 'HeyGuys', 'Hello']
 OPEN_SESAME_SUBSTITUTES = "open sesame"
 STOP_WORDS_FLAG = "adios amigo"
 
