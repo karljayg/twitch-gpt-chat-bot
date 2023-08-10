@@ -16,8 +16,47 @@ import random
 global contextHistory
 contextHistory = []
 
+import json
+import random
+import requests
+import time
+import pygame
+from enum import Enum
+import logging
+import urllib3
 import sys
+
+# Set logging level for urllib3 to WARNING
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+logging.getLogger('urllib3').setLevel(logging.WARNING)
+
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+
+class GameState(Enum):
+    STARTED = 'Undecided'
+    ENDED = ['Defeat', 'Victory', 'Tie']
+
+# Player names to check results for
+player_names = config.SC2_PLAYER_ACCOUNTS
+
+# Define the get_game_status function here
+def get_game_status(previous_game_statuses=None):
+    response = requests.get('http://localhost:6119/game')
+    data = response.json()
+    if not config.PLAY_ON_REPLAY and data['isReplay']:
+        return None, previous_game_statuses
+    game_statuses = {}
+    for player in data['players']:
+        if player['name'] in player_names:
+            game_statuses[player['name']] = player['result']
+    # Find the opponent's name (the name that is not in player_names)
+    current_opponent_name = next(player['name'] for player in data['players'] if player['name'] not in player_names)
+
+    if game_statuses != previous_game_statuses:
+        print(f"Received data: {data}")  # Print the JSON data
+        print(f"Your player name: {player_names[0]}")
+        print(f"Opponent's name: {current_opponent_name}")
+    return game_statuses, previous_game_statuses
 
 class TwitchBot(irc.bot.SingleServerIRCBot):
     def __init__(self, username, token, channel):
@@ -40,6 +79,26 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
         # Initialize the IRC bot
         irc.bot.SingleServerIRCBot.__init__(self, [(self.server, self.port, 'oauth:'+self.token)], self.username, self.username)
+
+    def handle_game_result(self, player_name, game_status):
+        if game_status == GameState.STARTED.value:
+            response = f"{player_name} has started a game!"
+            self.msgToChannel(response)
+        elif game_status in GameState.ENDED.value:
+            response = f"{player_name} has {game_status.lower()} the game!"
+            self.msgToChannel(response)
+
+    def monitor_game(self):
+        previous_game_statuses = {}  # Initialize with an empty dictionary
+        while True:
+            game_statuses, previous_game_statuses = get_game_status(previous_game_statuses)
+            if game_statuses:
+                for player_name, game_status in game_statuses.items():
+                    previous_state = previous_game_statuses.get(player_name)
+                    if game_status != previous_state:
+                        self.handle_game_result(player_name, game_status)
+                    previous_game_statuses[player_name] = game_status
+            time.sleep(1)  # Wait a second before re-checking
 
     def get_random_emote(self):
         emote_names = config.BOT_GREETING_EMOTES
@@ -126,6 +185,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         prefix="" #if any
         greeting_message = f'{prefix} {self.get_random_emote()}'
         self.msgToChannel(greeting_message)
+        self.monitor_game()  # Start monitoring the game      
 
     def on_pubmsg(self, connection, event):
 
