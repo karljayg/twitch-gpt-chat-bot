@@ -25,6 +25,9 @@ from enum import Enum
 import logging
 import urllib3
 import sys
+import threading
+import signal
+import sys
 
 # Set logging level for urllib3 to WARNING
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -40,26 +43,49 @@ class GameState(Enum):
 # Player names of streamer to check results for
 player_names = config.SC2_PLAYER_ACCOUNTS
 
-def get_game_status(previous_game_statuses=None):
+last_received_data = None
+
+prev_results = None
+
+def get_game_status():
+    global prev_results
     response = requests.get('http://localhost:6119/game')
     data = response.json()
-    if not config.PLAY_ON_REPLAY and data['isReplay']:
-        return None, previous_game_statuses
-    game_statuses = {}
-    for player in data['players']:
-        if player['name'] in player_names:
-            game_statuses[player['name']] = player['result']
-    # Find the opponent's name (the name that is not in player_names)
-    current_opponent_name = next(player['name'] for player in data['players'] if player['name'] not in player_names)
 
-    if game_statuses != previous_game_statuses:
-        print(f"Received data: {data}")  # Print the JSON data
-        print(f"Your player name: {player_names[0]}")
-        print(f"Opponent's name: {current_opponent_name}")
-    return game_statuses, previous_game_statuses, current_opponent_name
+    # Extract the player information
+    current_results = {player['id']: {'name': player['name'], 'result': player['result']} for player in data['players']}
+
+    if current_results == prev_results: # Check if the results are the same as last time
+        return None, None, None # Return None if there's no change
+
+    prev_results = current_results # Update previous results
+
+    # Extract the player names and results
+    player_names = [info['name'] for info in current_results.values()]
+    player_results = [info['result'] for info in current_results.values()]
+
+    # Determine the game status. You can adapt this based on your game logic
+    game_status = 'STARTED' if 'Undecided' in player_results else 'ENDED'
+
+    print(f"Received data: {data}")  # Print the JSON data only if there's a change in results
+    print(f"Player names and results: {current_results}")
+    print(f"Game status: {game_status}")
+
+    return player_names, game_status, player_results
+
 
 class TwitchBot(irc.bot.SingleServerIRCBot):
     def __init__(self, username, token, channel):
+
+        #threads to be terminated as soon as the main program finishes when set as daemon threads
+        monitor_thread = threading.Thread(target=self.monitor_game)
+        monitor_thread.daemon = True
+        monitor_thread.start()
+
+        #handle KeyboardInterrupt in a more graceful way by setting a flag when Ctrl-C is pressed and checking that flag in threads
+        self.shutdown_flag = False
+        signal.signal(signal.SIGINT, self.signal_handler)
+
         # Initialize logger
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
@@ -82,24 +108,41 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         # Initialize the IRC bot
         irc.bot.SingleServerIRCBot.__init__(self, [(self.server, self.port, 'oauth:'+self.token)], self.username, self.username)
 
-    def handle_game_result(self, player_name, game_status, current_opponent_name):
-        if game_status == GameState.STARTED.value:
-            response = f"{player_name} has started a game vs {current_opponent_name}"
-        elif game_status in GameState.ENDED.value:
-            response = f"last game for {player_name} was a {game_status.lower()} vs {current_opponent_name}"
+    def signal_handler(self, signal, frame):
+        self.shutdown_flag = True
+        self.die("Shutdown requested.")
+        sys.exit(0)
+
+    def handle_game_result(self, player_names, game_status, player_results):
+        player_name_0 = player_names[0] if player_names[0] not in config.SC2_PLAYER_ACCOUNTS else config.STREAMER_NICKNAME
+        player_name_1 = player_names[1] if player_names[1] not in config.SC2_PLAYER_ACCOUNTS else config.STREAMER_NICKNAME
+        response = ""
+        if game_status == 'STARTED':
+            response = f"Game has started between {player_name_0} and {player_name_1}"
+        elif game_status == 'ENDED':
+            response = f"Game has ended between {player_name_0} ({player_results[0].lower()}) and {player_name_1} ({player_results[1].lower()})"
         self.processMessageForOpenAI(response)
 
+#    def handle_game_result(self, player_names, game_status):
+#        response = ""
+#        if game_status == 'STARTED':
+#            response = f"Game has started between {player_names[0]} and {player_names[1]}"
+#        elif game_status == 'ENDED':
+#            response = f"Game has ended between {player_names[0]} and {player_names[1]}"
+#        self.processMessageForOpenAI(response)
+
     def monitor_game(self):
-        previous_game_statuses = {}  # Initialize with an empty dictionary
-        while True:
-            game_statuses, previous_game_statuses, current_opponent_name = get_game_status(previous_game_statuses)
-            if game_statuses:
-                for player_name, game_status in game_statuses.items():
-                    previous_state = previous_game_statuses.get(player_name)
-                    if game_status != previous_state:
-                        #use nickname instead of any from list of specific game accounts, but retain value so it does not break comparison in game_status
-                        self.handle_game_result(self.streamer_nickname, game_status, current_opponent_name)
-                    previous_game_statuses[player_name] = game_status
+        previous_game_status = 'STARTED'  # Initialize with STARTED
+        while True and not self.shutdown_flag:
+            player_names, game_status, player_results = get_game_status()
+            if player_names is None and game_status is None:
+                time.sleep(1)  # Wait a second if there's no change
+                continue # Skip the rest of the loop if there's no change
+
+            if game_status != previous_game_status:
+                # Handle game result
+                self.handle_game_result(player_names, game_status, player_results)
+                previous_game_status = game_status
             time.sleep(1)  # Wait a second before re-checking
 
     def get_random_emote(self):
@@ -194,7 +237,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         prefix="" #if any
         greeting_message = f'{prefix} {self.get_random_emote()}'
         self.msgToChannel(greeting_message)
-        self.monitor_game()  # Start monitoring the game      
+        threading.Thread(target=self.monitor_game).start()  # Start a thread to monitor the game
 
     def on_pubmsg(self, connection, event):
 
@@ -205,7 +248,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         #user = {"name": tags["display-name"], "id": tags["user-id"]}
 
         #ignore certain users
-        if sender.lower() in config.IGNORE:
+        if sender.lower() in [user.lower() for user in config.IGNORE]:
             self.logger.debug("ignoring user: " + sender)
             return
 
@@ -221,8 +264,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 response = f"Hi {sender}!"
                 response = f'{response} {self.get_random_emote()}'
                 self.msgToChannel(response)
-                # return - sometimes it matches words so we want mathison to reply anyway
-                return
+                #disable the return - sometimes it matches words so we want mathison to reply anyway
+                #return
 
             # will only respond to a certain percentage of messages per config
             diceRoll=random.randint(0,100)/100
