@@ -52,6 +52,7 @@ BOT_KJ_FOLLOWER_EMOTES = ['kjfreeLUL', 'kjfreeNOGG', 'kjfreePOG', 'kjfreePOGanim
 #streamer SC2 account
 SC2_PLAYER_ACCOUNTS = ['myname']
 PLAY_ON_REPLAY = True
+MONITOR_GAME_SLEEP_SECONDS = 3
 
 GREETINGS_LIST_FROM_OTHERS = ['hi', 'HeyGuys', 'Hello']
 OPEN_SESAME_SUBSTITUTES = "open sesame"

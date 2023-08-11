@@ -53,7 +53,7 @@ class LogOnceWithinIntervalFilter(logging.Filter):
             time_left = self.interval - time_since_last_logged
             if time_since_last_logged < self.interval:
                 similarity = SequenceMatcher(None, self.last_logged_message, record.msg).ratio()
-                #print("similarity criteria: " + str(math.floor(similarity)) + "/" + str(self.similarity_threshold), end = " ")
+                print("similarity criteria: " + str(math.floor(similarity)) + "/" + str(self.similarity_threshold), end = " ")
                 if similarity > self.similarity_threshold:
                     #print(f"suppressed: {math.floor(time_left.total_seconds())} secs left from original {self.interval.total_seconds()} sec")
                     print(f"suppressed: {math.floor(time_left.total_seconds())} secs")
@@ -81,42 +81,39 @@ class GameState(Enum):
 
 # Player names of streamer to check results for
 player_names = config.SC2_PLAYER_ACCOUNTS
+prev_player_results = None # Initialize prev_player_results here
 
 last_received_data = None
 prev_results = None
 first_run = True
 
 def get_game_status():
-    global prev_results, first_run
+    global prev_player_results, first_run
 
     try:
         response = requests.get('http://localhost:6119/game')
         data = response.json()
-        current_results = {player['id']: {'name': player['name'], 'result': player['result']} for player in data['players']}
+        players = data['players']
 
-        if first_run:
-            print ("first run, not checking previous game results")
-            prev_results = current_results
-            first_run = False
+        # Create a tuple of player name and result pairings
+        current_player_results = tuple(sorted((p['name'], p['result']) for p in players))
+
+        if first_run or current_player_results == prev_player_results:
+            prev_player_results = current_player_results
+            if first_run:
+                print("first run, not checking previous game results")
+                first_run = False
             return None, None, None
 
-        if current_results == prev_results: # Check if the results are the same as last time
-            return None, None, None # Return None if there's no change
-    
-        prev_results = current_results # Update previous results
-    
-        # Extract the player names and results
-        player_names = [info['name'] for info in current_results.values()]
-        player_results = [info['result'] for info in current_results.values()]
-
         # Determine the game status. You can adapt this based on your game logic
-        game_status = 'STARTED' if 'Undecided' in player_results else 'ENDED'
+        game_status = 'STARTED' if any(p['result'] == 'Undecided' for p in players) else 'ENDED'
 
         print(f"Received data: {data}")  # Print the JSON data only if there's a change in results
-        print(f"Player names and results: {current_results}")
         print(f"Game status: {game_status}")
 
-        return player_names, game_status, player_results
+        prev_player_results = current_player_results
+        return players, game_status, current_player_results
+
     except JSONDecodeError:
         logger.debug("StarCraft game is not running")
         return None, None, None
@@ -160,27 +157,31 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         self.die("Shutdown requested.")
         sys.exit(0)
 
-    def handle_game_result(self, player_names, game_status, player_results):
-        player_name_0 = player_names[0] if player_names[0] not in config.SC2_PLAYER_ACCOUNTS else config.STREAMER_NICKNAME
-        player_name_1 = player_names[1] if player_names[1] not in config.SC2_PLAYER_ACCOUNTS else config.STREAMER_NICKNAME
-        response = ""
+    def handle_game_result(self, players, game_status):
         if game_status == 'STARTED':
-            response = f"Game has started between {player_name_0} and {player_name_1}"
+            player_names = ", ".join([player['name'] if player['name'] not in config.SC2_PLAYER_ACCOUNTS else config.STREAMER_NICKNAME for player in players])
+            response = f"Game has started between {player_names}"
         elif game_status == 'ENDED':
-            response = f"Game has ended between {player_name_0} ({player_results[0].lower()}) and {player_name_1} ({player_results[1].lower()})"
+            victory_team = ", ".join([player['name'] if player['name'] not in config.SC2_PLAYER_ACCOUNTS else config.STREAMER_NICKNAME for player in players if player['result'] == 'Victory'])
+            defeat_team = ", ".join([player['name'] if player['name'] not in config.SC2_PLAYER_ACCOUNTS else config.STREAMER_NICKNAME for player in players if player['result'] == 'Defeat'])
+    
+            response = f"Game has ended. Victory for team: {victory_team}. Defeat for team: {defeat_team}."
+        else:
+            # Handle any other unexpected game status if needed
+            response = ""
         self.processMessageForOpenAI(response)
 
     def monitor_game(self):
         previous_game_status = 'STARTED'  # Initialize with STARTED
         while True and not self.shutdown_flag:
-            player_names, game_status, player_results = get_game_status()
-            if player_names is None and game_status is None:
+            players, game_status, player_results = get_game_status() 
+            if players is None and game_status is None:
                 time.sleep(config.MONITOR_GAME_SLEEP_SECONDS)  # Wait a second if there's no change
                 continue # Skip the rest of the loop if there's no change
-
+    
             if game_status != previous_game_status:
                 # Handle game result
-                self.handle_game_result(player_names, game_status, player_results)
+                self.handle_game_result(players, game_status)
                 previous_game_status = game_status
             time.sleep(config.MONITOR_GAME_SLEEP_SECONDS)  # Wait a second before re-checking
 
