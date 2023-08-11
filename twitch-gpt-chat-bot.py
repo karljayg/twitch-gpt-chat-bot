@@ -28,6 +28,8 @@ import sys
 import threading
 import signal
 import sys
+import requests
+from requests.exceptions import JSONDecodeError
 
 # Set logging level for urllib3 to WARNING
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -44,35 +46,46 @@ class GameState(Enum):
 player_names = config.SC2_PLAYER_ACCOUNTS
 
 last_received_data = None
-
 prev_results = None
+first_run = True
 
 def get_game_status():
-    global prev_results
-    response = requests.get('http://localhost:6119/game')
-    data = response.json()
+    global prev_results, first_run
 
-    # Extract the player information
-    current_results = {player['id']: {'name': player['name'], 'result': player['result']} for player in data['players']}
+    try:
+        response = requests.get('http://localhost:6119/game')
+        data = response.json()
+        current_results = {player['id']: {'name': player['name'], 'result': player['result']} for player in data['players']}
 
-    if current_results == prev_results: # Check if the results are the same as last time
-        return None, None, None # Return None if there's no change
+        if first_run:
+            print ("first run, not checking previous game results")
+            prev_results = current_results
+            first_run = False
+            return None, None, None
 
-    prev_results = current_results # Update previous results
+        if current_results == prev_results: # Check if the results are the same as last time
+            return None, None, None # Return None if there's no change
+    
+        prev_results = current_results # Update previous results
+    
+        # Extract the player names and results
+        player_names = [info['name'] for info in current_results.values()]
+        player_results = [info['result'] for info in current_results.values()]
 
-    # Extract the player names and results
-    player_names = [info['name'] for info in current_results.values()]
-    player_results = [info['result'] for info in current_results.values()]
+        # Determine the game status. You can adapt this based on your game logic
+        game_status = 'STARTED' if 'Undecided' in player_results else 'ENDED'
 
-    # Determine the game status. You can adapt this based on your game logic
-    game_status = 'STARTED' if 'Undecided' in player_results else 'ENDED'
+        print(f"Received data: {data}")  # Print the JSON data only if there's a change in results
+        print(f"Player names and results: {current_results}")
+        print(f"Game status: {game_status}")
 
-    print(f"Received data: {data}")  # Print the JSON data only if there's a change in results
-    print(f"Player names and results: {current_results}")
-    print(f"Game status: {game_status}")
-
-    return player_names, game_status, player_results
-
+        return player_names, game_status, player_results
+    except JSONDecodeError:
+        print("StarCraft game is not running")
+        return None, None, None
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        return None, None, None
 
 class TwitchBot(irc.bot.SingleServerIRCBot):
     def __init__(self, username, token, channel):
