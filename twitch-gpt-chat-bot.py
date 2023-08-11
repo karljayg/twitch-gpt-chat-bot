@@ -77,6 +77,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         self.ignore = config.IGNORE
         openai.api_key = config.OPENAI_API_KEY
 
+        self.streamer_nickname = config.STREAMER_NICKNAME
+
         # Initialize the IRC bot
         irc.bot.SingleServerIRCBot.__init__(self, [(self.server, self.port, 'oauth:'+self.token)], self.username, self.username)
 
@@ -84,7 +86,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         if game_status == GameState.STARTED.value:
             response = f"{player_name} has started a game vs {current_opponent_name}"
         elif game_status in GameState.ENDED.value:
-            response = f"last game was a {game_status.lower()} vs {current_opponent_name}"
+            response = f"last game for {player_name} was a {game_status.lower()} vs {current_opponent_name}"
         self.processMessageForOpenAI(response)
 
     def monitor_game(self):
@@ -95,7 +97,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 for player_name, game_status in game_statuses.items():
                     previous_state = previous_game_statuses.get(player_name)
                     if game_status != previous_state:
-                        self.handle_game_result(player_name, game_status, current_opponent_name)
+                        #use nickname instead of any from list of specific game accounts, but retain value so it does not break comparison in game_status
+                        self.handle_game_result(self.streamer_nickname, game_status, current_opponent_name)
                     previous_game_statuses[player_name] = game_status
             time.sleep(1)  # Wait a second before re-checking
 
@@ -116,9 +119,10 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         msg = msg.replace('"', '')
         msg = msg.replace("'", '')
 
-        if bool(config.STOP_WORDS_FLAG):
-            msg, removedWords = tokensArray.apply_stop_words_filter(msg)
-            self.logger.debug("removed stop words: %s" , removedWords)
+        # TODO: redo this logic
+        #if bool(config.STOP_WORDS_FLAG):
+        #    msg, removedWords = tokensArray.apply_stop_words_filter(msg)
+        #    self.logger.debug("removed stop words: %s" , removedWords)
 
         #add User msg to conversation context
         tokensArray.add_new_msg(contextHistory, 'User: ' + msg + "\n", self.logger)
@@ -127,7 +131,9 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         msg = msg + tokensArray.get_printed_array("reversed", contextHistory)
 
         #add custom SC2 viewer perspective
-        msg = "As a subtly funny StarCraft 2 viewer, respond casually and concisely in only 20 words, without repeating any previous words from here: " + msg
+        msg = "As a subtly funny observer of matches in StarCraft 2, respond casually and concisely in only 20 words, without repeating any previous words from here: " + msg
+        msg += " Do not use personal pronouns like 'I,' 'me,' 'my,' etc. but instead speak from a 3rd person referencing the player."
+
 
         self.logger.debug("sent to OpenAI: %s" , msg)
         completion = openai.ChatCompletion.create(

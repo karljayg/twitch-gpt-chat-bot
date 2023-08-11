@@ -11,6 +11,7 @@ PAGE = ""
 HOST = "irc.chat.twitch.tv"
 PORT = 6667
 USERNAME = OWNER
+STREAMER_NICKNAME = "ALIAS"
 
 #IRC Bot variables
 URL = f"https://api.twitch.tv/kraken/users?login={USERNAME}"

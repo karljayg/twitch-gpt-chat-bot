@@ -91,14 +91,10 @@ def apply_stop_words_filter(words):
     en = spacy.load('en_core_web_sm')
     sw_spacy = en.Defaults.stop_words
     
-    #sw_spacy.remove('n’t','no','not','nothing','neither','never','almost','more','bottom','latter','three','fifteen','beside')
-    #spacy remove function changed to only accept 1 argument, hence code change below:
     words_to_remove = ['n’t', 'no', 'not', 'nothing', 'neither', 'never', 'almost', 'more', 'bottom', 'latter', 'three', 'fifteen', 'beside']
     for word in words_to_remove:
         sw_spacy.discard(word)
 
-    #another spacy change
-    #sw_spacy.extend('besides')    
     sw_spacy.update(['besides'])
 
     words_list = words.split()
