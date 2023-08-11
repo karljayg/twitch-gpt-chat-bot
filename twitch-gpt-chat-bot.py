@@ -30,12 +30,49 @@ import signal
 import sys
 import requests
 from requests.exceptions import JSONDecodeError
+from difflib import SequenceMatcher
+from datetime import datetime, timedelta
+import logging
+import math
+
+class LogOnceWithinIntervalFilter(logging.Filter):
+    """Logs each unique message only once within a specified time interval if they are similar."""
+    def __init__(self, similarity_threshold=0.95, interval_seconds=120):
+        super().__init__()
+        self.similarity_threshold = similarity_threshold
+        self.interval = timedelta(seconds=interval_seconds)
+        self.last_logged_message = None
+        self.last_logged_time = None
+
+    def filter(self, record):
+        now = datetime.now()
+
+        time_left = None
+        if self.last_logged_message:
+            time_since_last_logged = now - self.last_logged_time
+            time_left = self.interval - time_since_last_logged
+            if time_since_last_logged < self.interval:
+                similarity = SequenceMatcher(None, self.last_logged_message, record.msg).ratio()
+                #print("similarity criteria: " + str(math.floor(similarity)) + "/" + str(self.similarity_threshold), end = " ")
+                if similarity > self.similarity_threshold:
+                    #print(f"suppressed: {math.floor(time_left.total_seconds())} secs left from original {self.interval.total_seconds()} sec")
+                    print(f"suppressed: {math.floor(time_left.total_seconds())} secs")
+                    return False
+
+        self.last_logged_message = record.msg
+        self.last_logged_time = now
+        return True
+
+# Initialize the logger at the beginning of the script
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+logger.addFilter(LogOnceWithinIntervalFilter())
 
 # Set logging level for urllib3 to WARNING
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 logging.getLogger('urllib3').setLevel(logging.WARNING)
-
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+
 
 # This monitors SC2 game state so bot can comment on it
 class GameState(Enum):
@@ -81,31 +118,28 @@ def get_game_status():
 
         return player_names, game_status, player_results
     except JSONDecodeError:
-        print("StarCraft game is not running")
+        logger.debug("StarCraft game is not running")
         return None, None, None
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        logger.debug(f"An unexpected error occurred: {e}")
         return None, None, None
 
 class TwitchBot(irc.bot.SingleServerIRCBot):
     def __init__(self, username, token, channel):
+
+        #handle KeyboardInterrupt in a more graceful way by setting a flag when Ctrl-C is pressed and checking that flag in threads
+        self.shutdown_flag = False
+        signal.signal(signal.SIGINT, self.signal_handler)
 
         #threads to be terminated as soon as the main program finishes when set as daemon threads
         monitor_thread = threading.Thread(target=self.monitor_game)
         monitor_thread.daemon = True
         monitor_thread.start()
 
-        #handle KeyboardInterrupt in a more graceful way by setting a flag when Ctrl-C is pressed and checking that flag in threads
-        self.shutdown_flag = False
-        signal.signal(signal.SIGINT, self.signal_handler)
-
-        # Initialize logger
-        self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.DEBUG)
         formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s')
         file_handler = logging.FileHandler('bot.log')
         file_handler.setFormatter(formatter)
-        self.logger.addHandler(file_handler)
+        logger.addHandler(file_handler)
 
         # Set bot configuration
         self.token = config.TOKEN
@@ -136,27 +170,19 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             response = f"Game has ended between {player_name_0} ({player_results[0].lower()}) and {player_name_1} ({player_results[1].lower()})"
         self.processMessageForOpenAI(response)
 
-#    def handle_game_result(self, player_names, game_status):
-#        response = ""
-#        if game_status == 'STARTED':
-#            response = f"Game has started between {player_names[0]} and {player_names[1]}"
-#        elif game_status == 'ENDED':
-#            response = f"Game has ended between {player_names[0]} and {player_names[1]}"
-#        self.processMessageForOpenAI(response)
-
     def monitor_game(self):
         previous_game_status = 'STARTED'  # Initialize with STARTED
         while True and not self.shutdown_flag:
             player_names, game_status, player_results = get_game_status()
             if player_names is None and game_status is None:
-                time.sleep(1)  # Wait a second if there's no change
+                time.sleep(config.MONITOR_GAME_SLEEP_SECONDS)  # Wait a second if there's no change
                 continue # Skip the rest of the loop if there's no change
 
             if game_status != previous_game_status:
                 # Handle game result
                 self.handle_game_result(player_names, game_status, player_results)
                 previous_game_status = game_status
-            time.sleep(1)  # Wait a second before re-checking
+            time.sleep(config.MONITOR_GAME_SLEEP_SECONDS)  # Wait a second before re-checking
 
     def get_random_emote(self):
         emote_names = config.BOT_GREETING_EMOTES
@@ -165,7 +191,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
     #all msgs to channel are now logged
     def msgToChannel(self, message):
         self.connection.privmsg(self.channel, message)
-        self.logger.debug("msg to channel: " + message)
+        logger.debug("msg to channel: " + message)
 
     def processMessageForOpenAI(self, msg):
         #remove open sesame
@@ -178,10 +204,10 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         # TODO: redo this logic
         #if bool(config.STOP_WORDS_FLAG):
         #    msg, removedWords = tokensArray.apply_stop_words_filter(msg)
-        #    self.logger.debug("removed stop words: %s" , removedWords)
+        #    logger.debug("removed stop words: %s" , removedWords)
 
         #add User msg to conversation context
-        tokensArray.add_new_msg(contextHistory, 'User: ' + msg + "\n", self.logger)
+        tokensArray.add_new_msg(contextHistory, 'User: ' + msg + "\n", logger)
 
         #add complete array as msg to OpenAI
         msg = msg + tokensArray.get_printed_array("reversed", contextHistory)
@@ -191,7 +217,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         msg += " Do not use personal pronouns like 'I,' 'me,' 'my,' etc. but instead speak from a 3rd person referencing the player."
 
 
-        self.logger.debug("sent to OpenAI: %s" , msg)
+        logger.debug("sent to OpenAI: %s" , msg)
         completion = openai.ChatCompletion.create(
             model=config.ENGINE,
             messages=[
@@ -232,17 +258,17 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 #remove all occurences of "AI: "
                 chunk = re.sub(r'\bAI: ', '', chunk)
                 self.msgToChannel(chunk)
-                self.logger.debug('Sending openAI response chunk: %s', chunk)
+                logger.debug('Sending openAI response chunk: %s', chunk)
 
                 #add AI response to conversation context
                 print("AI msg to chat: " + chunk)
-                tokensArray.add_new_msg(contextHistory, 'AI: ' + chunk + "\n", self.logger)
+                tokensArray.add_new_msg(contextHistory, 'AI: ' + chunk + "\n", logger)
                 #print conversation so far
                 print(tokensArray.get_printed_array("reversed", contextHistory))
         else:
             response = 'Failed to generate response!'
             self.msgToChannel(response)
-            self.logger.debug('Failed to send response: %s', response)
+            logger.debug('Failed to send response: %s', response)
 
     def on_welcome(self, connection, event):
         # Join the channel and say a greeting
@@ -262,13 +288,13 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
         #ignore certain users
         if sender.lower() in [user.lower() for user in config.IGNORE]:
-            self.logger.debug("ignoring user: " + sender)
+            logger.debug("ignoring user: " + sender)
             return
 
         if config.PERSPECTIVE_DISABLED:
             toxicity_probability = 0
         else:
-            toxicity_probability = tokensArray.get_toxicity_probability(msg, self.logger)
+            toxicity_probability = tokensArray.get_toxicity_probability(msg, logger)
         #do not send toxic messages to openAI
         if toxicity_probability < config.TOXICITY_THRESHOLD:                                 
 
@@ -282,9 +308,9 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
             # will only respond to a certain percentage of messages per config
             diceRoll=random.randint(0,100)/100
-            self.logger.debug("rolled: " + str(diceRoll) + " settings: " + str(config.RESPONSE_PROBABILITY))        
+            logger.debug("rolled: " + str(diceRoll) + " settings: " + str(config.RESPONSE_PROBABILITY))        
             if diceRoll >= config.RESPONSE_PROBABILITY:
-                self.logger.debug("will not respond")        
+                logger.debug("will not respond")        
                 return
 
             if 'bye' in msg.lower():
