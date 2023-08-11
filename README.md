@@ -8,6 +8,8 @@ https://twitter.com/karljayg  Same tag on instagram, or email me at kj (at) psis
 
 See its use in one of our recent broadcasts: https://www.youtube.com/watch?v=gyRU2YE14uU
 
+Additional documentation: https://docs.google.com/document/d/1C8MM_BqbOYL9W0N0qu0T1g2DS7Uj_a6Vebd6LJLX4yU/edit?usp=sharing
+
 ## Getting Started
 
 ### Prerequisites
