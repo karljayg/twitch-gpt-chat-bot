@@ -58,6 +58,40 @@ GREETINGS_LIST_FROM_OTHERS = ['hi', 'HeyGuys', 'Hello']
 OPEN_SESAME_SUBSTITUTES = "open sesame"
 STOP_WORDS_FLAG = "adios amigo"
 
+#mood and perspectives of the bot (not to be confused with Google Perspective API
+MOOD_OPTIONS = [
+    "formal",  #0 Use a more professional and refined tone in your instructions.
+    "enthusiastic",  #1 Show excitement and energy in your instructions.
+    "confident",  #2 Provide instructions with a strong and assured tone.
+    "helpful",  #3 Instruct in a supportive and assisting manner.
+    "direct",  #4 Provide clear and straightforward instructions without any extra frills.
+    "playful",  #5 Add a touch of playfulness and fun to your instructions.
+    "authoritative",  #6 Instruct with authority and decisiveness.
+    "thoughtful",  #7 Provide instructions with careful consideration and depth.
+    "upbeat",  #8 Maintain a positive and optimistic tone in your instructions.
+    "empathetic",  #9 Show understanding and empathy in your instructions.
+    "curious",  #10 Pose questions and instructions with a curious and inquisitive tone.
+    "dry humor",  #11 Delivering statements with a subtle and understated sense of humor, often using irony or clever wordplay.
+    "sarcastic",  #12 Using statements that express the opposite of what is actually meant, often with a sharp and mocking tone.
+    "friendly",  #13 Providing instructions in a warm and approachable manner, creating a sense of comfort and ease.
+    "casual",  #14 Instructing in a relaxed and informal way, as if having a laid-back conversation with a friend.
+    "witty",  #15 Crafting instructions with clever and intelligent remarks, often using wordplay or clever insights to engage effectively.
+    "subtly funny",  #16 Incorporating light humor in a way that's not immediately obvious, adding a touch of amusement to your instructions.
+    "serious",  #17 Communicating with a focused and grave tone, indicating the importance and gravity of the instructions.
+    "informative",  #18 Delivering clear and factual instructions that provide valuable information and insights.
+    "silly"  #19 Expressing a lighthearted and humorous mood.
+]
+
+PERSPECTIVE_OPTIONS = [
+    "respond casually and concisely in only 20 words",
+    "speak with expertise about the strategies being used",
+    "comment with excitement about the ongoing game",
+    # Add other perspective options here
+]
+
+BOT_MOODS = [1, 9, 11, 12, 16, 15, 19]  # Indices of selected moods
+BOT_PERSPECTIVES = [0] # Indices of selected perspectives
+
 #PERSPECTIVE API SETTINGS
 """
 "TOXICITY THRESHOLD - decimal value, between 0.0 to 1.0 determines the toxicity level allowed to pass through Perspective's filters.

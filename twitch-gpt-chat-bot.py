@@ -4,6 +4,7 @@ import logging
 import openai
 import re
 from settings import config
+#from config import MOOD_OPTIONS, PERSPECTIVE_OPTIONS, BOT_MOODS, BOT_PERSPECTIVES
 import tokensArray
 import asyncio
 import random
@@ -114,8 +115,8 @@ def get_game_status():
         prev_player_results = current_player_results
         return players, game_status, current_player_results
 
-    except JSONDecodeError:
-        logger.debug("StarCraft game is not running")
+    except json.JSONDecodeError as e:
+        logger.debug(f"StarCraft game seems to be running, but getting this error, JSONDecodeError: {e}")
         return None, None, None
     except Exception as e:
         logger.debug(f"An unexpected error occurred: {e}")
@@ -148,6 +149,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         openai.api_key = config.OPENAI_API_KEY
 
         self.streamer_nickname = config.STREAMER_NICKNAME
+        self.selected_moods = [config.MOOD_OPTIONS[i] for i in config.BOT_MOODS]
+        self.selected_perspectives = [config.PERSPECTIVE_OPTIONS[i] for i in config.BOT_PERSPECTIVES]
 
         # Initialize the IRC bot
         irc.bot.SingleServerIRCBot.__init__(self, [(self.server, self.port, 'oauth:'+self.token)], self.username, self.username)
@@ -165,7 +168,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             victory_team = ", ".join([player['name'] if player['name'] not in config.SC2_PLAYER_ACCOUNTS else config.STREAMER_NICKNAME for player in players if player['result'] == 'Victory'])
             defeat_team = ", ".join([player['name'] if player['name'] not in config.SC2_PLAYER_ACCOUNTS else config.STREAMER_NICKNAME for player in players if player['result'] == 'Defeat'])
     
-            response = f"Game has ended. Victory for team: {victory_team}. Defeat for team: {defeat_team}."
+            response = f"Game has ended. Victory for: {victory_team}. Defeat for: {defeat_team}."
         else:
             # Handle any other unexpected game status if needed
             response = ""
@@ -214,9 +217,16 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         msg = msg + tokensArray.get_printed_array("reversed", contextHistory)
 
         #add custom SC2 viewer perspective
-        msg = "As a subtly funny observer of matches in StarCraft 2, respond casually and concisely in only 20 words, without repeating any previous words from here: " + msg
-        msg += " Do not use personal pronouns like 'I,' 'me,' 'my,' etc. but instead speak from a 3rd person referencing the player."
+        #msg = "As a subtly funny observer of matches in StarCraft 2, respond casually and concisely in only 20 words, without repeating any previous words from here: " + msg
+        #msg += " Do not use personal pronouns like 'I,' 'me,' 'my,' etc. but instead speak from a 3rd person referencing the player."
 
+        # Choose a random mood and perspective from the selected options
+        mood = random.choice(self.selected_moods)
+        perspective = random.choice(self.selected_perspectives)
+    
+        # Add custom SC2 viewer perspective
+        msg = f"As a {mood} observer of matches in StarCraft 2, {perspective}, without repeating any previous words from here: " + msg
+        msg += " Do not use personal pronouns like 'I,' 'me,' 'my,' etc. but instead speak from a 3rd person referencing the player."
 
         logger.debug("sent to OpenAI: %s" , msg)
         completion = openai.ChatCompletion.create(
@@ -231,6 +241,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
             #dont make it too obvious its a bot
             response = response.replace("As an AI language model, ", "")
+            response = response.replace("User: , ", "")
 
             #add emote
             response = f'{response} {self.get_random_emote()}'
@@ -357,6 +368,6 @@ async def tasks_to_do():
 async def main():
     tasks = []
     tasks.append(asyncio.create_task(tasks_to_do()))
-    await asyncio.gather(tasks)
+    await asyncio.gather(*tasks)
 
 asyncio.run(main())
