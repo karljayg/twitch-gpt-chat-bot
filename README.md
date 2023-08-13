@@ -1,12 +1,16 @@
 # Twitch OpenAI IRC Bot
 
-This is an IRC bot for Twitch that uses OpenAI's GPT-3.5 API to generate text responses to messages in chat.
+The "psi_mathison" bot, designed to enhance the experience of watching StarCraft II (SC2) streams, utilizes a combination of technologies, including the Twitch chat interface, OpenAI's GPT models, and the SC2 client for real-time integration. Through monitoring the game states, the bot dynamically interacts with the Twitch chat associated with the stream, responding to user queries, commenting on gameplay, and adding customized engagement through Mood and Perspective settings. 
+
+It incorporates various features such as control over message sending, extensive logging, game state monitoring, and more. By providing analytical insights, humor, or other emotive responses, "psi_mathison" brings a unique and lively dimension to the SC2 viewing experience.
 
 If you have any questions reach out to me at:
 
 https://twitter.com/karljayg  Same tag on instagram, or email me at kj (at) psistorm.com
 
 See its use in one of our recent broadcasts: https://www.youtube.com/watch?v=gyRU2YE14uU
+
+Additional documentation: https://docs.google.com/document/d/1C8MM_BqbOYL9W0N0qu0T1g2DS7Uj_a6Vebd6LJLX4yU/edit?usp=sharing
 
 ## Getting Started
 
