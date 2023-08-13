@@ -17,11 +17,19 @@ from datetime import datetime, timedelta
 import logging
 import math
 
-# The contextHistory array is a list of tuples, where each tuple contains two elements: the message string and its corresponding token size. This allows us to keep track of both the message content and its size in the array.
-# When a new message is added to the contextHistory array, its token size is determined using the nltk.word_tokenize() function. If the total number of tokens in the array exceeds the maxContextTokens threshold, the function starts deleting items from the end of the array until the total number of tokens is below the threshold.
-# If the last item in the array has a token size less than or equal to the maxContextTokens threshold, the item is removed completely. However, if the last item has a token size greater than the threshold, the function removes tokens from the end of the message string until its token size is less than or equal to the threshold, and keeps the shortened message string in the array.
-# If the total number of tokens in the array is still above the threshold after deleting the last item, the function repeats the process with the second-to-last item in the array, and continues deleting items until the total number of tokens is below the threshold.
-# By using this logic, we can ensure that the contextHistory array always contains a maximum number of tokens specified by maxContextTokens, while keeping the most recent messages in the array.
+# The contextHistory array is a list of tuples, where each tuple contains two elements: the message string and its
+# corresponding token size. This allows us to keep track of both the message content and its size in the array. When
+# a new message is added to the contextHistory array, its token size is determined using the nltk.word_tokenize()
+# function. If the total number of tokens in the array exceeds the maxContextTokens threshold, the function starts
+# deleting items from the end of the array until the total number of tokens is below the threshold. If the last item
+# in the array has a token size less than or equal to the maxContextTokens threshold, the item is removed completely.
+# However, if the last item has a token size greater than the threshold, the function removes tokens from the end of
+# the message string until its token size is less than or equal to the threshold, and keeps the shortened message
+# string in the array. If the total number of tokens in the array is still above the threshold after deleting the
+# last item, the function repeats the process with the second-to-last item in the array, and continues deleting items
+# until the total number of tokens is below the threshold. By using this logic, we can ensure that the contextHistory
+# array always contains a maximum number of tokens specified by maxContextTokens, while keeping the most recent
+# messages in the array.
 global contextHistory
 contextHistory = []
 
@@ -42,6 +50,13 @@ class GameInfo:
         elif any(player['result'] in ['Defeat', 'Victory', 'Tie'] for player in self.players):
             return "REPLAY_ENDED" if self.isReplay else "MATCH_ENDED"
         return None
+
+    def get_winner(self):
+        for player in self.players:
+            if player['result'] == 'Victory':
+                return player['name']
+        return None
+
 
 class LogOnceWithinIntervalFilter(logging.Filter):
     """Logs each unique message only once within a specified time interval if they are similar."""
@@ -89,14 +104,20 @@ prev_results = None
 first_run = True
 
 
-class TwitchBot(irc.bot.SingleServerIRCBot):
-    def __init__(self, username, token, channel):
+def get_random_emote():
+    emote_names = config.BOT_GREETING_EMOTES
+    return f'{random.choice(emote_names)}'
 
-        #handle KeyboardInterrupt in a more graceful way by setting a flag when Ctrl-C is pressed and checking that flag in threads
+
+class TwitchBot(irc.bot.SingleServerIRCBot):
+    def __init__(self):
+
+        # handle KeyboardInterrupt in a more graceful way by setting a flag when Ctrl-C is pressed and checking that
+        # flag in threads that need to be terminated
         self.shutdown_flag = False
         signal.signal(signal.SIGINT, self.signal_handler)
 
-        #threads to be terminated as soon as the main program finishes when set as daemon threads
+        # threads to be terminated as soon as the main program finishes when set as daemon threads
         monitor_thread = threading.Thread(target=self.monitor_game)
         monitor_thread.daemon = True
         monitor_thread.start()
@@ -120,16 +141,18 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         self.selected_perspectives = [config.PERSPECTIVE_OPTIONS[i] for i in config.BOT_PERSPECTIVES]
 
         # Initialize the IRC bot
-        irc.bot.SingleServerIRCBot.__init__(self, [(self.server, self.port, 'oauth:'+ self.token)], self.username, self.username)
+        irc.bot.SingleServerIRCBot.__init__(self, [(self.server, self.port, 'oauth:' + self.token)], self.username,
+                                            self.username)
 
-    def signal_handler(self, signal, frame):
+    def signal_handler(self, frame):
         self.shutdown_flag = True
         logger.debug(
             "================================================SHUTTING DOWN BOT========================================")
         self.die("Shutdown requested.")
         sys.exit(0)
 
-    def check_SC2_game_status(self):
+    @staticmethod
+    def check_SC2_game_status():
         if config.TEST_MODE:
             try:
                 with open('test/SC2_game_result_test.json', 'r') as file:
@@ -158,31 +181,31 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         logger.debug("game status is " + current_game.get_status())
 
         # prevent the array brackets from being included
-        player_names = ', '.join(current_game.get_player_names())
+        game_player_names = ', '.join(current_game.get_player_names())
 
         if current_game.get_status() == "MATCH_STARTED":
-            response = f"Game has started with these {player_names}"
+            response = f"Game has started with these {game_player_names}"
 
         elif current_game.get_status() == "MATCH_ENDED":
             winning_players = ', '.join(current_game.get_player_names(result_filter='Victory'))
             losing_players = ', '.join(current_game.get_player_names(result_filter='Defeat'))
 
             if len(winning_players) == 0:
-                response = f"Game with {player_names} ended with a Tie!"
+                response = f"Game with {game_player_names} ended with a Tie!"
             else:
-                response = f"Game with {player_names} ended with {winning_players} beating {losing_players}"
+                response = f"Game with {game_player_names} ended with {winning_players} beating {losing_players}"
 
         elif current_game.get_status() == "REPLAY_STARTED":
-            response = f"{config.STREAMER_NICKNAME} is running a replay of the game with {player_names}"
+            response = f"{config.STREAMER_NICKNAME} is running a replay of the game with {game_player_names}"
 
         elif current_game.get_status() == "REPLAY_ENDED":
             winning_players = ', '.join(current_game.get_player_names(result_filter='Victory'))
             losing_players = ', '.join(current_game.get_player_names(result_filter='Defeat'))
 
             if len(winning_players) == 0:
-                response = f"Replayed game with {player_names} ended with a Tie!"
+                response = f"Replayed game with {game_player_names} ended with a Tie!"
             else:
-                response = f"The replay has finished, game with {player_names} ended in a win for {winning_players} and a loss for {losing_players}"
+                response = f"The replay has finished, game with {game_player_names} ended in a win for {winning_players} and a loss for {losing_players}"
 
         self.processMessageForOpenAI(response)
 
@@ -199,10 +222,6 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             previous_game = current_game
             time.sleep(config.MONITOR_GAME_SLEEP_SECONDS)
 
-    def get_random_emote(self):
-        emote_names = config.BOT_GREETING_EMOTES
-        return f'{random.choice(emote_names)}'
-
     # all msgs to channel are now logged
     def msgToChannel(self, message):
         self.connection.privmsg(self.channel, message)
@@ -211,15 +230,15 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         logger.debug("---------------------------------------------------------")
 
     def processMessageForOpenAI(self, msg):
-        #remove open sesame
+        # remove open sesame
         msg = msg.replace('open sesame', '')
         logger.debug(
             "----------------------------------------NEW MESSAGE FOR OPENAI-----------------------------------------")
         logger.debug(msg)
-        #remove open sesame
+        # remove open sesame
         msg = msg.replace('open sesame', '')
 
-        #remove quotes
+        # remove quotes
         msg = msg.replace('"', '')
         msg = msg.replace("'", '')
 
@@ -227,14 +246,14 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         msg = msg + "\n"
 
         # TODO: redo this logic
-        #if bool(config.STOP_WORDS_FLAG):
+        # if bool(config.STOP_WORDS_FLAG):
         #    msg, removedWords = tokensArray.apply_stop_words_filter(msg)
         #    logger.debug("removed stop words: %s" , removedWords)
 
-        #add User msg to conversation context
+        # add User msg to conversation context
         tokensArray.add_new_msg(contextHistory, 'User: ' + msg + "\n", logger)
 
-        #add complete array as msg to OpenAI
+        # add complete array as msg to OpenAI
         msg = msg + tokensArray.get_printed_array("reversed", contextHistory)
 
         # Choose a random mood and perspective from the selected options
@@ -242,23 +261,25 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         perspective = random.choice(self.selected_perspectives)
 
         # Add custom SC2 viewer perspective
-        msg = f"As a {mood} observer of matches in StarCraft 2, {perspective}, without repeating any previous words from here: " + msg
-        msg += " Do not use personal pronouns like 'I,' 'me,' 'my,' etc. but instead speak from a 3rd person referencing the player."
+        msg = (f"As a {mood} observer of matches in StarCraft 2, {perspective}, "
+               f"without repeating any previous words from here: /n") + msg + "\n"
+        msg += (" Do not use personal pronouns like 'I,' 'me,' 'my,' etc. "
+                "but instead speak from a 3rd person referencing the player.")
 
-        logger.debug("sent to OpenAI: %s" , msg)
+        logger.debug("sent to OpenAI: %s", msg)
         completion = openai.ChatCompletion.create(
             model=config.ENGINE,
             messages=[
                 {"role": "user", "content": msg}
             ]
         )
-        if completion.choices[0].message!=None:
+        if completion.choices[0].message is not None:
             logger.debug("completion.choices[0].message.content: " + completion.choices[0].message.content)
             response = completion.choices[0].message.content
 
             # add emote
             if random.choice([True, False]):
-                response = f'{response} {self.get_random_emote()}'
+                response = f'{response} {get_random_emote()}'
 
             logger.debug('raw response from OpenAI:')
             logger.debug(response)
@@ -326,8 +347,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         connection.join(self.channel)
         logger.debug(
             "================================================STARTING BOT========================================")
-        prefix="" #if any
-        greeting_message = f'{prefix} {self.get_random_emote()}'
+        prefix = ""  # if any
+        greeting_message = f'{prefix} {get_random_emote()}'
         self.msgToChannel(greeting_message)
 
     def on_pubmsg(self, connection, event):
@@ -335,10 +356,15 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         # Get message from chat
         msg = event.arguments[0].lower()
         sender = event.source.split('!')[0]
-        #tags = {kvpair["key"]: kvpair["value"] for kvpair in event.tags}
-        #user = {"name": tags["display-name"], "id": tags["user-id"]}
+        # tags = {kvpair["key"]: kvpair["value"] for kvpair in event.tags}
+        # user = {"name": tags["display-name"], "id": tags["user-id"]}
 
-        #ignore certain users
+        # Send response to direct msg or keyword which includes Mathison being mentioned
+        if 'open sesame' in msg.lower() or any(sub in msg.lower() for sub in config.OPEN_SESAME_SUBSTITUTES):
+            self.processMessageForOpenAI(msg)
+            return
+
+        # ignore certain users
         if sender.lower() in [user.lower() for user in config.IGNORE]:
             logger.debug("ignoring user: " + sender)
             return
@@ -347,21 +373,16 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             toxicity_probability = 0
         else:
             toxicity_probability = tokensArray.get_toxicity_probability(msg, logger)
-        #do not send toxic messages to openAI
+        # do not send toxic messages to openAI
         if toxicity_probability < config.TOXICITY_THRESHOLD:
 
             # any user greets via config keywords will be responded to
             if any(greeting in msg.lower() for greeting in config.GREETINGS_LIST_FROM_OTHERS):
                 response = f"Hi {sender}!"
-                response = f'{response} {self.get_random_emote()}'
+                response = f'{response} {get_random_emote()}'
                 self.msgToChannel(response)
                 # disable the return - sometimes it matches words so we want mathison to reply anyway
                 # DO NOT return
-
-            # Send response to direct msg or keyword which includes Mathison being mentioned
-            if 'open sesame' in msg.lower() or any(sub in msg.lower() for sub in config.OPEN_SESAME_SUBSTITUTES):
-                self.processMessageForOpenAI(msg)
-                return
 
             if 'bye' in msg.lower():
                 response = f"bye {sender}!"
@@ -379,7 +400,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 return
 
             # will only respond to a certain percentage of messages per config
-            diceRoll=random.randint(0,100)/100
+            diceRoll = random.randint(0, 100) / 100
             logger.debug("rolled: " + str(diceRoll) + " settings: " + str(config.RESPONSE_PROBABILITY))
             if diceRoll >= config.RESPONSE_PROBABILITY:
                 logger.debug("will not respond")
@@ -396,23 +417,26 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             }
             self.msgToChannel(switcher.get(response))
 
+
 username = config.USERNAME
-token = config.TOKEN # get this from https://twitchapps.com/tmi/
+token = config.TOKEN  # get this from https://twitchapps.com/tmi/
 channel = config.USERNAME
+
 
 async def tasks_to_do():
     try:
         # Create an instance of the bot and start it
-        bot = TwitchBot(username, token, channel)
+        bot = TwitchBot()
         await bot.start()
     except SystemExit as e:
         # Handle the SystemExit exception if needed, or pass to suppress it
         pass
 
+
 async def main():
-    tasks = []
-    tasks.append(asyncio.create_task(tasks_to_do()))
+    tasks = [asyncio.create_task(tasks_to_do())]
     for task in tasks:
         await task  # Await the task here to handle exceptions
+
 
 asyncio.run(main())
