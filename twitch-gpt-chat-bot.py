@@ -1,13 +1,21 @@
 import irc.bot
-import requests
-import logging
 import openai
 import re
 from settings import config
-#from config import MOOD_OPTIONS, PERSPECTIVE_OPTIONS, BOT_MOODS, BOT_PERSPECTIVES
 import tokensArray
 import asyncio
+import json
 import random
+import time
+import urllib3
+import threading
+import signal
+import sys
+import requests
+from difflib import SequenceMatcher
+from datetime import datetime, timedelta
+import logging
+import math
 
 # The contextHistory array is a list of tuples, where each tuple contains two elements: the message string and its corresponding token size. This allows us to keep track of both the message content and its size in the array.
 # When a new message is added to the contextHistory array, its token size is determined using the nltk.word_tokenize() function. If the total number of tokens in the array exceeds the maxContextTokens threshold, the function starts deleting items from the end of the array until the total number of tokens is below the threshold.
@@ -17,27 +25,27 @@ import random
 global contextHistory
 contextHistory = []
 
-import json
-import random
-import requests
-import time
-import pygame
-from enum import Enum
-import logging
-import urllib3
-import sys
-import threading
-import signal
-import sys
-import requests
-from requests.exceptions import JSONDecodeError
-from difflib import SequenceMatcher
-from datetime import datetime, timedelta
-import logging
-import math
+
+class GameInfo:
+    def __init__(self, json_data):
+        self.isReplay = json_data['isReplay']
+        self.players = json_data['players']
+        self.displayTime = json_data['displayTime']
+
+    def get_player_names(self, result_filter=None):
+        return [config.STREAMER_NICKNAME if player['name'] in config.SC2_PLAYER_ACCOUNTS else player['name'] for player
+                in self.players if result_filter is None or player['result'] == result_filter]
+
+    def get_status(self):
+        if all(player['result'] == 'Undecided' for player in self.players):
+            return "REPLAY_STARTED" if self.isReplay else "MATCH_STARTED"
+        elif any(player['result'] in ['Defeat', 'Victory', 'Tie'] for player in self.players):
+            return "REPLAY_ENDED" if self.isReplay else "MATCH_ENDED"
+        return None
 
 class LogOnceWithinIntervalFilter(logging.Filter):
     """Logs each unique message only once within a specified time interval if they are similar."""
+
     def __init__(self, similarity_threshold=0.95, interval_seconds=120):
         super().__init__()
         self.similarity_threshold = similarity_threshold
@@ -54,15 +62,14 @@ class LogOnceWithinIntervalFilter(logging.Filter):
             time_left = self.interval - time_since_last_logged
             if time_since_last_logged < self.interval:
                 similarity = SequenceMatcher(None, self.last_logged_message, record.msg).ratio()
-                print("similarity criteria: " + str(math.floor(similarity)) + "/" + str(self.similarity_threshold), end = " ")
                 if similarity > self.similarity_threshold:
-                    #print(f"suppressed: {math.floor(time_left.total_seconds())} secs left from original {self.interval.total_seconds()} sec")
                     print(f"suppressed: {math.floor(time_left.total_seconds())} secs")
                     return False
 
         self.last_logged_message = record.msg
         self.last_logged_time = now
         return True
+
 
 # Initialize the logger at the beginning of the script
 logger = logging.getLogger(__name__)
@@ -74,53 +81,13 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 logging.getLogger('urllib3').setLevel(logging.WARNING)
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
-
-# This monitors SC2 game state so bot can comment on it
-class GameState(Enum):
-    STARTED = 'Undecided'
-    ENDED = ['Defeat', 'Victory', 'Tie']
-
 # Player names of streamer to check results for
 player_names = config.SC2_PLAYER_ACCOUNTS
-prev_player_results = None # Initialize prev_player_results here
 
 last_received_data = None
 prev_results = None
 first_run = True
 
-def get_game_status():
-    global prev_player_results, first_run
-
-    try:
-        response = requests.get('http://localhost:6119/game')
-        data = response.json()
-        players = data['players']
-
-        # Create a tuple of player name and result pairings
-        current_player_results = tuple(sorted((p['name'], p['result']) for p in players))
-
-        if first_run or current_player_results == prev_player_results:
-            prev_player_results = current_player_results
-            if first_run:
-                print("first run, not checking previous game results")
-                first_run = False
-            return None, None, None
-
-        # Determine the game status. You can adapt this based on your game logic
-        game_status = 'STARTED' if any(p['result'] == 'Undecided' for p in players) else 'ENDED'
-
-        print(f"Received data: {data}")  # Print the JSON data only if there's a change in results
-        print(f"Game status: {game_status}")
-
-        prev_player_results = current_player_results
-        return players, game_status, current_player_results
-
-    except json.JSONDecodeError as e:
-        logger.debug(f"StarCraft game seems to be running, but getting this error, JSONDecodeError: {e}")
-        return None, None, None
-    except Exception as e:
-        logger.debug(f"An unexpected error occurred: {e}")
-        return None, None, None
 
 class TwitchBot(irc.bot.SingleServerIRCBot):
     def __init__(self, username, token, channel):
@@ -153,57 +120,111 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         self.selected_perspectives = [config.PERSPECTIVE_OPTIONS[i] for i in config.BOT_PERSPECTIVES]
 
         # Initialize the IRC bot
-        irc.bot.SingleServerIRCBot.__init__(self, [(self.server, self.port, 'oauth:'+self.token)], self.username, self.username)
+        irc.bot.SingleServerIRCBot.__init__(self, [(self.server, self.port, 'oauth:'+ self.token)], self.username, self.username)
 
     def signal_handler(self, signal, frame):
         self.shutdown_flag = True
+        logger.debug(
+            "================================================SHUTTING DOWN BOT========================================")
         self.die("Shutdown requested.")
         sys.exit(0)
 
-    def handle_game_result(self, players, game_status):
-        if game_status == 'STARTED':
-            player_names = ", ".join([player['name'] if player['name'] not in config.SC2_PLAYER_ACCOUNTS else config.STREAMER_NICKNAME for player in players])
-            response = f"Game has started between {player_names}"
-        elif game_status == 'ENDED':
-            victory_team = ", ".join([player['name'] if player['name'] not in config.SC2_PLAYER_ACCOUNTS else config.STREAMER_NICKNAME for player in players if player['result'] == 'Victory'])
-            defeat_team = ", ".join([player['name'] if player['name'] not in config.SC2_PLAYER_ACCOUNTS else config.STREAMER_NICKNAME for player in players if player['result'] == 'Defeat'])
-    
-            response = f"Game has ended. Victory for: {victory_team}. Defeat for: {defeat_team}."
+    def check_SC2_game_status(self):
+        if config.TEST_MODE:
+            try:
+                with open('test/SC2_game_result_test.json', 'r') as file:
+                    json_data = json.load(file)
+                return GameInfo(json_data)
+            except Exception as e:
+                logger.debug(f"An error occurred while reading the test file: {e}")
+                return None
         else:
-            # Handle any other unexpected game status if needed
-            response = ""
+            try:
+                response = requests.get("http://localhost:6119/game")
+                response.raise_for_status()
+                return GameInfo(response.json())
+            except Exception as e:
+                logger.debug(f"An error occurred: {e}")
+                return None
+
+    def handle_SC2_game_results(self, previous_game, current_game):
+
+        # do not proceed if no change
+        if previous_game and current_game.get_status() == previous_game.get_status():
+            return
+
+        response = ""
+
+        logger.debug("game status is " + current_game.get_status())
+
+        # prevent the array brackets from being included
+        player_names = ', '.join(current_game.get_player_names())
+
+        if current_game.get_status() == "MATCH_STARTED":
+            response = f"Game has started with these {player_names}"
+
+        elif current_game.get_status() == "MATCH_ENDED":
+            winning_players = ', '.join(current_game.get_player_names(result_filter='Victory'))
+            losing_players = ', '.join(current_game.get_player_names(result_filter='Defeat'))
+
+            if len(winning_players) == 0:
+                response = f"Game with {player_names} ended with a Tie!"
+            else:
+                response = f"Game with {player_names} ended with {winning_players} beating {losing_players}"
+
+        elif current_game.get_status() == "REPLAY_STARTED":
+            response = f"{config.STREAMER_NICKNAME} is running a replay of the game with {player_names}"
+
+        elif current_game.get_status() == "REPLAY_ENDED":
+            winning_players = ', '.join(current_game.get_player_names(result_filter='Victory'))
+            losing_players = ', '.join(current_game.get_player_names(result_filter='Defeat'))
+
+            if len(winning_players) == 0:
+                response = f"Replayed game with {player_names} ended with a Tie!"
+            else:
+                response = f"The replay has finished, game with {player_names} ended in a win for {winning_players} and a loss for {losing_players}"
+
         self.processMessageForOpenAI(response)
 
     def monitor_game(self):
-        previous_game_status = 'STARTED'  # Initialize with STARTED
+        previous_game = None
+
         while True and not self.shutdown_flag:
-            players, game_status, player_results = get_game_status() 
-            if players is None and game_status is None:
-                time.sleep(config.MONITOR_GAME_SLEEP_SECONDS)  # Wait a second if there's no change
-                continue # Skip the rest of the loop if there's no change
-    
-            if game_status != previous_game_status:
-                # Handle game result
-                self.handle_game_result(players, game_status)
-                previous_game_status = game_status
-            time.sleep(config.MONITOR_GAME_SLEEP_SECONDS)  # Wait a second before re-checking
+            current_game = self.check_SC2_game_status()
+
+            if current_game:
+                if not config.IGNORE_REPLAYS or not current_game.isReplay:
+                    self.handle_SC2_game_results(previous_game, current_game)
+
+            previous_game = current_game
+            time.sleep(config.MONITOR_GAME_SLEEP_SECONDS)
 
     def get_random_emote(self):
         emote_names = config.BOT_GREETING_EMOTES
-        return f'{random.choice(emote_names)}'        
+        return f'{random.choice(emote_names)}'
 
-    #all msgs to channel are now logged
+    # all msgs to channel are now logged
     def msgToChannel(self, message):
         self.connection.privmsg(self.channel, message)
-        logger.debug("msg to channel: " + message)
+        logger.debug("---------------------MSG TO CHANNEL----------------------")
+        logger.debug(message)
+        logger.debug("---------------------------------------------------------")
 
     def processMessageForOpenAI(self, msg):
+        #remove open sesame
+        msg = msg.replace('open sesame', '')
+        logger.debug(
+            "----------------------------------------NEW MESSAGE FOR OPENAI-----------------------------------------")
+        logger.debug(msg)
         #remove open sesame
         msg = msg.replace('open sesame', '')
 
         #remove quotes
         msg = msg.replace('"', '')
         msg = msg.replace("'", '')
+
+        # add line break to ensure separation
+        msg = msg + "\n"
 
         # TODO: redo this logic
         #if bool(config.STOP_WORDS_FLAG):
@@ -216,14 +237,10 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         #add complete array as msg to OpenAI
         msg = msg + tokensArray.get_printed_array("reversed", contextHistory)
 
-        #add custom SC2 viewer perspective
-        #msg = "As a subtly funny observer of matches in StarCraft 2, respond casually and concisely in only 20 words, without repeating any previous words from here: " + msg
-        #msg += " Do not use personal pronouns like 'I,' 'me,' 'my,' etc. but instead speak from a 3rd person referencing the player."
-
         # Choose a random mood and perspective from the selected options
         mood = random.choice(self.selected_moods)
         perspective = random.choice(self.selected_perspectives)
-    
+
         # Add custom SC2 viewer perspective
         msg = f"As a {mood} observer of matches in StarCraft 2, {perspective}, without repeating any previous words from here: " + msg
         msg += " Do not use personal pronouns like 'I,' 'me,' 'my,' etc. but instead speak from a 3rd person referencing the player."
@@ -236,59 +253,82 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             ]
         )
         if completion.choices[0].message!=None:
-            print(completion.choices[0].message.content)
+            logger.debug("completion.choices[0].message.content: " + completion.choices[0].message.content)
             response = completion.choices[0].message.content
 
-            #dont make it too obvious its a bot
+            # add emote
+            if random.choice([True, False]):
+                response = f'{response} {self.get_random_emote()}'
+
+            logger.debug('raw response from OpenAI:')
+            logger.debug(response)
+
+            # Clean up response
+            response = re.sub('[\r\n\t]', ' ', response)  # Remove carriage returns, newlines, and tabs
+            response = re.sub('[^\x00-\x7F]+', '', response)  # Remove non-ASCII characters
+            response = re.sub(' +', ' ', response)  # Remove extra spaces
+            response = response.strip()  # Remove leading and trailing whitespace
+
+            # dont make it too obvious its a bot
             response = response.replace("As an AI language model, ", "")
             response = response.replace("User: , ", "")
 
-            #add emote
-            response = f'{response} {self.get_random_emote()}'
+            logger.debug("cleaned up message from OpenAI:")
+            logger.debug(response)
 
-            # Clean up response
-            print('raw response from OpenAI: %s', response)
-            response = re.sub('[\r\n\t]', ' ', response)  # Remove carriage returns, newlines, and tabs
-            response = re.sub('[^\x00-\x7F]+', '', response)  # Remove non-ASCII characters
-            response = re.sub(' +', ' ', response) # Remove extra spaces
-            response = response.strip() # Remove leading and trailing whitespace
+            if len(response) >= 400:
+                logger.debug(f"Chunking response since it's {len(response)} characters long")
 
-            # Split the response into chunks of 400 characters, without splitting the words
-            chunks = []
-            temp_chunk = ''
-            for word in response.split():
-                if len(temp_chunk + ' ' + word) <= 400:
-                    temp_chunk += ' ' + word if temp_chunk != '' else word
-                else:
+                # Split the response into chunks of 400 characters without splitting words
+                chunks = []
+                temp_chunk = ''
+                for word in response.split():
+                    if len(temp_chunk + ' ' + word) <= 400:
+                        temp_chunk += ' ' + word if temp_chunk != '' else word
+                    else:
+                        chunks.append(temp_chunk)
+                        temp_chunk = word
+                if temp_chunk:
                     chunks.append(temp_chunk)
-                    temp_chunk = word
-            if temp_chunk:
-                chunks.append(temp_chunk)
 
-            # Send response chunks to chat
-            for chunk in chunks:
-                #remove all occurences of "AI: "
-                chunk = re.sub(r'\bAI: ', '', chunk)
-                self.msgToChannel(chunk)
-                logger.debug('Sending openAI response chunk: %s', chunk)
+                # Send response chunks to chat
+                for chunk in chunks:
+                    # Remove all occurrences of "AI: "
+                    chunk = re.sub(r'\bAI: ', '', chunk)
+                    self.msgToChannel(chunk)
 
-                #add AI response to conversation context
-                print("AI msg to chat: " + chunk)
-                tokensArray.add_new_msg(contextHistory, 'AI: ' + chunk + "\n", logger)
-                #print conversation so far
-                print(tokensArray.get_printed_array("reversed", contextHistory))
+                    # Add AI response to conversation context
+                    tokensArray.add_new_msg(contextHistory, 'AI: ' + chunk + "\n", logger)
+
+                    # Log relevant details
+                    logger.debug(f'Sending openAI response chunk: {chunk}')
+                    logger.debug(
+                        f'Conversation in context so far: {tokensArray.get_printed_array("reversed", contextHistory)}')
+            else:
+                response = re.sub(r'\bAI: ', '', response)
+                self.msgToChannel(response)
+
+                # Add AI response to conversation context
+                tokensArray.add_new_msg(contextHistory, 'AI: ' + response + "\n", logger)
+
+                # Log relevant details
+                logger.debug(f'AI msg to chat: {response}')
+                logger.debug(
+                    f'Conversation in context so far: {tokensArray.get_printed_array("reversed", contextHistory)}')
+
         else:
-            response = 'Failed to generate response!'
+            response = 'oops, I have no response to that'
             self.msgToChannel(response)
             logger.debug('Failed to send response: %s', response)
 
     def on_welcome(self, connection, event):
         # Join the channel and say a greeting
         connection.join(self.channel)
+        logger.debug(
+            "================================================STARTING BOT========================================")
         prefix="" #if any
         greeting_message = f'{prefix} {self.get_random_emote()}'
         self.msgToChannel(greeting_message)
-        threading.Thread(target=self.monitor_game).start()  # Start a thread to monitor the game
 
     def on_pubmsg(self, connection, event):
 
@@ -308,21 +348,19 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         else:
             toxicity_probability = tokensArray.get_toxicity_probability(msg, logger)
         #do not send toxic messages to openAI
-        if toxicity_probability < config.TOXICITY_THRESHOLD:                                 
+        if toxicity_probability < config.TOXICITY_THRESHOLD:
 
             # any user greets via config keywords will be responded to
             if any(greeting in msg.lower() for greeting in config.GREETINGS_LIST_FROM_OTHERS):
                 response = f"Hi {sender}!"
                 response = f'{response} {self.get_random_emote()}'
                 self.msgToChannel(response)
-                #disable the return - sometimes it matches words so we want mathison to reply anyway
-                #return
+                # disable the return - sometimes it matches words so we want mathison to reply anyway
+                # DO NOT return
 
-            # will only respond to a certain percentage of messages per config
-            diceRoll=random.randint(0,100)/100
-            logger.debug("rolled: " + str(diceRoll) + " settings: " + str(config.RESPONSE_PROBABILITY))        
-            if diceRoll >= config.RESPONSE_PROBABILITY:
-                logger.debug("will not respond")        
+            # Send response to direct msg or keyword which includes Mathison being mentioned
+            if 'open sesame' in msg.lower() or any(sub in msg.lower() for sub in config.OPEN_SESAME_SUBSTITUTES):
+                self.processMessageForOpenAI(msg)
                 return
 
             if 'bye' in msg.lower():
@@ -340,12 +378,14 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 self.msgToChannel(response)
                 return
 
-            # Send response to direct msg or keyword which includes Mathison being mentioned
-            if 'open sesame' in msg.lower() or any(sub in msg.lower() for sub in config.OPEN_SESAME_SUBSTITUTES):   
-                self.processMessageForOpenAI(msg)
+            # will only respond to a certain percentage of messages per config
+            diceRoll=random.randint(0,100)/100
+            logger.debug("rolled: " + str(diceRoll) + " settings: " + str(config.RESPONSE_PROBABILITY))
+            if diceRoll >= config.RESPONSE_PROBABILITY:
+                logger.debug("will not respond")
                 return
 
-            self.processMessageForOpenAI(msg)                    
+            self.processMessageForOpenAI(msg)
 
         else:
             response = random.randint(1, 3)
@@ -354,20 +394,25 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 2: f"Woah {sender}! Strong language",
                 3: f"Calm down {sender}. What's with the attitude?"
             }
-            self.msgToChannel(switcher.get(response))  
+            self.msgToChannel(switcher.get(response))
 
 username = config.USERNAME
 token = config.TOKEN # get this from https://twitchapps.com/tmi/
 channel = config.USERNAME
 
 async def tasks_to_do():
-    # Create an instance of the bot and start it
-    bot = TwitchBot(username, token, channel)
-    await bot.start()
+    try:
+        # Create an instance of the bot and start it
+        bot = TwitchBot(username, token, channel)
+        await bot.start()
+    except SystemExit as e:
+        # Handle the SystemExit exception if needed, or pass to suppress it
+        pass
 
 async def main():
     tasks = []
     tasks.append(asyncio.create_task(tasks_to_do()))
-    await asyncio.gather(*tasks)
+    for task in tasks:
+        await task  # Await the task here to handle exceptions
 
 asyncio.run(main())

@@ -51,6 +51,7 @@ BOT_KJ_FOLLOWER_EMOTES = ['kjfreeLUL', 'kjfreeNOGG', 'kjfreePOG', 'kjfreePOGanim
 
 #streamer SC2 account
 SC2_PLAYER_ACCOUNTS = ['myname']
+TEST_MODE = True
 PLAY_ON_REPLAY = True
 MONITOR_GAME_SLEEP_SECONDS = 3
 
@@ -83,14 +84,15 @@ MOOD_OPTIONS = [
 ]
 
 PERSPECTIVE_OPTIONS = [
-    "respond casually and concisely in only 20 words",
-    "speak with expertise about the strategies being used",
-    "comment with excitement about the ongoing game",
+    "respond casually and concisely in only 15 words",
+    "be extremely short in response, at most 4 words",
+    "speak with expertise about the strategies being used", #long winded, be careful
+    "comment with excitement about the ongoing game, max of 10 words",
     # Add other perspective options here
 ]
 
-BOT_MOODS = [1, 9, 11, 12, 16, 15, 19]  # Indices of selected moods
-BOT_PERSPECTIVES = [0] # Indices of selected perspectives
+BOT_MOODS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]  # Indices of selected moods
+BOT_PERSPECTIVES = [0,1,3] # Indices of selected perspectives
 
 #PERSPECTIVE API SETTINGS
 """
