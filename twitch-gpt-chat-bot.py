@@ -1,7 +1,6 @@
 import irc.bot
 import openai
 import re
-from settings import config
 import tokensArray
 import asyncio
 import json
@@ -12,10 +11,15 @@ import threading
 import signal
 import sys
 import requests
-from difflib import SequenceMatcher
-from datetime import datetime, timedelta
 import logging
 import math
+import os
+import spawningtool.parser
+from difflib import SequenceMatcher
+from datetime import datetime, timedelta
+from settings import config
+from datetime import datetime
+from collections import defaultdict
 
 # The contextHistory array is a list of tuples, where each tuple contains two elements: the message string and its
 # corresponding token size. This allows us to keep track of both the message content and its size in the array. When
@@ -109,6 +113,54 @@ def get_random_emote():
     return f'{random.choice(emote_names)}'
 
 
+# Global variable to save the path of the latest file found
+latest_file_found = None
+
+
+def find_latest_file(folder, file_extension):
+    global latest_file_found
+
+    try:
+        if not os.path.isdir(folder):
+            logger.debug(f"The provided path '{folder}' is not a directory. Please provide a valid directory path.")
+            return None
+
+        if not file_extension.startswith('.'):
+            file_extension = '.' + file_extension
+
+        logger.debug(f"Searching for files with extension '{file_extension}' in folder '{folder}' & subdirectories...")
+
+        latest_file = None
+        latest_timestamp = None
+
+        for root, _, files in os.walk(folder):
+            for filename in files:
+                if filename.endswith(file_extension):
+                    filepath = os.path.join(root, filename)
+                    file_timestamp = os.path.getmtime(filepath)
+
+                    if latest_file is None or file_timestamp > latest_timestamp:
+                        latest_file = filepath
+                        latest_timestamp = file_timestamp
+
+        if latest_file:
+            if latest_file == latest_file_found:
+                logger.debug(f"The latest file with extension '{file_extension}' has not changed: {latest_file}")
+            else:
+                logger.debug(f"Found a new latest file with extension '{file_extension}': {latest_file}")
+                latest_file_found = latest_file
+
+            return latest_file
+        else:
+            logger.debug(
+                f"No files with extension '{file_extension}' were found in the folder '{folder}' and its subdirectories.")
+            return None
+
+    except Exception as e:
+        logger.debug(f"An error occurred while searching for the latest file: {e}")
+        return None
+
+
 class TwitchBot(irc.bot.SingleServerIRCBot):
     def __init__(self):
 
@@ -183,6 +235,77 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         # prevent the array brackets from being included
         game_player_names = ', '.join(current_game.get_player_names())
 
+        if current_game.get_status() in ("MATCH_ENDED", "REPLAY_ENDED"):
+            result = find_latest_file(config.REPLAYS_FOLDER, config.REPLAYS_FILE_EXTENSION)
+            if result:
+                print(f"The path to the latest file is: {result}")
+                replay_data = spawningtool.parser.parse_replay(result)
+
+                # Save the replay JSON to a file
+                filename = 'last_replay_data.json'
+                with open(filename, 'w') as file:
+                    json.dump(replay_data, file, indent=4)
+                    logger.debug('last replay file saved: ' + filename)
+
+                replay_summary = ""  # Initialize summary string
+                replay_data = spawningtool.parser.parse_replay(result)
+
+                # Players and Map
+                players = [f"{player_data['name']}: {player_data['race']}" for player_data in
+                           replay_data['players'].values()]
+                replay_summary += f"Players: {', '.join(players)}\n"
+                print(replay_summary)
+
+                replay_summary += f"Map: {replay_data['map']}\n\n"
+                print(replay_summary[-len(f"Map: {replay_data['map']}\n\n"):])
+
+                # Build Orders
+                build_orders = {player_key: player_data['buildOrder'] for player_key, player_data in
+                                replay_data['players'].items()}
+                for player_key, build_order in build_orders.items():
+                    player_info = f"{replay_data['players'][player_key]['name']}'s Build Order (first 20 steps):"
+                    replay_summary += player_info + '\n'
+                    print(player_info)
+                    for order in build_order[:20]:
+                        time = order['time']
+                        name = order['name']
+                        supply = order['supply']
+                        order_info = f"Time: {time}, Name: {name}, Supply: {supply}"
+                        replay_summary += order_info + '\n'
+                        print(order_info)
+                    replay_summary += '\n'
+                    print()
+
+                # Units Lost
+                units_lost_summary = {player_key: player_data['unitsLost'] for player_key, player_data in
+                                      replay_data['players'].items()}
+                for player_key, units_lost in units_lost_summary.items():
+                    player_info = f"{replay_data['players'][player_key]['name']}'s Units Lost:"
+                    replay_summary += player_info + '\n'
+                    print(player_info)
+                    units_lost_aggregate = defaultdict(int)
+                    for unit in units_lost:
+                        name = unit.get('name', "N/A")
+                        units_lost_aggregate[name] += 1
+                    for unit_name, count in units_lost_aggregate.items():
+                        unit_info = f"{unit_name}: {count}"
+                        replay_summary += unit_info + '\n'
+                        print(unit_info)
+                    replay_summary += '\n'
+                    print()
+
+                # Save the replay summary to a file
+                filename = 'replay_summary.txt'
+                with open(filename, 'w') as file:
+                    file.write(replay_summary)
+                    logger.debug('last replay summary saved: ' + filename)
+
+                # Now you can use the `replay_summary` variable later in your code
+
+                print("Replay data saved to replay_data.json")
+            else:
+                print("No result found or an error occurred.")
+
         if current_game.get_status() == "MATCH_STARTED":
             response = f"Game has started with these {game_player_names}"
 
@@ -207,7 +330,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             else:
                 response = f"The replay has finished, game with {game_player_names} ended in a win for {winning_players} and a loss for {losing_players}"
 
-        self.processMessageForOpenAI(response)
+        if not config.OPENAI_DISABLED:
+            self.processMessageForOpenAI(response)
 
     def monitor_game(self):
         previous_game = None

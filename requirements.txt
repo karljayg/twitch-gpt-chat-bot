@@ -12,3 +12,5 @@ openai
 irc
 logging
 urllib3
+sc2reader @ git+https://github.com/GraylinKim/sc2reader.git
+spawningtool @ git+https://github.com/StoicLoofah/spawningtool.git
