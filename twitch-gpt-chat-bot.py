@@ -229,6 +229,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             return
 
         response = ""
+        replay_summary = ""  # Initialize summary string
 
         logger.debug("game status is " + current_game.get_status())
 
@@ -239,6 +240,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             result = find_latest_file(config.REPLAYS_FOLDER, config.REPLAYS_FILE_EXTENSION)
             if result:
                 print(f"The path to the latest file is: {result}")
+                #test
+                #result="C:/Users/karl_/Downloads/twitch-gpt-chat-bot/test/replays/1v1 TESTFILE - no matching names - 20230805 - Game 2 - Solar vs Serral - ZvZ - Gresvan.sc2replay"
                 replay_data = spawningtool.parser.parse_replay(result)
 
                 # Save the replay JSON to a file
@@ -247,7 +250,6 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                     json.dump(replay_data, file, indent=4)
                     logger.debug('last replay file saved: ' + filename)
 
-                replay_summary = ""  # Initialize summary string
                 replay_data = spawningtool.parser.parse_replay(result)
 
                 # Players and Map
@@ -294,14 +296,15 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                     replay_summary += '\n'
                     print()
 
+                # replace player names with streamer name
+                for player_name in config.SC2_PLAYER_ACCOUNTS:
+                    replay_summary = replay_summary.replace(player_name, config.STREAMER_NICKNAME)
+
                 # Save the replay summary to a file
                 filename = 'replay_summary.txt'
                 with open(filename, 'w') as file:
                     file.write(replay_summary)
                     logger.debug('last replay summary saved: ' + filename)
-
-                # Now you can use the `replay_summary` variable later in your code
-
                 print("Replay data saved to replay_data.json")
             else:
                 print("No result found or an error occurred.")
@@ -332,6 +335,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
         if not config.OPENAI_DISABLED:
             self.processMessageForOpenAI(response)
+            # get analysis of game summary, from an SC2 viewer perspective
+            self.processMessageForOpenAI(replay_summary)
 
     def monitor_game(self):
         previous_game = None
