@@ -45,7 +45,7 @@ MAX_RESPONSIVENESS = 0.5
 RESPONSE_PROBABILITY = 0.7
 
 # LOG SETTINGS
-LOG_FILE = "bot.log"
+LOG_FILE = "logs/bot.log"
 
 # missing config items - need to clean up
 BOT_GREETING_WORDS = "hello"
@@ -94,12 +94,12 @@ BOT_KJ_FOLLOWER_EMOTES = ['kjfreeLUL', 'kjfreeNOGG', 'kjfreePOG', 'kjfreePOGanim
                           'kjfreePSISTORManimate', 'kjfreeSCUD', 'kjfreeFSL', 'kjfreeGG']
 
 # streamer SC2 account, for game monitoring
-SC2_PLAYER_ACCOUNTS = ['Fiorano']
+SC2_PLAYER_ACCOUNTS = ['myname']
 
 ALIGULAC_API_KEY = ''
 
 SC2REPLAY_STATS_AUTH_KEY = ""
-SC2REPLAY_STATS_ACCOUNT_ID = '2768'  # if needed
+SC2REPLAY_STATS_ACCOUNT_ID = ""  # if needed
 SC2REPLAY_STATS_HASH = ""
 SC2REPLAY_STATS_TOKEN = ""
 SC2REPLAY_STATS_TIMESTAMP = ""
@@ -107,12 +107,15 @@ SC2REPLAY_STATS_TIMESTAMP = ""
 TEST_MODE = True
 IGNORE_REPLAYS = False
 IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN = True
+GAME_RESULT_TEST_FILE = "test/SC2_game_result_test.json"
 MONITOR_GAME_SLEEP_SECONDS = 3
-REPLAYS_FOLDER = r"C:\Users\WHATEVER\OneDrive\Documents\StarCraft II\Accounts"
+LAST_REPLAY_JSON_FILE = "temp/last_replay_data.json"
+LAST_REPLAY_SUMMARY_FILE = "temp/replay_summary.txt"
+REPLAYS_FOLDER = r"C:\Users\WHATEVER\OneDrive\Documents\StarCraft II\Accounts"  # you can use r to escape for Win Path
 REPLAYS_FILE_EXTENSION = "SC2Replay"
 ANALYZE_REPLAYS_FOR_TEST = False
-REPLAY_TEST_FILE = ("C:/Users/WHATEVER/Downloads/twitch-gpt-chat-bot/test/replays/1v1 TESTFILE - no matching names - "
-                    "20230805 "
+REPLAY_TEST_FILE = ("C:/Users/WHATEVER/PycharmProjects/twitch-gpt-chat-bot/test/replays/"
+                    "1v1 TESTFILE - no matching names - 20230805 "
                     "- Game 2 - Solar vs Serral - ZvZ - Gresvan.sc2replay")
 
 GREETINGS_LIST_FROM_OTHERS = ['hi', 'HeyGuys', 'Hello']

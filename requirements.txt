@@ -2,15 +2,19 @@
 #pip install irc openai logging requests re asyncio random irc.bot spacy nltk en_core_web_sm logging urllib3 
 #python -m spacy download en_core_web_sm
 
-nltk
-spacy
+nltk~=3.8.1
+spacy~=3.6.1
 en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.0.0/en_core_web_sm-3.0.0-py3-none-any.whl
 urllib3==1.26.7
-requests
+requests~=2.31.0
 twitchio
-openai
-irc
-logging
+openai~=0.27.8
+irc~=20.3.0
+logging~=0.4.9.6
 urllib3
 sc2reader @ git+https://github.com/GraylinKim/sc2reader.git
 spawningtool @ git+https://github.com/StoicLoofah/spawningtool.git
+sc2reader~=1.8.0
+spawningtool~=2.10.0
+argparse~=1.4.0
+langchain~=0.0.264

@@ -175,8 +175,16 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         monitor_thread.daemon = True
         monitor_thread.start()
 
+        # Generate the current datetime timestamp in the format YYYYMMDD-HHMMSS
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        # Append the timestamp to the log file name
+        log_file_name = config.LOG_FILE.replace(".log", f"_{timestamp}.log")
+        # Set up the logging configuration
+        logger = logging.getLogger(__name__)
+        logger.setLevel(logging.DEBUG)
+
         formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s')
-        file_handler = logging.FileHandler('bot.log')
+        file_handler = logging.FileHandler(log_file_name)
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
 
@@ -209,7 +217,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
     def check_SC2_game_status():
         if config.TEST_MODE:
             try:
-                with open('test/SC2_game_result_test.json', 'r') as file:
+                with open(config.GAME_RESULT_TEST_FILE, 'r') as file:
                     json_data = json.load(file)
                 return GameInfo(json_data)
             except Exception as e:
@@ -248,7 +256,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 replay_data = spawningtool.parser.parse_replay(result)
 
                 # Save the replay JSON to a file
-                filename = 'last_replay_data.json'
+                filename = config.LAST_REPLAY_JSON_FILE
                 with open(filename, 'w') as file:
                     json.dump(replay_data, file, indent=4)
                     logger.debug('last replay file saved: ' + filename)
@@ -296,7 +304,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                     replay_summary = replay_summary.replace(player_name, config.STREAMER_NICKNAME)
 
                 # Save the replay summary to a file
-                filename = 'replay_summary.txt'
+                filename = config.LAST_REPLAY_SUMMARY_FILE
                 with open(filename, 'w') as file:
                     file.write(replay_summary)
                     logger.debug('last replay summary saved: ' + filename)
