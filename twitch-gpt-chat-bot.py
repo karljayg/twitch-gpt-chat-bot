@@ -15,6 +15,7 @@ import logging
 import math
 import os
 import spawningtool.parser
+import wiki_utils
 from difflib import SequenceMatcher
 from datetime import datetime, timedelta
 from settings import config
@@ -196,7 +197,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         irc.bot.SingleServerIRCBot.__init__(self, [(self.server, self.port, 'oauth:' + self.token)], self.username,
                                             self.username)
 
-    def signal_handler(self, frame):
+    # incorrect IDE warning here, keep parameters at 3
+    def signal_handler(self, signal, frame):
         self.shutdown_flag = True
         logger.debug(
             "================================================SHUTTING DOWN BOT========================================")
@@ -240,8 +242,9 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             result = find_latest_file(config.REPLAYS_FOLDER, config.REPLAYS_FILE_EXTENSION)
             if result:
                 print(f"The path to the latest file is: {result}")
-                #test
-                #result="C:/Users/karl_/Downloads/twitch-gpt-chat-bot/test/replays/1v1 TESTFILE - no matching names - 20230805 - Game 2 - Solar vs Serral - ZvZ - Gresvan.sc2replay"
+
+                if config.ANALYZE_REPLAYS_FOR_TEST:
+                    result = config.REPLAY_TEST_FILE  # use this test file instead of latest
                 replay_data = spawningtool.parser.parse_replay(result)
 
                 # Save the replay JSON to a file
@@ -329,20 +332,30 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             if len(winning_players) == 0:
                 response = f"Replayed game with {game_player_names} ended with a Tie!"
             else:
-                response = f"The replay has finished, game with {game_player_names} ended in a win for {winning_players} and a loss for {losing_players}"
+                response = (f"The replay has finished, game with {game_player_names} ended in a win for "
+                            f"{winning_players} and a loss for {losing_players}")
 
         if not config.OPENAI_DISABLED:
             self.processMessageForOpenAI(response)
+
             # get analysis of game summary from the last real game's replay file that created
-            if current_game.isReplay or current_game.get_status() == "MATCH_STARTED":
+            logger.debug("current game status: " + current_game.get_status() +
+                         " isReplay: " + str(current_game.isReplay) +
+                         " ANALYZE_REPLAYS_FOR_TEST: " + str(config.ANALYZE_REPLAYS_FOR_TEST))
+
+            if (not config.ANALYZE_REPLAYS_FOR_TEST
+                    and (current_game.isReplay or current_game.get_status() == "MATCH_STARTED")):
+                logger.debug("not analyzing replay")
                 return
                 # do not get analysis when the game just started
                 # this is for live matches only as viewing replay files viewed do not count
                 # because the timestamp is not updated when viewed so we cannot tell
                 # which replay file was viewed. For now it only works on live games.
                 # Also, do not get analysis when the game just started
+                # because the replay file is not created yet
+                # UPDATE: override with config.ANALYZE_REPLAYS_FOR_TEST to process old replays
             else:
-                logger.debug("replay summary to AI: ")
+                logger.debug("analyzing, replay summary to AI: ")
                 self.processMessageForOpenAI(replay_summary)
 
     def monitor_game(self):
@@ -504,16 +517,29 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         # user = {"name": tags["display-name"], "id": tags["user-id"]}
 
         # Send response to direct msg or keyword which includes Mathison being mentioned
-        if 'open sesame' in msg.lower() or any(sub in msg.lower() for sub in config.OPEN_SESAME_SUBSTITUTES):
+        if 'open sesame' in msg.lower() or any(sub.lower() == msg.lower() for sub in config.OPEN_SESAME_SUBSTITUTES):
+            logger.debug("received open sesame: " + str(msg.lower()))
             self.processMessageForOpenAI(msg)
             return
 
+        # search wikipedia
+        if 'wiki' in msg.lower():
+            logger.debug("received wiki command: /n" + msg)
+            msg = wiki_utils.wikipedia_question(msg, self)
+            logger.debug("wiki answer: /n" + msg)
+            self.msgToChannel(msg)
+            return
+
         # ignore certain users
+        logger.debug("checking user: " + sender + " against ignore list")
         if sender.lower() in [user.lower() for user in config.IGNORE]:
             logger.debug("ignoring user: " + sender)
             return
+        else:
+            logger.debug("allowed user: " + sender)
 
         if config.PERSPECTIVE_DISABLED:
+            logger.debug("google perspective config is disabled")
             toxicity_probability = 0
         else:
             toxicity_probability = tokensArray.get_toxicity_probability(msg, logger)
@@ -575,6 +601,7 @@ async def tasks_to_do():
     except SystemExit as e:
         # Handle the SystemExit exception if needed, or pass to suppress it
         pass
+
 
 async def main():
     tasks = [asyncio.create_task(tasks_to_do())]
