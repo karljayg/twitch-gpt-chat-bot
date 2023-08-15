@@ -256,10 +256,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 players = [f"{player_data['name']}: {player_data['race']}" for player_data in
                            replay_data['players'].values()]
                 replay_summary += f"Players: {', '.join(players)}\n"
-                print(replay_summary)
-
                 replay_summary += f"Map: {replay_data['map']}\n\n"
-                print(replay_summary[-len(f"Map: {replay_data['map']}\n\n"):])
 
                 # Build Orders
                 build_orders = {player_key: player_data['buildOrder'] for player_key, player_data in
@@ -267,7 +264,6 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 for player_key, build_order in build_orders.items():
                     player_info = f"{replay_data['players'][player_key]['name']}'s Build Order (first 20 steps):"
                     replay_summary += player_info + '\n'
-                    print(player_info)
                     for order in build_order[:20]:
                         time = order['time']
                         name = order['name']
@@ -276,7 +272,6 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                         replay_summary += order_info + '\n'
                         print(order_info)
                     replay_summary += '\n'
-                    print()
 
                 # Units Lost
                 units_lost_summary = {player_key: player_data['unitsLost'] for player_key, player_data in
@@ -284,7 +279,6 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 for player_key, units_lost in units_lost_summary.items():
                     player_info = f"{replay_data['players'][player_key]['name']}'s Units Lost:"
                     replay_summary += player_info + '\n'
-                    print(player_info)
                     units_lost_aggregate = defaultdict(int)
                     for unit in units_lost:
                         name = unit.get('name', "N/A")
@@ -292,9 +286,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                     for unit_name, count in units_lost_aggregate.items():
                         unit_info = f"{unit_name}: {count}"
                         replay_summary += unit_info + '\n'
-                        print(unit_info)
                     replay_summary += '\n'
-                    print()
 
                 # replace player names with streamer name
                 for player_name in config.SC2_PLAYER_ACCOUNTS:
@@ -306,10 +298,14 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                     file.write(replay_summary)
                     logger.debug('last replay summary saved: ' + filename)
                 print("Replay data saved to replay_data.json")
+                # clear
+                replay_summary = ""
             else:
                 print("No result found or an error occurred.")
 
         if current_game.get_status() == "MATCH_STARTED":
+            # clear context history so that the bot doesn't mix up results from previous games
+            contextHistory.clear()
             response = f"Game has started with these {game_player_names}"
 
         elif current_game.get_status() == "MATCH_ENDED":
@@ -322,6 +318,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 response = f"Game with {game_player_names} ended with {winning_players} beating {losing_players}"
 
         elif current_game.get_status() == "REPLAY_STARTED":
+            # clear context history so that the bot doesn't mix up results from previous games
+            contextHistory.clear()
             response = f"{config.STREAMER_NICKNAME} is running a replay of the game with {game_player_names}"
 
         elif current_game.get_status() == "REPLAY_ENDED":
@@ -335,8 +333,17 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
         if not config.OPENAI_DISABLED:
             self.processMessageForOpenAI(response)
-            # get analysis of game summary, from an SC2 viewer perspective
-            self.processMessageForOpenAI(replay_summary)
+            # get analysis of game summary from the last real game's replay file that created
+            if current_game.isReplay or current_game.get_status() == "MATCH_STARTED":
+                return
+                # do not get analysis when the game just started
+                # this is for live matches only as viewing replay files viewed do not count
+                # because the timestamp is not updated when viewed so we cannot tell
+                # which replay file was viewed. For now it only works on live games.
+                # Also, do not get analysis when the game just started
+            else:
+                logger.debug("replay summary to AI: ")
+                self.processMessageForOpenAI(replay_summary)
 
     def monitor_game(self):
         previous_game = None
@@ -350,6 +357,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
             previous_game = current_game
             time.sleep(config.MONITOR_GAME_SLEEP_SECONDS)
+            # heartbeat indicator
+            print(".", end="", flush=True)
 
     # all msgs to channel are now logged
     def msgToChannel(self, message):
@@ -359,11 +368,16 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         logger.debug("---------------------------------------------------------")
 
     def processMessageForOpenAI(self, msg):
+
+        # let's give these requests some breathing room
+        time.sleep(config.MONITOR_GAME_SLEEP_SECONDS)
+
         # remove open sesame
         msg = msg.replace('open sesame', '')
         logger.debug(
             "----------------------------------------NEW MESSAGE FOR OPENAI-----------------------------------------")
-        logger.debug(msg)
+        # logger.debug(msg)
+        logger.debug('msg omitted in log, to see it, look in: "sent to OpenAI"')
         # remove open sesame
         msg = msg.replace('open sesame', '')
 
@@ -391,7 +405,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
         # Add custom SC2 viewer perspective
         msg = (f"As a {mood} observer of matches in StarCraft 2, {perspective}, "
-               f"without repeating any previous words from here: /n") + msg + "\n"
+               f"without repeating any previous words from here: \n") + msg + "\n"
         msg += (" Do not use personal pronouns like 'I,' 'me,' 'my,' etc. "
                 "but instead speak from a 3rd person referencing the player.")
 
@@ -422,6 +436,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             # dont make it too obvious its a bot
             response = response.replace("As an AI language model, ", "")
             response = response.replace("User: , ", "")
+            response = response.replace("Player: , ", "")
 
             logger.debug("cleaned up message from OpenAI:")
             logger.debug(response)
@@ -561,11 +576,9 @@ async def tasks_to_do():
         # Handle the SystemExit exception if needed, or pass to suppress it
         pass
 
-
 async def main():
     tasks = [asyncio.create_task(tasks_to_do())]
     for task in tasks:
         await task  # Await the task here to handle exceptions
-
 
 asyncio.run(main())
