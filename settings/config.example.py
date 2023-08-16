@@ -44,7 +44,7 @@ SC2_PLAYER_ACCOUNTS = ['myname']
 REPLAYS_FOLDER = r"C:\Users\WHATEVER\OneDrive\Documents\StarCraft II\Accounts"
 REPLAYS_FILE_EXTENSION = "SC2Replay"
 ANALYZE_REPLAYS_FOR_TEST = True
-REPLAY_TEST_FILE = ("test/replays/Dragon Scales LE (281).SC2Replay")
+REPLAY_TEST_FILE = ("test/replays/Gresvan LE (439).SC2Replay")
 BUILD_ORDER_COUNT_TO_ANALYZE = 60
 TEST_MODE = False  # will review SC2 game status JSON file in test instead of the SC2 client
 IGNORE_REPLAYS = False  # will ignore game status when watching a replay
@@ -77,7 +77,7 @@ LOG_FILE = "logs/bot.log"  # log file location
 
 BOT_MOODS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]  # selected flavors of mood
 BOT_PERSPECTIVES = [0, 1, 2, 3, 4, 5, 6, 7, 8]  # additional selected perspectives of response
-PERSPECTIVE_INDEX_CUTOFF = 4  # if 4, the first 4 index are for replays: 0,1,2,3
+PERSPECTIVE_INDEX_CUTOFF = 5  # if 4, the first 4 index are for replays: 0,1,2,3
 
 # mood and perspectives options selected above (not to be confused with Google Perspective API
 MOOD_OPTIONS = [
@@ -111,11 +111,12 @@ MOOD_OPTIONS = [
 ]
 
 PERSPECTIVE_OPTIONS = [
-    "talk about build order and units lost for each player limit to 20 words in a poem",
+    "talk about build order or units lost limit to 20 words in a poem",
     "find something interesting in the replay summary, limit to 15 words",
     "point out the most killed units for each player based on replay summary with joy, limit to 15 words",
-    "look at the build order and anything interesting, in a funny way, limit to 15 words",
-    # above are the first 4 for replay analysis, per PERSPECTIVE_INDEX_CUTOFF = 4
+    "look at the build order and anything interesting and write a haiku about it",
+    "make a gamer joke about the game duration",
+    # above are the first 5 for replay analysis, per PERSPECTIVE_INDEX_CUTOFF = 5
     "respond casually and concisely in only 15 words",
     "be extremely short in response, at most 16 words",
     "speak with expertise, at most 10 words",  # long winded, be careful

@@ -269,6 +269,18 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 replay_summary += f"Players: {', '.join(players)}\n"
                 replay_summary += f"Map: {replay_data['map']}\n\n"
 
+                # Game Duration
+                frames = replay_data['frames']
+                frames_per_second = replay_data['frames_per_second']
+
+                total_seconds = frames / frames_per_second
+                minutes = int(total_seconds // 60)
+                seconds = int(total_seconds % 60)
+
+                game_duration = f"{minutes}m {seconds}s"
+                replay_summary += f"Game Duration: {game_duration}\n\n"
+                print("Game Duration:", game_duration)
+
                 # Build Orders
                 build_orders = {player_key: player_data['buildOrder'] for player_key, player_data in
                                 replay_data['players'].items()}
