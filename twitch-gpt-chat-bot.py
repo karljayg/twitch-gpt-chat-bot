@@ -275,7 +275,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 for player_key, build_order in build_orders.items():
                     player_info = f"{replay_data['players'][player_key]['name']}'s Build Order (first 20 steps):"
                     replay_summary += player_info + '\n'
-                    for order in build_order[:20]:
+                    for order in build_order[:config.BUILD_ORDER_COUNT_TO_ANALYZE]:
                         time = order['time']
                         name = order['name']
                         supply = order['supply']
@@ -309,8 +309,6 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                     file.write(replay_summary)
                     logger.debug('last replay summary saved: ' + filename)
                 print("Replay data saved to replay_data.json")
-                # clear
-                replay_summary = ""
             else:
                 print("No result found or an error occurred.")
 
@@ -344,7 +342,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                             f"{winning_players} and a loss for {losing_players}")
 
         if not config.OPENAI_DISABLED:
-            self.processMessageForOpenAI(response)
+            self.processMessageForOpenAI(response, False)
 
             # get analysis of game summary from the last real game's replay file that created
             logger.debug("current game status: " + current_game.get_status() +
@@ -364,7 +362,9 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 # UPDATE: override with config.ANALYZE_REPLAYS_FOR_TEST to process old replays
             else:
                 logger.debug("analyzing, replay summary to AI: ")
-                self.processMessageForOpenAI(replay_summary)
+                self.processMessageForOpenAI(replay_summary, True)
+                # clear after analyzing and making a comment
+                replay_summary = ""
 
     def monitor_game(self):
         previous_game = None
@@ -388,7 +388,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         logger.debug(message)
         logger.debug("---------------------------------------------------------")
 
-    def processMessageForOpenAI(self, msg):
+    def processMessageForOpenAI(self, msg, is_replay_analysis):
 
         # let's give these requests some breathing room
         time.sleep(config.MONITOR_GAME_SLEEP_SECONDS)
@@ -422,7 +422,13 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
         # Choose a random mood and perspective from the selected options
         mood = random.choice(self.selected_moods)
-        perspective = random.choice(self.selected_perspectives)
+        if is_replay_analysis:
+            perspective_indices = config.BOT_PERSPECTIVES[:config.PERSPECTIVE_INDEX_CUTOFF]  # Select indices 0-3
+        else:
+            perspective_indices = config.BOT_PERSPECTIVES[config.PERSPECTIVE_INDEX_CUTOFF:]  # Select indices 4-onwards
+
+        selected_perspectives = [config.PERSPECTIVE_OPTIONS[i] for i in perspective_indices]
+        perspective = random.choice(selected_perspectives)
 
         # Add custom SC2 viewer perspective
         msg = (f"As a {mood} observer of matches in StarCraft 2, {perspective}, "
@@ -527,7 +533,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         # Send response to direct msg or keyword which includes Mathison being mentioned
         if 'open sesame' in msg.lower() or any(sub.lower() == msg.lower() for sub in config.OPEN_SESAME_SUBSTITUTES):
             logger.debug("received open sesame: " + str(msg.lower()))
-            self.processMessageForOpenAI(msg)
+            self.processMessageForOpenAI(msg, False)
             return
 
         # search wikipedia
@@ -584,7 +590,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 logger.debug("will not respond")
                 return
 
-            self.processMessageForOpenAI(msg)
+            self.processMessageForOpenAI(msg, False)
 
         else:
             response = random.randint(1, 3)

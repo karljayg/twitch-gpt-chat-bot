@@ -1,55 +1,137 @@
+NAME = "Mathison"
+VERSION = "0.1.0"
+AUTHOR = "KJ Garcia"
+AUTHOR_EMAIL = "kj@psistorm.com"
+#  @karljayg on twitter/insta
+#  more info: https://docs.google.com/document/d/1C8MM_BqbOYL9W0N0qu0T1g2DS7Uj_a6Vebd6LJLX4yU/edit?usp=sharing
+
 """
 |   Twitch Settings
 """
-NAME = "Twitchchatbot GPT"
-OWNER = "psi_mathison"
+# Twitch API credentials
 CLIENT_ID = "psi_mathison"
 TOKEN = ""
+OWNER = "psi_mathison"
 TRAINING_FILE = f"hypebot/training/twitchchatbot-gpt-ex-{NAME}-1"
 PAGE = "kj_freeedom"
 STREAMER_NICKNAME = "KJ"
 
+# IRC Bot settings
 HOST = "irc.chat.twitch.tv"
 PORT = 6667
 USERNAME = OWNER
-
-# IRC Bot variables
+CHANNEL = f"#{PAGE}"
 URL = f"https://api.twitch.tv/kraken/users?login={USERNAME}"
 HEADERS = {"Client-ID": CLIENT_ID, "Accept": "application/vnd.twitchtv.v5+json"}
 
-CHANNEL = f"#{PAGE}"
-
-# OPENAI SETTINGS
+"""
+|   OpenAI Settings
+"""
+# OpenAI API credentials
 OPENAI_API_KEY = "sk-"
 OPENAI_DISABLED = False
-# ENGINE="davinci"
-ENGINE = "gpt-3.5-turbo"  # aka MODEL
+ENGINE = "gpt-3.5-turbo"
 TEMPERATURE = 0.99
 MAX_TOKENS = 100
 CONVERSATION_MAX_TOKENS = MAX_TOKENS
 OUTPUT_PFX = ""
 
 """
-"RESP_FREQUENCY- decimal value, between 0.0 to 1.0 determines the toxicity level allowed to pass through 
-"Perspective's filters.
-"RESP_WAIT - integer value, determines how many seconds before the message from OpenAI will be displayed in the 
-"twitch channel.
-"MAX_RESPONSIVENESS - DECIMAL representation of max percentage of responses vs participant count ratio per chat 
-"cycle that the chatbot it allowed to make in total.
-"RESPONSE_PROBABILITY - DECIMAL representation of desired probability of chatbot to respond to any message it 
-"receives while not yet reaching its MAX_RESPONSIVENESS.
+|   SC2 Settings
 """
-RESP_FREQUENCY = 1.0
-RESP_WAIT = 5
-MAX_RESPONSIVENESS = 0.5
-RESPONSE_PROBABILITY = 0.7
+# StarCraft II settings
+SC2_PLAYER_ACCOUNTS = ['myname']
+REPLAYS_FOLDER = r"C:\Users\WHATEVER\OneDrive\Documents\StarCraft II\Accounts"
+REPLAYS_FILE_EXTENSION = "SC2Replay"
+ANALYZE_REPLAYS_FOR_TEST = True
+REPLAY_TEST_FILE = ("test/replays/Dragon Scales LE (281).SC2Replay")
+BUILD_ORDER_COUNT_TO_ANALYZE = 60
+TEST_MODE = False  # will review SC2 game status JSON file in test instead of the SC2 client
+IGNORE_REPLAYS = False  # will ignore game status when watching a replay
+IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN = True  # will not comment on game status since its from last game before run
+GAME_RESULT_TEST_FILE = "test/SC2_game_result_test.json"  # output of game result JSON file for analysis if needed
+LAST_REPLAY_JSON_FILE = "temp/last_replay_data.json"  # json file of the last replay from sc2reader
+LAST_REPLAY_SUMMARY_FILE = "temp/replay_summary.txt"  # summary file of build orders and units lost TODO: add other info
 
-# LOG SETTINGS
-LOG_FILE = "logs/bot.log"
+"""
+|   Bot Behavior Settings
+"""
+IGNORE = ["psistorm_mathison", "psi_mathison", "Streamelements", "StreamElements"]  # users to ignore
+RESPONSE_PROBABILITY = 0.7  # how often to respond? 1.0 = 100%  0.7 = 70%
+MONITOR_GAME_SLEEP_SECONDS = 3  # sleep time between execution
+GREETINGS_LIST_FROM_OTHERS = ['hi', 'HeyGuys', 'Hello']  # Mathison will say hi
+OPEN_SESAME_SUBSTITUTES = "open sesame"  # override any delays/blocks and Mathison will respond
+STOP_WORDS_FLAG = "adios amigo"  # remove/stop words - TODO: redo logic as it is off right now coz buggy
+RESP_FREQUENCY = 1.0  # TODO: unused
+RESP_WAIT = 5  # wait in seconds to respond TODO: review if this works
+MAX_RESPONSIVENESS = 0.5  # TODO: unused
 
-# missing config items - need to clean up
-BOT_GREETING_WORDS = "hello"
-# Emotes for bot greetings
+"""
+|   Logging Settings
+"""
+LOG_FILE = "logs/bot.log"  # log file location
+
+"""
+|   Mood / Perspective Settings
+"""
+
+BOT_MOODS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]  # selected flavors of mood
+BOT_PERSPECTIVES = [0, 1, 2, 3, 4, 5, 6, 7, 8]  # additional selected perspectives of response
+PERSPECTIVE_INDEX_CUTOFF = 4  # if 4, the first 4 index are for replays: 0,1,2,3
+
+# mood and perspectives options selected above (not to be confused with Google Perspective API
+MOOD_OPTIONS = [
+    "formal",  # 0 Use a more professional and refined tone in your instructions.
+    "enthusiastic",  # 1 Show excitement and energy in your instructions.
+    "confident",  # 2 Provide instructions with a strong and assured tone.
+    "helpful",  # 3 Instruct in a supportive and assisting manner.
+    "direct",  # 4 Provide clear and straightforward instructions without any extra frills.
+    "playful",  # 5 Add a touch of playfulness and fun to your instructions.
+    "authoritative",  # 6 Instruct with authority and decisiveness.
+    "thoughtful",  # 7 Provide instructions with careful consideration and depth.
+    "upbeat",  # 8 Maintain a positive and optimistic tone in your instructions.
+    "empathetic",  # 9 Show understanding and empathy in your instructions.
+    "curious",  # 10 Pose questions and instructions with a curious and inquisitive tone.
+    "dry humor",
+    # 11 Delivering statements with a subtle and understated sense of humor, often using irony or clever wordplay.
+    "sarcastic",
+    # 12 Using statements that express the opposite of what is actually meant, often with a sharp and mocking tone.
+    "friendly",  # 13 Providing instructions in a warm and approachable manner, creating a sense of comfort and ease.
+    "casual",  # 14 Instructing in a relaxed and informal way, as if having a laid-back conversation with a friend.
+    "witty",
+    # 15 Crafting instructions with clever and intelligent remarks, often using wordplay or clever insights
+    # to engage effectively.
+    "subtly funny",
+    # 16 Incorporating light humor in a way that's not immediately obvious, adding a touch of amusement to your
+    # instructions.
+    "serious",
+    # 17 Communicating with a focused and grave tone, indicating the importance and gravity of the instructions.
+    "informative",  # 18 Delivering clear and factual instructions that provide valuable information and insights.
+    "silly"  # 19 Expressing a lighthearted and humorous mood.
+]
+
+PERSPECTIVE_OPTIONS = [
+    "talk about build order and units lost for each player limit to 20 words in a poem",
+    "find something interesting in the replay summary, limit to 15 words",
+    "point out the most killed units for each player based on replay summary with joy, limit to 15 words",
+    "look at the build order and anything interesting, in a funny way, limit to 15 words",
+    # above are the first 4 for replay analysis, per PERSPECTIVE_INDEX_CUTOFF = 4
+    "respond casually and concisely in only 15 words",
+    "be extremely short in response, at most 16 words",
+    "speak with expertise, at most 10 words",  # long winded, be careful
+    "comment with excitement, max of 10 words",
+    "add a small joke of 15 words or less",
+    "end with a question of 15 words or less",
+    "be very funny at the end",
+    # Add other perspective options here
+]
+
+"""
+|   Rarely changed Twitch Settings
+"""
+
+BOT_KJ_ALL_EMOTES = ['kjfreeLUL', 'kjfreeNOGG', 'kjfreePOG', 'kjfreePOGanimate', 'kjfreePSISTORM',
+                     'kjfreePSISTORManimate', 'kjfreeSCUD', 'kjfreeFSL', 'kjfreeGG']  # emotes specific to channel
 BOT_GREETING_EMOTES = ['4Head', '8-)', ':(', ':(', ':)', ':-(', ':-)', ':-/', ':-D', ':-O', ':-P', ':-Z', ':-\\', ':-o',
                        ':-p', ':-z', ':-|', ':/', ':/', ':D', ':D', ':O', ':O', ':P', ':P', ':Z', ':\\', ':o', ':p',
                        ':z', ':|', ':|', ';)', ';)', ';-)', ';-P', ';-p', ';P', ';P', ';p', '<3', '<3', '>(', '>(',
@@ -88,106 +170,23 @@ BOT_GREETING_EMOTES = ['4Head', '8-)', ':(', ':(', ':)', ':-(', ':-)', ':-/', ':
                        'WTRuck', 'WholeWheat', 'WhySoSerious', 'WutFace', 'YouDontSay', 'YouWHY', 'bleedPurple',
                        'cmonBruh', 'copyThis', 'duDudu', 'imGlitch', 'mcaT', 'o.O', 'o.o', 'o_O', 'o_o', 'panicBasket',
                        'pastaThat', 'riPepperonis', 'twitchRaid', 'kjfreeFSL', 'kjfreeGG']
-BOT_KJ_ALL_EMOTES = ['kjfreeLUL', 'kjfreeNOGG', 'kjfreePOG', 'kjfreePOGanimate', 'kjfreePSISTORM',
-                     'kjfreePSISTORManimate', 'kjfreeSCUD', 'kjfreeFSL', 'kjfreeGG']
-BOT_KJ_FOLLOWER_EMOTES = ['kjfreeLUL', 'kjfreeNOGG', 'kjfreePOG', 'kjfreePOGanimate', 'kjfreePSISTORM',
-                          'kjfreePSISTORManimate', 'kjfreeSCUD', 'kjfreeFSL', 'kjfreeGG']
 
-# streamer SC2 account, for game monitoring
-SC2_PLAYER_ACCOUNTS = ['myname']
-
-ALIGULAC_API_KEY = ''
-
-SC2REPLAY_STATS_AUTH_KEY = ""
-SC2REPLAY_STATS_ACCOUNT_ID = ""  # if needed
-SC2REPLAY_STATS_HASH = ""
-SC2REPLAY_STATS_TOKEN = ""
-SC2REPLAY_STATS_TIMESTAMP = ""
-
-TEST_MODE = True
-IGNORE_REPLAYS = False
-IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN = True
-GAME_RESULT_TEST_FILE = "test/SC2_game_result_test.json"
-MONITOR_GAME_SLEEP_SECONDS = 3
-LAST_REPLAY_JSON_FILE = "temp/last_replay_data.json"
-LAST_REPLAY_SUMMARY_FILE = "temp/replay_summary.txt"
-REPLAYS_FOLDER = r"C:\Users\WHATEVER\OneDrive\Documents\StarCraft II\Accounts"  # you can use r to escape for Win Path
-REPLAYS_FILE_EXTENSION = "SC2Replay"
-ANALYZE_REPLAYS_FOR_TEST = False
-REPLAY_TEST_FILE = ("C:/Users/WHATEVER/PycharmProjects/twitch-gpt-chat-bot/test/replays/"
-                    "1v1 TESTFILE - no matching names - 20230805 "
-                    "- Game 2 - Solar vs Serral - ZvZ - Gresvan.sc2replay")
-
-GREETINGS_LIST_FROM_OTHERS = ['hi', 'HeyGuys', 'Hello']
-OPEN_SESAME_SUBSTITUTES = "open sesame"
-STOP_WORDS_FLAG = "adios amigo"
-
-# mood and perspectives of the bot (not to be confused with Google Perspective API
-MOOD_OPTIONS = [
-    "formal",  # 0 Use a more professional and refined tone in your instructions.
-    "enthusiastic",  # 1 Show excitement and energy in your instructions.
-    "confident",  # 2 Provide instructions with a strong and assured tone.
-    "helpful",  # 3 Instruct in a supportive and assisting manner.
-    "direct",  # 4 Provide clear and straightforward instructions without any extra frills.
-    "playful",  # 5 Add a touch of playfulness and fun to your instructions.
-    "authoritative",  # 6 Instruct with authority and decisiveness.
-    "thoughtful",  # 7 Provide instructions with careful consideration and depth.
-    "upbeat",  # 8 Maintain a positive and optimistic tone in your instructions.
-    "empathetic",  # 9 Show understanding and empathy in your instructions.
-    "curious",  # 10 Pose questions and instructions with a curious and inquisitive tone.
-    "dry humor",
-    # 11 Delivering statements with a subtle and understated sense of humor, often using irony or clever wordplay.
-    "sarcastic",
-    # 12 Using statements that express the opposite of what is actually meant, often with a sharp and mocking tone.
-    "friendly",  # 13 Providing instructions in a warm and approachable manner, creating a sense of comfort and ease.
-    "casual",  # 14 Instructing in a relaxed and informal way, as if having a laid-back conversation with a friend.
-    "witty",
-    # 15 Crafting instructions with clever and intelligent remarks, often using wordplay or clever insights
-    # to engage effectively.
-    "subtly funny",
-    # 16 Incorporating light humor in a way that's not immediately obvious, adding a touch of amusement to your
-    # instructions.
-    "serious",
-    # 17 Communicating with a focused and grave tone, indicating the importance and gravity of the instructions.
-    "informative",  # 18 Delivering clear and factual instructions that provide valuable information and insights.
-    "silly"  # 19 Expressing a lighthearted and humorous mood.
-]
-
-PERSPECTIVE_OPTIONS = [
-    "respond casually and concisely in only 15 words",
-    "be extremely short in response, at most 6 words",
-    "speak with expertise, at most 10 words",  # long winded, be careful
-    "comment with excitement, max of 10 words",
-    "add a small joke of 5 words or less",
-    "end with a question of 5 words or less",
-    "be very funny at the end",
-    # Add other perspective options here
-]
-
-BOT_MOODS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]  # Indices of selected moods
-BOT_PERSPECTIVES = [0, 1, 3]  # Indices of selected perspectives
-
-# PERSPECTIVE API SETTINGS
 """
-"TOXICITY THRESHOLD - decimal value, between 0.0 to 1.0 determines the toxicity level allowed to pass through 
-"Perspective's filters.
-"PERSPECTIVE_API_KEY - string value, unique identifier required to access Perspective API.
-"PERSPECTIVE_URL - 
+|   Google Perspective API Settings
 """
 PERSPECTIVE_DISABLED = True
 TOXICITY_THRESHOLD = 0.5
 PERSPECTIVE_API_KEY = ''
 PERSPECTIVE_URL = 'https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze?key='
 
-"""
-"IGNORE - an array of strings that will hold the names of the users you want the bot to ignore. 
-" P.S.: this is case sensitive
-"""
-IGNORE = ["psistorm_mathison", "psi_mathison", "Streamelements", "StreamElements"]
+# Other Integrations
+ALIGULAC_API_KEY = ''
+SC2REPLAY_STATS_AUTH_KEY = ""
+SC2REPLAY_STATS_ACCOUNT_ID = ''  # if needed
+SC2REPLAY_STATS_HASH = ""
+SC2REPLAY_STATS_TOKEN = ""
+SC2REPLAY_STATS_TIMESTAMP = ""
 
-"""
-"TOXIC_KEYWORDS - an array of strings that holds bad words
-"TOXIC_RESPONSE - a string that will be used to reply to a user if the bot responds with a toxic comment
-"""
-TOXIC_KEYWORDS = ["fuck", "shit", "ass", "bullshit"]
+# Other settings
+TOXIC_KEYWORDS = ["cussword"]
 TOXIC_RESPONSE = "I'd respond to that but I don't think I should."
