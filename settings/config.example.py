@@ -32,8 +32,8 @@ OPENAI_API_KEY = "sk-"
 OPENAI_DISABLED = False
 ENGINE = "gpt-3.5-turbo"
 TEMPERATURE = 0.99
-MAX_TOKENS = 100
-CONVERSATION_MAX_TOKENS = MAX_TOKENS
+MAX_TOKENS = 2000  # actual max for chatgpt 3.5 turbo is 4096
+CONVERSATION_MAX_TOKENS = 100  # max just for the conversation
 OUTPUT_PFX = ""
 
 """

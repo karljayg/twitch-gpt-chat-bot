@@ -73,6 +73,7 @@ class LogOnceWithinIntervalFilter(logging.Filter):
         self.last_logged_message = None
         self.last_logged_time = None
 
+    # log filter for similar repetitive messages to suppress
     def filter(self, record):
         now = datetime.now()
 
@@ -553,6 +554,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             logger.debug("received wiki command: /n" + msg)
             msg = wiki_utils.wikipedia_question(msg, self)
             logger.debug("wiki answer: /n" + msg)
+            msg = msg[:500]  # temporarily limit to 500 char
             self.msgToChannel(msg)
             return
 
