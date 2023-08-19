@@ -105,11 +105,6 @@ logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 # Player names of streamer to check results for
 player_names = config.SC2_PLAYER_ACCOUNTS
 
-last_received_data = None
-prev_results = None
-first_run = True
-
-
 def get_random_emote():
     emote_names = config.BOT_GREETING_EMOTES
     return f'{random.choice(emote_names)}'
@@ -165,6 +160,8 @@ def find_latest_file(folder, file_extension):
 
 class TwitchBot(irc.bot.SingleServerIRCBot):
     def __init__(self):
+
+        self.first_run = True
 
         # handle KeyboardInterrupt in a more graceful way by setting a flag when Ctrl-C is pressed and checking that
         # flag in threads that need to be terminated
@@ -252,8 +249,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             if result:
                 print(f"The path to the latest file is: {result}")
 
-                if config.ANALYZE_REPLAYS_FOR_TEST:
-                    result = config.REPLAY_TEST_FILE  # use this test file instead of latest
+                if config.USE_CONFIG_TEST_REPLAY_FILE:
+                    result = config.REPLAY_TEST_FILE  # use the config test file instead of latest found dynamically
                 replay_data = spawningtool.parser.parse_replay(result)
 
                 # Save the replay JSON to a file
@@ -288,6 +285,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 for player_key, build_order in build_orders.items():
                     player_info = f"{replay_data['players'][player_key]['name']}'s Build Order (first 20 steps):"
                     replay_summary += player_info + '\n'
+                    print("BUILD_ORDER_COUNT_TO_ANALYZE: " + str(config.BUILD_ORDER_COUNT_TO_ANALYZE))
                     for order in build_order[:config.BUILD_ORDER_COUNT_TO_ANALYZE]:
                         time = order['time']
                         name = order['name']
@@ -301,7 +299,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 units_lost_summary = {player_key: player_data['unitsLost'] for player_key, player_data in
                                       replay_data['players'].items()}
                 for player_key, units_lost in units_lost_summary.items():
-                    player_info = f"{replay_data['players'][player_key]['name']}'s Units Lost:"
+                    player_info = f"Units Lost by {replay_data['players'][player_key]['name']}"  # ChatGPT gets confused if you use possessive 's vs by
                     replay_summary += player_info + '\n'
                     units_lost_aggregate = defaultdict(int)
                     for unit in units_lost:
@@ -342,7 +340,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         elif current_game.get_status() == "REPLAY_STARTED":
             # clear context history so that the bot doesn't mix up results from previous games
             contextHistory.clear()
-            response = f"{config.STREAMER_NICKNAME} is running a replay of the game with {game_player_names}"
+            response = f"{config.STREAMER_NICKNAME} is watching a replay of a game. The players are {game_player_names}"
 
         elif current_game.get_status() == "REPLAY_ENDED":
             winning_players = ', '.join(current_game.get_player_names(result_filter='Victory'))
@@ -355,29 +353,34 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                             f"{winning_players} and a loss for {losing_players}")
 
         if not config.OPENAI_DISABLED:
+            if self.first_run:
+                logger.debug("this is the first run")
+                self.first_run = False
+                if config.IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN:
+                    logger.debug("per config, ignoring previous game results on first run")
+                    return  # exit function, do not proceed to comment on the result, and analysis on game summary
+            else:
+                logger.debug("this is not first run")
+
+            # proceed
             self.processMessageForOpenAI(response, False)
 
-            # get analysis of game summary from the last real game's replay file that created
+            # get analysis of game summary from the last real game's replay file that created, unless using config test replay file
             logger.debug("current game status: " + current_game.get_status() +
-                         " isReplay: " + str(current_game.isReplay) +
-                         " ANALYZE_REPLAYS_FOR_TEST: " + str(config.ANALYZE_REPLAYS_FOR_TEST))
+                        " isReplay: " + str(current_game.isReplay) +
+                        " ANALYZE_REPLAYS_FOR_TEST: " + str(config.USE_CONFIG_TEST_REPLAY_FILE))
 
-            if (not config.ANALYZE_REPLAYS_FOR_TEST
-                    and (current_game.isReplay or current_game.get_status() == "MATCH_STARTED")):
-                logger.debug("not analyzing replay")
-                return
-                # do not get analysis when the game just started
-                # this is for live matches only as viewing replay files viewed do not count
-                # because the timestamp is not updated when viewed so we cannot tell
-                # which replay file was viewed. For now it only works on live games.
-                # Also, do not get analysis when the game just started
-                # because the replay file is not created yet
-                # UPDATE: override with config.ANALYZE_REPLAYS_FOR_TEST to process old replays
-            else:
+            # we do not want to analyze when the game (live or replay) is not in an ended state 
+            # unless we are testing with a replay file
+            if (current_game.get_status() not in ["MATCH_STARTED","REPLAY_STARTED"] or (current_game.isReplay and config.USE_CONFIG_TEST_REPLAY_FILE)):
+                # get analysis of ended games, or during testing of config test replay file
                 logger.debug("analyzing, replay summary to AI: ")
                 self.processMessageForOpenAI(replay_summary, True)
                 # clear after analyzing and making a comment
                 replay_summary = ""
+            else:
+                logger.debug("not analyzing replay")
+                return
 
     def monitor_game(self):
         previous_game = None
@@ -386,7 +389,9 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             current_game = self.check_SC2_game_status()
 
             if current_game:
-                if not config.IGNORE_REPLAYS or not current_game.isReplay:
+                if config.IGNORE_GAME_STATUS_WHILE_WATCHING_REPLAYS and current_game.isReplay:
+                    pass
+                else:
                     self.handle_SC2_game_results(previous_game, current_game)
 
             previous_game = current_game
@@ -445,9 +450,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
         # Add custom SC2 viewer perspective
         msg = (f"As a {mood} observer of matches in StarCraft 2, {perspective}, "
-               f"without repeating any previous words from here: \n") + msg + "\n"
-        msg += (" Do not use personal pronouns like 'I,' 'me,' 'my,' etc. "
-                "but instead speak from a 3rd person referencing the player.")
+               + msg)
 
         logger.debug("sent to OpenAI: %s", msg)
         completion = openai.ChatCompletion.create(
@@ -531,6 +534,14 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         connection.join(self.channel)
         logger.debug(
             "================================================STARTING BOT========================================")
+        bot_mode = "BOT MODES \n"
+        bot_mode += "TEST_MODE: " + str(config.TEST_MODE) + "\n"
+        bot_mode += "ANALYZE_REPLAYS_FOR_TEST: " + str(config.USE_CONFIG_TEST_REPLAY_FILE)  + "\n"
+        bot_mode += "IGNORE_REPLAYS: " + str(config.IGNORE_GAME_STATUS_WHILE_WATCHING_REPLAYS) + "\n"
+        bot_mode += "IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN: " + str(config.IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN) + "\n"
+        bot_mode += "MONITOR_GAME_SLEEP_SECONDS: " + str(config.MONITOR_GAME_SLEEP_SECONDS) + "\n"
+        logger.debug(bot_mode)                     
+
         prefix = ""  # if any
         greeting_message = f'{prefix} {get_random_emote()}'
         self.msgToChannel(greeting_message)

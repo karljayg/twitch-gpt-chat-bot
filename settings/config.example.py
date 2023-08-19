@@ -43,11 +43,15 @@ OUTPUT_PFX = ""
 SC2_PLAYER_ACCOUNTS = ['myname']
 REPLAYS_FOLDER = r"C:\Users\WHATEVER\OneDrive\Documents\StarCraft II\Accounts"
 REPLAYS_FILE_EXTENSION = "SC2Replay"
-ANALYZE_REPLAYS_FOR_TEST = True
-REPLAY_TEST_FILE = ("test/replays/Gresvan LE (439).SC2Replay")
+
+#goes together, turn off to not get confused
+USE_CONFIG_TEST_REPLAY_FILE = False
+REPLAY_TEST_FILE = ("test/replays/Royal Blood LE (428).SC2Replay")
+
 BUILD_ORDER_COUNT_TO_ANALYZE = 60
+# TODO: make this more intuitive and less confusing, as test modes are different from running replays period
 TEST_MODE = False  # will review SC2 game status JSON file in test instead of the SC2 client
-IGNORE_REPLAYS = False  # will ignore game status when watching a replay
+IGNORE_GAME_STATUS_WHILE_WATCHING_REPLAYS = False  # will ignore game status when watching a replay
 IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN = True  # will not comment on game status since its from last game before run
 GAME_RESULT_TEST_FILE = "test/SC2_game_result_test.json"  # output of game result JSON file for analysis if needed
 LAST_REPLAY_JSON_FILE = "temp/last_replay_data.json"  # json file of the last replay from sc2reader
@@ -58,7 +62,7 @@ LAST_REPLAY_SUMMARY_FILE = "temp/replay_summary.txt"  # summary file of build or
 """
 IGNORE = ["psistorm_mathison", "psi_mathison", "Streamelements", "StreamElements"]  # users to ignore
 RESPONSE_PROBABILITY = 0.7  # how often to respond? 1.0 = 100%  0.7 = 70%
-MONITOR_GAME_SLEEP_SECONDS = 3  # sleep time between execution
+MONITOR_GAME_SLEEP_SECONDS = 7  # sleep time between execution, any less than 7 risks new replay not done yet
 GREETINGS_LIST_FROM_OTHERS = ['hi', 'HeyGuys', 'Hello']  # Mathison will say hi
 OPEN_SESAME_SUBSTITUTES = "open sesame"  # override any delays/blocks and Mathison will respond
 STOP_WORDS_FLAG = "adios amigo"  # remove/stop words - TODO: redo logic as it is off right now coz buggy
@@ -111,7 +115,7 @@ MOOD_OPTIONS = [
 ]
 
 PERSPECTIVE_OPTIONS = [
-    "talk about build order or units lost limit to 20 words in a poem",
+    "talk about build order or units lost in a very short poem of 20 words or less",
     "find something interesting in the replay summary, limit to 15 words",
     "point out the most killed units for each player based on replay summary with joy, limit to 15 words",
     "look at the build order and anything interesting and write a haiku about it",
