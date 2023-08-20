@@ -162,6 +162,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
     def __init__(self):
 
         self.first_run = True
+        self.last_replay_file = None
+        self.conversation_mode = "normal"
 
         # handle KeyboardInterrupt in a more graceful way by setting a flag when Ctrl-C is pressed and checking that
         # flag in threads that need to be terminated
@@ -246,6 +248,12 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
         if current_game.get_status() in ("MATCH_ENDED", "REPLAY_ENDED"):
             result = find_latest_file(config.REPLAYS_FOLDER, config.REPLAYS_FILE_EXTENSION)
+            # there are times when current replay file is not ready and it still finds the prev. one despite the SLEEP TIMEOUT of 7 secs
+            # so we are going to do this also to prevent the bot from commenting on the same replay file as the last one
+            if(self.last_replay_file == result):
+                logger.debug("last replay file is same as current, skipping: \n" + result)
+                return
+            
             if result:
                 print(f"The path to the latest file is: {result}")
 
@@ -363,7 +371,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 logger.debug("this is not first run")
 
             # proceed
-            self.processMessageForOpenAI(response, False)
+            self.processMessageForOpenAI(response, self.conversation_mode)
 
             # get analysis of game summary from the last real game's replay file that created, unless using config test replay file
             logger.debug("current game status: " + current_game.get_status() +
@@ -375,7 +383,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             if (current_game.get_status() not in ["MATCH_STARTED","REPLAY_STARTED"] or (current_game.isReplay and config.USE_CONFIG_TEST_REPLAY_FILE)):
                 # get analysis of ended games, or during testing of config test replay file
                 logger.debug("analyzing, replay summary to AI: ")
-                self.processMessageForOpenAI(replay_summary, True)
+                self.processMessageForOpenAI(replay_summary, "replay_analysis")
                 # clear after analyzing and making a comment
                 replay_summary = ""
             else:
@@ -388,6 +396,10 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         while True and not self.shutdown_flag:
             current_game = self.check_SC2_game_status()
 
+            if(current_game.get_status() == "MATCH_STARTED" or current_game.get_status() == "REPLAY_STARTED"):
+                self.conversation_mode = "in_game"
+            else:
+                self.conversation = "normal"
             if current_game:
                 if config.IGNORE_GAME_STATUS_WHILE_WATCHING_REPLAYS and current_game.isReplay:
                     pass
@@ -406,7 +418,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         logger.debug(message)
         logger.debug("---------------------------------------------------------")
 
-    def processMessageForOpenAI(self, msg, is_replay_analysis):
+    def processMessageForOpenAI(self, msg, conversation_mode):
 
         # let's give these requests some breathing room
         time.sleep(config.MONITOR_GAME_SLEEP_SECONDS)
@@ -440,7 +452,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
         # Choose a random mood and perspective from the selected options
         mood = random.choice(self.selected_moods)
-        if is_replay_analysis:
+
+        if conversation_mode == "replay_analysis":
             perspective_indices = config.BOT_PERSPECTIVES[:config.PERSPECTIVE_INDEX_CUTOFF]  # Select indices 0-3
         else:
             perspective_indices = config.BOT_PERSPECTIVES[config.PERSPECTIVE_INDEX_CUTOFF:]  # Select indices 4-onwards
@@ -448,9 +461,15 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         selected_perspectives = [config.PERSPECTIVE_OPTIONS[i] for i in perspective_indices]
         perspective = random.choice(selected_perspectives)
 
-        # Add custom SC2 viewer perspective
-        msg = (f"As a {mood} observer of matches in StarCraft 2, {perspective}, "
-               + msg)
+        if(conversation_mode == "normal"):
+            # Add custom SC2 viewer perspective
+            msg = (f"As a {mood} acquaintance of {config.STREAMER_NICKNAME}, {perspective}, "
+                + msg)
+        else:
+            msg = (f"As a {mood} observer of matches in StarCraft 2, {perspective}, "            
+                + msg)
+     
+        logger.debug("CONVERSATION MODE: " + conversation_mode)
 
         logger.debug("sent to OpenAI: %s", msg)
         completion = openai.ChatCompletion.create(
@@ -557,7 +576,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         # Send response to direct msg or keyword which includes Mathison being mentioned
         if 'open sesame' in msg.lower() or any(sub.lower() == msg.lower() for sub in config.OPEN_SESAME_SUBSTITUTES):
             logger.debug("received open sesame: " + str(msg.lower()))
-            self.processMessageForOpenAI(msg, False)
+            self.processMessageForOpenAI(msg, self.conversation_mode)        
             return
 
         # search wikipedia
@@ -615,8 +634,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 logger.debug("will not respond")
                 return
 
-            self.processMessageForOpenAI(msg, False)
-
+            self.processMessageForOpenAI(msg, self.conversation_mode)        
         else:
             response = random.randint(1, 3)
             switcher = {
