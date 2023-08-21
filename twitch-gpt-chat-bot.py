@@ -73,19 +73,25 @@ class LogOnceWithinIntervalFilter(logging.Filter):
         self.interval = timedelta(seconds=interval_seconds)
         self.last_logged_message = None
         self.last_logged_time = None
+        self.loop_count = 0  # Initialize the loop counter
+        self.loops_to_print = 5  # Number of loops to wait before printing
 
     # log filter for similar repetitive messages to suppress
     def filter(self, record):
         now = datetime.now()
-
         time_left = None
+        self.loop_count += 1  # Increment the loop counter
+        time_left = ...  # Calculate the time left
+        time_since_last_logged = ...  # Calculate the time since last logged
+
         if self.last_logged_message:
             time_since_last_logged = now - self.last_logged_time
             time_left = self.interval - time_since_last_logged
             if time_since_last_logged < self.interval:
                 similarity = SequenceMatcher(None, self.last_logged_message, record.msg).ratio()
                 if similarity > self.similarity_threshold:
-                    print(f"suppressed: {math.floor(time_left.total_seconds())} secs")
+                    if self.loop_count % self.loops_to_print == 0:  # Check if it's time to print
+                        print(f"suppressed: {math.floor(time_left.total_seconds())} secs")
                     return False
 
         self.last_logged_message = record.msg
@@ -231,7 +237,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 response.raise_for_status()
                 return GameInfo(response.json())
             except Exception as e:
-                logger.debug(f"An error occurred: {e}")
+                logger.debug(f"Is SC2 on? error: {e}")
                 return None
 
     def handle_SC2_game_results(self, previous_game, current_game):
@@ -422,23 +428,25 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         previous_game = None
 
         while True and not self.shutdown_flag:
-            current_game = self.check_SC2_game_status()
-
-            if(current_game.get_status() == "MATCH_STARTED" or current_game.get_status() == "REPLAY_STARTED"):
-                self.conversation_mode = "in_game"
-            else:
-                self.conversation = "normal"
-            if current_game:
-                if config.IGNORE_GAME_STATUS_WHILE_WATCHING_REPLAYS and current_game.isReplay:
-                    pass
+            try:
+                current_game = self.check_SC2_game_status()
+                if(current_game.get_status() == "MATCH_STARTED" or current_game.get_status() == "REPLAY_STARTED"):
+                    self.conversation_mode = "in_game"
                 else:
-                    time.sleep(2)  # wait so abandoned games doesnt result in false data of 0 seconds
-                    self.handle_SC2_game_results(previous_game, current_game)
+                    self.conversation = "normal"
+                if current_game:
+                    if config.IGNORE_GAME_STATUS_WHILE_WATCHING_REPLAYS and current_game.isReplay:
+                        pass
+                    else:
+                        time.sleep(2)  # wait so abandoned games doesnt result in false data of 0 seconds
+                        self.handle_SC2_game_results(previous_game, current_game)
 
-            previous_game = current_game
-            time.sleep(config.MONITOR_GAME_SLEEP_SECONDS)
-            # heartbeat indicator
-            print(".", end="", flush=True)
+                previous_game = current_game
+                time.sleep(config.MONITOR_GAME_SLEEP_SECONDS)
+                # heartbeat indicator
+                print(".", end="", flush=True)
+            except Exception as e:
+                pass
 
     # all msgs to channel are now logged
     def msgToChannel(self, message):

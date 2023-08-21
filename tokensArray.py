@@ -103,6 +103,7 @@ def add_new_msg(contextHistory, newMsg, logger):
 
     # keep deleting items until total tokens is less than maxContextTokens
     totalTokens = sum([item[1] for item in contextHistory])
+    logger.debug("totalTokens: " + str(totalTokens))
     while totalTokens > maxContextTokens:
         # get last item
         lastItem = contextHistory[-1]
@@ -125,6 +126,8 @@ def add_new_msg(contextHistory, newMsg, logger):
             newLastItemString = ' '.join(newLastItemTokens)
             contextHistory[-1] = (newLastItemString, len(newLastItemTokens))
         totalTokens = sum([item[1] for item in contextHistory])
+        logger.debug("reduced totalTokens: " + str(totalTokens))
+
 
 
 def get_printed_array(order, contextHistory):
