@@ -119,7 +119,7 @@ PERSPECTIVE_OPTIONS = [
     "talk about build order or units lost in a very short poem of 20 words or less",
     "find something interesting in the replay summary, limit to 15 words",
     "point out the most killed units for each player based on replay summary with joy, limit to 15 words",
-    "write game summary in haiku using specific units and even the map name",
+    "write game summary in haiku using specific units and even the map name, limit to 25 words",
     "make a gamer joke about the game duration",
     # above are the first 5 for replay analysis, per PERSPECTIVE_INDEX_CUTOFF = 5
     "respond casually and concisely in only 15 words",

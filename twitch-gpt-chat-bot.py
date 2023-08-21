@@ -44,6 +44,7 @@ class GameInfo:
         self.isReplay = json_data['isReplay']
         self.players = json_data['players']
         self.displayTime = json_data['displayTime']
+        self.total_players = len(self.players)
 
     def get_player_names(self, result_filter=None):
         return [config.STREAMER_NICKNAME if player['name'] in config.SC2_PLAYER_ACCOUNTS else player['name'] for player
@@ -301,14 +302,20 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 replay_summary += f"Game Duration: {game_duration}\n\n"
                 print("Game Duration:", game_duration)
 
+                # Total Players greater than 2, usually gets the total token size to 6k, and max is 4k so we divide by 2 to be safe
+                if current_game.total_players > 2: 
+                    build_order_count = config.BUILD_ORDER_COUNT_TO_ANALYZE / 2
+                else:
+                    build_order_count = config.BUILD_ORDER_COUNT_TO_ANALYZE                    
+
                 # Build Orders
                 build_orders = {player_key: player_data['buildOrder'] for player_key, player_data in
                                 replay_data['players'].items()}
                 for player_key, build_order in build_orders.items():
                     player_info = f"{replay_data['players'][player_key]['name']}'s Build Order (first 20 steps):"
                     replay_summary += player_info + '\n'
-                    print("BUILD_ORDER_COUNT_TO_ANALYZE: " + str(config.BUILD_ORDER_COUNT_TO_ANALYZE))
-                    for order in build_order[:config.BUILD_ORDER_COUNT_TO_ANALYZE]:
+                    print("BUILD_ORDER_COUNT_TO_ANALYZE: " + str(build_order_count))
+                    for order in build_order[:int(build_order_count)]:
                         time = order['time']
                         name = order['name']
                         supply = order['supply']
@@ -500,75 +507,78 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 {"role": "user", "content": msg}
             ]
         )
-        if completion.choices[0].message is not None:
-            logger.debug("completion.choices[0].message.content: " + completion.choices[0].message.content)
-            response = completion.choices[0].message.content
+        try:
+            if completion.choices[0].message is not None:
+                logger.debug("completion.choices[0].message.content: " + completion.choices[0].message.content)
+                response = completion.choices[0].message.content
 
-            # add emote
-            if random.choice([True, False]):
-                response = f'{response} {get_random_emote()}'
+                # add emote
+                if random.choice([True, False]):
+                    response = f'{response} {get_random_emote()}'
 
-            logger.debug('raw response from OpenAI:')
-            logger.debug(response)
+                logger.debug('raw response from OpenAI:')
+                logger.debug(response)
 
-            # Clean up response
-            response = re.sub('[\r\n\t]', ' ', response)  # Remove carriage returns, newlines, and tabs
-            response = re.sub('[^\x00-\x7F]+', '', response)  # Remove non-ASCII characters
-            response = re.sub(' +', ' ', response)  # Remove extra spaces
-            response = response.strip()  # Remove leading and trailing whitespace
+                # Clean up response
+                response = re.sub('[\r\n\t]', ' ', response)  # Remove carriage returns, newlines, and tabs
+                response = re.sub('[^\x00-\x7F]+', '', response)  # Remove non-ASCII characters
+                response = re.sub(' +', ' ', response)  # Remove extra spaces
+                response = response.strip()  # Remove leading and trailing whitespace
 
-            # dont make it too obvious its a bot
-            response = response.replace("As an AI language model, ", "")
-            response = response.replace("User: , ", "")
-            response = response.replace("Player: , ", "")
+                # dont make it too obvious its a bot
+                response = response.replace("As an AI language model, ", "")
+                response = response.replace("User: , ", "")
+                response = response.replace("Player: , ", "")
 
-            logger.debug("cleaned up message from OpenAI:")
-            logger.debug(response)
+                logger.debug("cleaned up message from OpenAI:")
+                logger.debug(response)
 
-            if len(response) >= 400:
-                logger.debug(f"Chunking response since it's {len(response)} characters long")
+                if len(response) >= 400:
+                    logger.debug(f"Chunking response since it's {len(response)} characters long")
 
-                # Split the response into chunks of 400 characters without splitting words
-                chunks = []
-                temp_chunk = ''
-                for word in response.split():
-                    if len(temp_chunk + ' ' + word) <= 400:
-                        temp_chunk += ' ' + word if temp_chunk != '' else word
-                    else:
+                    # Split the response into chunks of 400 characters without splitting words
+                    chunks = []
+                    temp_chunk = ''
+                    for word in response.split():
+                        if len(temp_chunk + ' ' + word) <= 400:
+                            temp_chunk += ' ' + word if temp_chunk != '' else word
+                        else:
+                            chunks.append(temp_chunk)
+                            temp_chunk = word
+                    if temp_chunk:
                         chunks.append(temp_chunk)
-                        temp_chunk = word
-                if temp_chunk:
-                    chunks.append(temp_chunk)
 
-                # Send response chunks to chat
-                for chunk in chunks:
-                    # Remove all occurrences of "AI: "
-                    chunk = re.sub(r'\bAI: ', '', chunk)
-                    self.msgToChannel(chunk)
+                    # Send response chunks to chat
+                    for chunk in chunks:
+                        # Remove all occurrences of "AI: "
+                        chunk = re.sub(r'\bAI: ', '', chunk)
+                        self.msgToChannel(chunk)
+
+                        # Add AI response to conversation context
+                        tokensArray.add_new_msg(contextHistory, 'AI: ' + chunk + "\n", logger)
+
+                        # Log relevant details
+                        logger.debug(f'Sending openAI response chunk: {chunk}')
+                        logger.debug(
+                            f'Conversation in context so far: {tokensArray.get_printed_array("reversed", contextHistory)}')
+                else:
+                    response = re.sub(r'\bAI: ', '', response)
+                    self.msgToChannel(response)
 
                     # Add AI response to conversation context
-                    tokensArray.add_new_msg(contextHistory, 'AI: ' + chunk + "\n", logger)
+                    tokensArray.add_new_msg(contextHistory, 'AI: ' + response + "\n", logger)
 
                     # Log relevant details
-                    logger.debug(f'Sending openAI response chunk: {chunk}')
+                    logger.debug(f'AI msg to chat: {response}')
                     logger.debug(
                         f'Conversation in context so far: {tokensArray.get_printed_array("reversed", contextHistory)}')
+
             else:
-                response = re.sub(r'\bAI: ', '', response)
+                response = 'oops, I have no response to that'
                 self.msgToChannel(response)
-
-                # Add AI response to conversation context
-                tokensArray.add_new_msg(contextHistory, 'AI: ' + response + "\n", logger)
-
-                # Log relevant details
-                logger.debug(f'AI msg to chat: {response}')
-                logger.debug(
-                    f'Conversation in context so far: {tokensArray.get_printed_array("reversed", contextHistory)}')
-
-        else:
-            response = 'oops, I have no response to that'
-            self.msgToChannel(response)
-            logger.debug('Failed to send response: %s', response)
+                logger.debug('Failed to send response: %s', response)
+        except SystemExit as e:
+            logger.error('Failed to send response: %s', e)
 
     def on_welcome(self, connection, event):
         # Join the channel and say a greeting
