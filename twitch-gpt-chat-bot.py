@@ -164,6 +164,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         self.first_run = True
         self.last_replay_file = None
         self.conversation_mode = "normal"
+        self.total_seconds = 0
 
         # handle KeyboardInterrupt in a more graceful way by setting a flag when Ctrl-C is pressed and checking that
         # flag in threads that need to be terminated
@@ -236,8 +237,16 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
         # do not proceed if no change
         if previous_game and current_game.get_status() == previous_game.get_status():
+            # TODO: hide logger after testing
+            #logger.debug("previous game status: " + str(previous_game.get_status()) + " current game status: " + str(current_game.get_status()))            
             return
-
+        else:
+            if previous_game:
+                pass
+                #logger.debug("previous game status: " + str(previous_game.get_status()) + " current game status: " + str(current_game.get_status()))
+            else:
+                #logger.debug("previous game status: (assumed None) current game status: " + str(current_game.get_status()))                    
+                pass
         response = ""
         replay_summary = ""  # Initialize summary string
 
@@ -245,6 +254,9 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
         # prevent the array brackets from being included
         game_player_names = ', '.join(current_game.get_player_names())
+
+        winning_players = ', '.join(current_game.get_player_names(result_filter='Victory'))
+        losing_players = ', '.join(current_game.get_player_names(result_filter='Defeat'))
 
         if current_game.get_status() in ("MATCH_ENDED", "REPLAY_ENDED"):
             result = find_latest_file(config.REPLAYS_FOLDER, config.REPLAYS_FILE_EXTENSION)
@@ -274,14 +286,16 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                            replay_data['players'].values()]
                 replay_summary += f"Players: {', '.join(players)}\n"
                 replay_summary += f"Map: {replay_data['map']}\n\n"
+                replay_summary += f"Winners: {winning_players}\n"
+                replay_summary += f"Losers: {losing_players}\n"                
 
                 # Game Duration
                 frames = replay_data['frames']
                 frames_per_second = replay_data['frames_per_second']
 
-                total_seconds = frames / frames_per_second
-                minutes = int(total_seconds // 60)
-                seconds = int(total_seconds % 60)
+                self.total_seconds = frames / frames_per_second
+                minutes = int(self.total_seconds // 60)
+                seconds = int(self.total_seconds % 60)
 
                 game_duration = f"{minutes}m {seconds}s"
                 replay_summary += f"Game Duration: {game_duration}\n\n"
@@ -310,12 +324,15 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                     player_info = f"Units Lost by {replay_data['players'][player_key]['name']}"  # ChatGPT gets confused if you use possessive 's vs by
                     replay_summary += player_info + '\n'
                     units_lost_aggregate = defaultdict(int)
-                    for unit in units_lost:
-                        name = unit.get('name', "N/A")
-                        units_lost_aggregate[name] += 1
-                    for unit_name, count in units_lost_aggregate.items():
-                        unit_info = f"{unit_name}: {count}"
-                        replay_summary += unit_info + '\n'
+                    if units_lost:  # Check if units_lost is not empty
+                        for unit in units_lost:
+                            name = unit.get('name', "N/A")
+                            units_lost_aggregate[name] += 1
+                        for unit_name, count in units_lost_aggregate.items():
+                            unit_info = f"{unit_name}: {count}"
+                            replay_summary += unit_info + '\n'
+                    else:
+                        replay_summary += "None \n"
                     replay_summary += '\n'
 
                 # replace player names with streamer name
@@ -337,13 +354,15 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             response = f"Game has started with these {game_player_names}"
 
         elif current_game.get_status() == "MATCH_ENDED":
-            winning_players = ', '.join(current_game.get_player_names(result_filter='Victory'))
-            losing_players = ', '.join(current_game.get_player_names(result_filter='Defeat'))
-
             if len(winning_players) == 0:
                 response = f"Game with {game_player_names} ended with a Tie!"
             else:
-                response = f"Game with {game_player_names} ended with {winning_players} beating {losing_players}"
+                # Compare with the threshold
+                if self.total_seconds < config.ABANDONED_GAME_THRESHOLD:
+                    logger.debug("Game duration is less than " + str(config.ABANDONED_GAME_THRESHOLD) + " seconds.")
+                    response = f"The game was abandoned immediately in just {self.total_seconds} seconds between {game_player_names} and so {winning_players} get the free win."
+                else:
+                    response = f"Game with {game_player_names} ended with {winning_players} beating {losing_players}"
 
         elif current_game.get_status() == "REPLAY_STARTED":
             # clear context history so that the bot doesn't mix up results from previous games
@@ -379,8 +398,10 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                         " ANALYZE_REPLAYS_FOR_TEST: " + str(config.USE_CONFIG_TEST_REPLAY_FILE))
 
             # we do not want to analyze when the game (live or replay) is not in an ended state 
+            # or if the duration is short (abandoned game)
             # unless we are testing with a replay file
-            if (current_game.get_status() not in ["MATCH_STARTED","REPLAY_STARTED"] or (current_game.isReplay and config.USE_CONFIG_TEST_REPLAY_FILE)):
+            if ((current_game.get_status() not in ["MATCH_STARTED","REPLAY_STARTED"] and self.total_seconds >= config.ABANDONED_GAME_THRESHOLD)
+                or (current_game.isReplay and config.USE_CONFIG_TEST_REPLAY_FILE)):
                 # get analysis of ended games, or during testing of config test replay file
                 logger.debug("analyzing, replay summary to AI: ")
                 self.processMessageForOpenAI(replay_summary, "replay_analysis")
@@ -404,6 +425,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 if config.IGNORE_GAME_STATUS_WHILE_WATCHING_REPLAYS and current_game.isReplay:
                     pass
                 else:
+                    time.sleep(2)  # wait so abandoned games doesnt result in false data of 0 seconds
                     self.handle_SC2_game_results(previous_game, current_game)
 
             previous_game = current_game

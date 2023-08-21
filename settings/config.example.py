@@ -49,6 +49,7 @@ USE_CONFIG_TEST_REPLAY_FILE = False
 REPLAY_TEST_FILE = ("test/replays/Royal Blood LE (428).SC2Replay")
 
 BUILD_ORDER_COUNT_TO_ANALYZE = 60
+ABANDONED_GAME_THRESHOLD = 15  # games less than this seconds will be considered abandoned for better commentary
 # TODO: make this more intuitive and less confusing, as test modes are different from running replays period
 TEST_MODE = False  # will review SC2 game status JSON file in test instead of the SC2 client
 IGNORE_GAME_STATUS_WHILE_WATCHING_REPLAYS = False  # will ignore game status when watching a replay
