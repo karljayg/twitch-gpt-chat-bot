@@ -364,7 +364,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         if current_game.get_status() == "MATCH_STARTED":
             # clear context history so that the bot doesn't mix up results from previous games
             contextHistory.clear()
-            response = f"Game has started with these {game_player_names}"
+            response = f"Game has just started with these players: {game_player_names}"
 
         elif current_game.get_status() == "MATCH_ENDED":
             if len(winning_players) == 0:
@@ -491,7 +491,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         mood = random.choice(self.selected_moods)
 
         if conversation_mode == "replay_analysis":
-            perspective_indices = config.BOT_PERSPECTIVES[:config.PERSPECTIVE_INDEX_CUTOFF]  # Select indices 0-3
+            perspective_indices = config.BOT_PERSPECTIVES[:config.PERSPECTIVE_INDEX_CUTOFF]  # say cutoff is 4, then select indices 0-3
         else:
             perspective_indices = config.BOT_PERSPECTIVES[config.PERSPECTIVE_INDEX_CUTOFF:]  # Select indices 4-onwards
 
@@ -503,8 +503,12 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             msg = (f"As a {mood} acquaintance of {config.STREAMER_NICKNAME}, {perspective}, "
                 + msg)
         else:
-            msg = (f"As a {mood} observer of matches in StarCraft 2, {perspective}, "            
-                + msg)
+            if(conversation_mode == "in_game"):
+                msg = (f"As a {mood} observer of matches in StarCraft 2, {perspective}, talk only about what you know from this statement: "
+                    + msg)
+            else:
+                msg = (f"As a {mood} observer of matches in StarCraft 2, {perspective}, "            
+                    + msg)
      
         logger.debug("CONVERSATION MODE: " + conversation_mode)
 
@@ -536,6 +540,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 # dont make it too obvious its a bot
                 response = response.replace("As an AI language model, ", "")
                 response = response.replace("User: , ", "")
+                response = response.replace("Observer: , ", "")
                 response = response.replace("Player: , ", "")
 
                 logger.debug("cleaned up message from OpenAI:")

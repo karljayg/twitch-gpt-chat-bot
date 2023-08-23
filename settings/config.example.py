@@ -81,8 +81,8 @@ LOG_FILE = "logs/bot.log"  # log file location
 """
 
 BOT_MOODS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]  # selected flavors of mood
-BOT_PERSPECTIVES = [0, 1, 2, 3, 4, 5, 6, 7, 8]  # additional selected perspectives of response
-PERSPECTIVE_INDEX_CUTOFF = 5  # if 4, the first 4 index are for replays: 0,1,2,3
+BOT_PERSPECTIVES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]  # additional selected perspectives of response
+PERSPECTIVE_INDEX_CUTOFF = 6  # if 4, the first 4 index are for replays: 0,1,2,3
 
 # mood and perspectives options selected above (not to be confused with Google Perspective API
 MOOD_OPTIONS = [
@@ -118,10 +118,11 @@ MOOD_OPTIONS = [
 PERSPECTIVE_OPTIONS = [
     "talk about build order or units lost in a very short poem of 20 words or less",
     "find something interesting in the replay summary, limit to 15 words",
-    "point out the most killed units for each player based on replay summary with joy, limit to 15 words",
+    "point out the most killed total and units for each player based on replay summary, limit to 15 words",
     "write game summary in haiku using specific units and even the map name, limit to 25 words",
-    "make a gamer joke about the game duration",
-    # above are the first 5 for replay analysis, per PERSPECTIVE_INDEX_CUTOFF = 5
+    "mention the game duration minutes, and make a gamer joke about it, keeping in mind average game time is 15 minutes",
+    "do a friendly roast to either player based on something in their build order, units created or lost, limit to 25 words",
+    # above are the first 5 for replay analysis, per PERSPECTIVE_INDEX_CUTOFF = 6
     "respond casually and concisely in only 15 words",
     "be extremely short in response, at most 16 words",
     "speak with expertise, at most 10 words",  # long winded, be careful
