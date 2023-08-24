@@ -16,6 +16,7 @@ import math
 import os
 import spawningtool.parser
 import wiki_utils
+import tiktoken
 from difflib import SequenceMatcher
 from datetime import datetime, timedelta
 from settings import config
@@ -172,6 +173,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         self.last_replay_file = None
         self.conversation_mode = "normal"
         self.total_seconds = 0
+        self.encoding = tiktoken.get_encoding(config.TOKENIZER_ENCODING)
+        self.encoding = tiktoken.encoding_for_model(config.ENGINE)
 
         # handle KeyboardInterrupt in a more graceful way by setting a flag when Ctrl-C is pressed and checking that
         # flag in threads that need to be terminated
@@ -314,22 +317,6 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 else:
                     build_order_count = config.BUILD_ORDER_COUNT_TO_ANALYZE                    
 
-                # Build Orders
-                build_orders = {player_key: player_data['buildOrder'] for player_key, player_data in
-                                replay_data['players'].items()}
-                for player_key, build_order in build_orders.items():
-                    player_info = f"{replay_data['players'][player_key]['name']}'s Build Order (first 20 steps):"
-                    replay_summary += player_info + '\n'
-                    print("BUILD_ORDER_COUNT_TO_ANALYZE: " + str(build_order_count))
-                    for order in build_order[:int(build_order_count)]:
-                        time = order['time']
-                        name = order['name']
-                        supply = order['supply']
-                        order_info = f"Time: {time}, Name: {name}, Supply: {supply}"
-                        replay_summary += order_info + '\n'
-                        print(order_info)
-                    replay_summary += '\n'
-
                 # Units Lost
                 units_lost_summary = {player_key: player_data['unitsLost'] for player_key, player_data in
                                       replay_data['players'].items()}
@@ -348,6 +335,22 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                         replay_summary += "None \n"
                     replay_summary += '\n'
 
+                # Build Orders
+                build_orders = {player_key: player_data['buildOrder'] for player_key, player_data in
+                                replay_data['players'].items()}
+                for player_key, build_order in build_orders.items():
+                    player_info = f"{replay_data['players'][player_key]['name']}'s Build Order (first 20 steps):"
+                    replay_summary += player_info + '\n'
+                    print("BUILD_ORDER_COUNT_TO_ANALYZE: " + str(build_order_count))
+                    for order in build_order[:int(build_order_count)]:
+                        time = order['time']
+                        name = order['name']
+                        supply = order['supply']
+                        order_info = f"Time: {time}, Name: {name}, Supply: {supply}"
+                        replay_summary += order_info + '\n'
+                        print(order_info)
+                    replay_summary += '\n'
+
                 # replace player names with streamer name
                 for player_name in config.SC2_PLAYER_ACCOUNTS:
                     replay_summary = replay_summary.replace(player_name, config.STREAMER_NICKNAME)
@@ -364,7 +367,11 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         if current_game.get_status() == "MATCH_STARTED":
             # clear context history so that the bot doesn't mix up results from previous games
             contextHistory.clear()
-            response = f"Game has just started with these players: {game_player_names}"
+            if config.IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN:
+                response = f"Game has just started with these players: {game_player_names}"
+            else:
+                # no players list from previous game, since this is a first run
+                response = f"Mathison just started, will review previous game results based on " + config.STREAMER_NICKNAME + "'s configuration settings"
 
         elif current_game.get_status() == "MATCH_ENDED":
             if len(winning_players) == 0:
@@ -480,6 +487,19 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         # if bool(config.STOP_WORDS_FLAG):
         #    msg, removedWords = tokensArray.apply_stop_words_filter(msg)
         #    logger.debug("removed stop words: %s" , removedWords)
+
+        # check tokensize
+        total_tokens = tokensArray.num_tokens_from_string(msg, config.TOKENIZER_ENCODING)
+        msg_length = len(msg)
+        logger.debug(f"string length: {msg_length}, {total_tokens} tokens")
+        if  int(total_tokens) > config.CONVERSATION_MAX_TOKENS:
+            divided_by = math.ceil(len(msg) // config.CONVERSATION_MAX_TOKENS)
+            logger.debug(f"msg is too long so we are truncating it 1/{divided_by} of its length")
+            msg = msg[0:msg_length // divided_by]
+            msg = msg + "\n" # add line break to ensure separation
+            total_tokens = tokensArray.num_tokens_from_string(msg, config.TOKENIZER_ENCODING)
+            msg_length = len(msg)
+            logger.debug(f"new string length: {msg_length}, {total_tokens} tokens")
 
         # add User msg to conversation context
         tokensArray.add_new_msg(contextHistory, 'User: ' + msg + "\n", logger)

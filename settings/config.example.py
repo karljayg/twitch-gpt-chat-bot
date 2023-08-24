@@ -35,6 +35,8 @@ TEMPERATURE = 0.99
 MAX_TOKENS = 2000  # actual max for chatgpt 3.5 turbo is 4096
 CONVERSATION_MAX_TOKENS = 100  # max just for the conversation
 OUTPUT_PFX = ""
+TOKENIZER = "tiktoken"  # tiktoken or nltk supported
+TOKENIZER_ENCODING = "cl100k_base"  # cl100k_base
 
 """
 |   SC2 Settings
@@ -129,7 +131,7 @@ PERSPECTIVE_OPTIONS = [
     "comment with excitement, max of 10 words",
     "add a small joke of 15 words or less",
     "end with a question of 15 words or less",
-    "be very funny at the end",
+    "be very funny at the end, limit to 15 words",
     # Add other perspective options here
 ]
 

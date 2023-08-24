@@ -2,6 +2,7 @@ import spacy  # language small model of spacy
 import nltk  # token libraries
 from settings import config
 import nltk
+import tiktoken
 
 try:
     nltk.data.find('tokenizers/punkt')
@@ -95,7 +96,7 @@ def add_new_msg(contextHistory, newMsg, logger):
     logger.debug("received newMsg: " + newMsg)
 
     # get token size of newMsg
-    newMsgTokenSize = len(nltk.word_tokenize(newMsg))
+    newMsgTokenSize = num_tokens_from_string(newMsg, "cl100k_base")
     logger.debug("newMsgTokenSize: " + str(newMsgTokenSize))
 
     # add newMsg and its token size to the beginning of the array
@@ -159,3 +160,13 @@ def apply_stop_words_filter(words):
     removed_words = [word for word in words_list if word.lower() in sw_spacy]
     new_text = " ".join(words)
     return new_text, removed_words
+
+def num_tokens_from_string(string: str, encoding_name: str) -> int:
+    # Returns the number of tokens in a text string depending on tokenizer used
+    encoding = tiktoken.get_encoding(encoding_name)            
+    if(config.TOKENIZER == "tiktoken"):
+        num_tokens = len(encoding.encode(string))
+    else:
+        num_tokens = len(nltk.word_tokenize(str))
+   
+    return num_tokens
