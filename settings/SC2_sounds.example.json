@@ -1,0 +1,30 @@
+{
+  "sounds": {
+    "start": [
+      "sounds/start.wav",
+      "sounds/FSL_KJ_intro.mp3",
+      "sounds/FSL_KJ_intro2.mp3"
+    ],
+    "defeat": [
+      "sounds/Nicole_loss1.mp3",
+      "sounds/Bella_loss1.mp3"
+    ],
+    "victory": [
+      "sounds/GGupdated_Tasteless_soOvsRogueZvZ_Championship_WCS_GlobalFinals_2017_StarCraftII.mp3",
+      "sounds/PARTING_NoGG(TRAPMIX)_short.mp3",
+      "sounds/smb3_airship_clear.wav",
+      "sounds/PunchOutBoutWinner.mp3",
+      "sounds/PunchOutPrepare_Win.mp3",
+      "sounds/PunchOutThemeReprise.mp3",
+      "sounds/win.wav"
+    ],
+    "tie": [
+      "sounds/freeedom_morphing_banes.mp3",
+      "sounds/whos-banes-is-this-its-its-freeedom.mp3"
+    ],
+    "abandoned": [
+      "sounds/freeedom_morphing_banes.mp3",
+      "sounds/whos-banes-is-this-its-its-freeedom.mp3"
+    ]
+  }
+}

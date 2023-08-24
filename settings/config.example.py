@@ -60,6 +60,9 @@ GAME_RESULT_TEST_FILE = "test/SC2_game_result_test.json"  # output of game resul
 LAST_REPLAY_JSON_FILE = "temp/last_replay_data.json"  # json file of the last replay from sc2reader
 LAST_REPLAY_SUMMARY_FILE = "temp/replay_summary.txt"  # summary file of build orders and units lost TODO: add other info
 
+PLAYER_INTROS_ENABLED = True  # enabled playing mp3 files of player intros
+SOUNDS_CONFIG_FILE = 'settings/SC2_sounds.json'
+
 """
 |   Bot Behavior Settings
 """

@@ -17,6 +17,7 @@ import os
 import spawningtool.parser
 import wiki_utils
 import tiktoken
+import pygame
 from difflib import SequenceMatcher
 from datetime import datetime, timedelta
 from settings import config
@@ -215,6 +216,24 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         # Initialize the IRC bot
         irc.bot.SingleServerIRCBot.__init__(self, [(self.server, self.port, 'oauth:' + self.token)], self.username,
                                             self.username)
+        # SC2 sounds
+        with open(config.SOUNDS_CONFIG_FILE) as f:
+            self.sounds_config = json.load(f) 
+
+    def play_SC2_sound(self, game_event):
+        if config.IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN and self.first_run:
+            logger.debug ("per config, ignoring previous game on first run, so no sound will be played")
+            return  
+        try:
+            # start defeat victory or tie is what is supported for now
+            logger.debug(f"playing sound: {game_event} ")
+            pygame.mixer.init()
+            sound_file = random.choice(self.sounds_config['sounds'][game_event])
+            pygame.mixer.music.load(sound_file)
+            pygame.mixer.music.play()
+        except Exception as e:
+            logger.debug(f"An error occurred while trying to play sound: {e}")
+            return None
 
     # incorrect IDE warning here, keep parameters at 3
     def signal_handler(self, signal, frame):
@@ -341,14 +360,12 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 for player_key, build_order in build_orders.items():
                     player_info = f"{replay_data['players'][player_key]['name']}'s Build Order (first 20 steps):"
                     replay_summary += player_info + '\n'
-                    print("BUILD_ORDER_COUNT_TO_ANALYZE: " + str(build_order_count))
                     for order in build_order[:int(build_order_count)]:
                         time = order['time']
                         name = order['name']
                         supply = order['supply']
                         order_info = f"Time: {time}, Name: {name}, Supply: {supply}"
                         replay_summary += order_info + '\n'
-                        print(order_info)
                     replay_summary += '\n'
 
                 # replace player names with streamer name
@@ -365,6 +382,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 print("No result found or an error occurred.")
 
         if current_game.get_status() == "MATCH_STARTED":
+            self.play_SC2_sound("start")
             # clear context history so that the bot doesn't mix up results from previous games
             contextHistory.clear()
             if config.IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN:
@@ -376,15 +394,23 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         elif current_game.get_status() == "MATCH_ENDED":
             if len(winning_players) == 0:
                 response = f"Game with {game_player_names} ended with a Tie!"
+                self.play_SC2_sound("tie")
+
             else:
                 # Compare with the threshold
                 if self.total_seconds < config.ABANDONED_GAME_THRESHOLD:
                     logger.debug("Game duration is less than " + str(config.ABANDONED_GAME_THRESHOLD) + " seconds.")
                     response = f"The game was abandoned immediately in just {self.total_seconds} seconds between {game_player_names} and so {winning_players} get the free win."
+                    self.play_SC2_sound("abandoned")  
                 else:
                     response = f"Game with {game_player_names} ended with {winning_players} beating {losing_players}"
+                    if config.STREAMER_NICKNAME in winning_players:
+                        self.play_SC2_sound("victory")
+                    else:
+                        self.play_SC2_sound("defeat")
 
         elif current_game.get_status() == "REPLAY_STARTED":
+            self.play_SC2_sound("start")
             # clear context history so that the bot doesn't mix up results from previous games
             contextHistory.clear()
             response = f"{config.STREAMER_NICKNAME} is watching a replay of a game. The players are {game_player_names}"
@@ -396,8 +422,19 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             if len(winning_players) == 0:
                 response = f"Replayed game with {game_player_names} ended with a Tie!"
             else:
-                response = (f"The replay has finished, game with {game_player_names} ended in a win for "
-                            f"{winning_players} and a loss for {losing_players}")
+
+                # Compare with the threshold
+                if self.total_seconds < config.ABANDONED_GAME_THRESHOLD:
+                    logger.debug("The replay was an abandoned game where duration was less than " + str(config.ABANDONED_GAME_THRESHOLD) + " seconds.")
+                    response = f"The replay was an abandoned game where duration was just {self.total_seconds} seconds between {game_player_names} and so {winning_players} get the free win."
+                    self.play_SC2_sound("abandoned")  
+                else:
+                    if config.STREAMER_NICKNAME in winning_players:
+                        self.play_SC2_sound("victory")
+                    else:
+                        self.play_SC2_sound("defeat")
+                    response = (f"The replay has finished, game with {game_player_names} ended in a win for "
+                                f"{winning_players} and a loss for {losing_players}")
 
         if not config.OPENAI_DISABLED:
             if self.first_run:
