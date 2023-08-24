@@ -221,19 +221,22 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             self.sounds_config = json.load(f) 
 
     def play_SC2_sound(self, game_event):
-        if config.IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN and self.first_run:
-            logger.debug ("per config, ignoring previous game on first run, so no sound will be played")
-            return  
-        try:
-            # start defeat victory or tie is what is supported for now
-            logger.debug(f"playing sound: {game_event} ")
-            pygame.mixer.init()
-            sound_file = random.choice(self.sounds_config['sounds'][game_event])
-            pygame.mixer.music.load(sound_file)
-            pygame.mixer.music.play()
-        except Exception as e:
-            logger.debug(f"An error occurred while trying to play sound: {e}")
-            return None
+        if config.PLAYER_INTROS_ENABLED:
+            if config.IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN and self.first_run:
+                logger.debug ("per config, ignoring previous game on first run, so no sound will be played")
+                return  
+            try:
+                # start defeat victory or tie is what is supported for now
+                logger.debug(f"playing sound: {game_event} ")
+                pygame.mixer.init()
+                sound_file = random.choice(self.sounds_config['sounds'][game_event])
+                pygame.mixer.music.load(sound_file)
+                pygame.mixer.music.play()
+            except Exception as e:
+                logger.debug(f"An error occurred while trying to play sound: {e}")
+                return None
+        else:
+            logger.debug("SC2 player intros and other sounds are disabled")
 
     # incorrect IDE warning here, keep parameters at 3
     def signal_handler(self, signal, frame):
