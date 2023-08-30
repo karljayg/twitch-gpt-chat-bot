@@ -23,6 +23,7 @@ from datetime import datetime, timedelta
 from settings import config
 from datetime import datetime
 from collections import defaultdict
+from mathison_db import Database
 
 # The contextHistory array is a list of tuples, where each tuple contains two elements: the message string and its
 # corresponding token size. This allows us to keep track of both the message content and its size in the array. When
@@ -52,6 +53,20 @@ class GameInfo:
         return [config.STREAMER_NICKNAME if player['name'] in config.SC2_PLAYER_ACCOUNTS else player['name'] for player
                 in self.players if result_filter is None or player['result'] == result_filter]
 
+    def get_player_race(self, player_name):
+        for player in self.players:
+            # SC2 server output on race for Terran seems to only return 4 chars
+            if player['name'] == player_name:
+                if player['race'] == 'Terr':
+                    return 'Terran'
+                elif player['race'] == 'Prot':
+                    return 'Protoss'   
+                elif player['race'] == 'Rand':
+                    return 'Random'   
+                elif player['race'] == 'Zerg':
+                    return 'Zerg'
+        return None
+    
     def get_status(self):
         if all(player['result'] == 'Undecided' for player in self.players):
             return "REPLAY_STARTED" if self.isReplay else "MATCH_STARTED"
@@ -220,6 +235,9 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         with open(config.SOUNDS_CONFIG_FILE) as f:
             self.sounds_config = json.load(f) 
 
+        # Initialize the database
+        self.db = Database()
+
     def play_SC2_sound(self, game_event):
         if config.PLAYER_INTROS_ENABLED:
             if config.IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN and self.first_run:
@@ -229,6 +247,10 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 # start defeat victory or tie is what is supported for now
                 logger.debug(f"playing sound: {game_event} ")
                 pygame.mixer.init()
+
+                # Set the maximum volume (1.0 = max)
+                pygame.mixer.music.set_volume(0.7)
+
                 sound_file = random.choice(self.sounds_config['sounds'][game_event])
                 pygame.mixer.music.load(sound_file)
                 pygame.mixer.music.play()
@@ -248,7 +270,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
     @staticmethod
     def check_SC2_game_status():
-        if config.TEST_MODE:
+        if config.TEST_MODE_SC2_CLIENT_JSON:
             try:
                 with open(config.GAME_RESULT_TEST_FILE, 'r') as file:
                     json_data = json.load(file)
@@ -303,6 +325,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
                 if config.USE_CONFIG_TEST_REPLAY_FILE:
                     result = config.REPLAY_TEST_FILE  # use the config test file instead of latest found dynamically
+
                 replay_data = spawningtool.parser.parse_replay(result)
 
                 # Save the replay JSON to a file
@@ -311,13 +334,18 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                     json.dump(replay_data, file, indent=4)
                     logger.debug('last replay file saved: ' + filename)
 
-                replay_data = spawningtool.parser.parse_replay(result)
-
                 # Players and Map
                 players = [f"{player_data['name']}: {player_data['race']}" for player_data in
                            replay_data['players'].values()]
+                region = replay_data['region']
+                game_type = replay_data['game_type']
+                unix_timestamp = replay_data['unix_timestamp']
+                
                 replay_summary += f"Players: {', '.join(players)}\n"
-                replay_summary += f"Map: {replay_data['map']}\n\n"
+                replay_summary += f"Map: {replay_data['map']}\n"
+                replay_summary += f"Region: {region}\n"
+                replay_summary += f"Game Type: {game_type}\n"
+                replay_summary += f"Timestamp: {unix_timestamp}\n"
                 replay_summary += f"Winners: {winning_players}\n"
                 replay_summary += f"Losers: {losing_players}\n"                
 
@@ -381,6 +409,14 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                     file.write(replay_summary)
                     logger.debug('last replay summary saved: ' + filename)
                 print("Replay data saved to replay_data.json")
+
+                # Save to the database
+                try:
+                    self.db.insert_replay_info(replay_summary)
+                    logger.debug("replay summary saved to database")
+                except Exception as e:
+                    logger.debug(f"error with database: {e}")
+
             else:
                 print("No result found or an error occurred.")
 
@@ -388,8 +424,35 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             self.play_SC2_sound("start")
             # clear context history so that the bot doesn't mix up results from previous games
             contextHistory.clear()
+
             if config.IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN:
                 response = f"Game has just started with these players: {game_player_names}"
+
+                # check to see if player exists in database
+                try:
+                    #if game_type == "1v1":
+                    if current_game.total_players == 2:
+                        logger.debug("1v1 game, so checking if player exists in database")
+                        game_player_names = [name.strip() for name in game_player_names.split(',')]
+                        for player_name in game_player_names:
+                            logger.debug(f"looking for: {player_name}")
+                            if player_name != config.STREAMER_NICKNAME:
+                                result = self.db.check_player_exists(player_name, current_game.get_player_race(player_name))
+                                if result is not None:
+                                    msg =  "As a StarCraft 2 expert, summarize what KJ's opponent did. Be concise giving only 2 sentences total of 25 words or less. \n"
+                                    msg += "Structure the response like this: \n"
+                                    msg += f"KJ played someone named {player_name} before in {{Map name}}, and the result was a {{Win/Loss for KJ}} in {{game duration}}. \n"
+                                    msg += "This player did: {{your summary}}"
+                                    msg += "\n"
+                                    msg += "-----"
+                                    msg += result
+                                    self.processMessageForOpenAI(msg, self.conversation_mode)        
+                                    break
+                                else:
+                                    logger.debug(f"player {player_name} of race {current_game.get_player_race(player_name)} not found in database")
+                except Exception as e:
+                    logger.debug(f"error with find if player exists: {e}")
+
             else:
                 # no players list from previous game, since this is a first run
                 response = f"Mathison just started, will review previous game results based on " + config.STREAMER_NICKNAME + "'s configuration settings"
@@ -660,6 +723,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             "================================================STARTING BOT========================================")
         bot_mode = "BOT MODES \n"
         bot_mode += "TEST_MODE: " + str(config.TEST_MODE) + "\n"
+        bot_mode += "TEST_MODE_SC2_CLIENT_JSON: " + str(config.TEST_MODE_SC2_CLIENT_JSON) + "\n"        
         bot_mode += "ANALYZE_REPLAYS_FOR_TEST: " + str(config.USE_CONFIG_TEST_REPLAY_FILE)  + "\n"
         bot_mode += "IGNORE_REPLAYS: " + str(config.IGNORE_GAME_STATUS_WHILE_WATCHING_REPLAYS) + "\n"
         bot_mode += "IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN: " + str(config.IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN) + "\n"

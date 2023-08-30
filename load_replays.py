@@ -1,0 +1,187 @@
+from collections import defaultdict
+import os
+import logging
+import json
+import spawningtool.parser
+import time
+import pytz
+from settings import config
+from mathison_db import Database
+from datetime import datetime
+
+class ReplayLoader:
+
+    def find_replay_files(self, folder_path):
+        logging.debug(f"Searching in folder: {folder_path}")
+        
+        files_count = 0
+        files_processed = 0
+
+        for root, dirs, files in os.walk(folder_path):
+
+            for folder in dirs:
+                folder_location = os.path.join(root, folder)
+                self.logger.debug(f"Checking subfolder: {folder_location}")
+                #print(f"Checking subfolder: r{folder_location.replace(config.REPLAYS_FOLDER, '')}")
+                # Convert both paths to use forward slashes for the replacement
+                folder_location_forward = folder_location.replace("\\", "/")
+                replays_folder_forward = config.REPLAYS_FOLDER.replace("\\", "/")
+
+                cleaned_path = folder_location_forward.replace(replays_folder_forward, '')
+                print(f"Checking subfolder: {cleaned_path}")
+
+
+            for filename in files:
+                if filename.endswith(".SC2Replay"):
+                    file_location = os.path.join(root, filename)
+                    file_date = os.path.getmtime(file_location)
+
+                    # Create a datetime object from the Unix timestamp
+                    timestamp_utc = datetime.utcfromtimestamp(file_date)
+                    # Convert to US Eastern timezone
+                    eastern_timezone = pytz.timezone('US/Eastern')
+                    timestamp_eastern = timestamp_utc.replace(tzinfo=pytz.utc).astimezone(eastern_timezone)
+                    # Format the timestamp as YYYYMMDD:hh:mm:ss
+                    formatted_timestamp = timestamp_eastern.strftime('%Y-%m-%d %H:%M:%S')
+
+                    logging.debug(f"{files_count}/{files_processed} - Found this file: {filename} \n dated: {formatted_timestamp}")
+                    input("Press Enter to continue...")
+                    files_count += 1
+                    if self.processReplayFile(file_location):
+                        files_processed += 1
+                self.logger.debug(f"---------------Files found: {files_count}, Files processed: {files_processed}------------")
+
+    def processReplayFile(self, currentFile):
+        result = currentFile
+        response = ""
+        replay_summary = ""  # Initialize summary string
+
+        try:
+            replay_data = spawningtool.parser.parse_replay(result)
+            replay_summary = ""
+
+            winning_players = []
+            losing_players = []
+
+            for player_key, player_data in replay_data['players'].items():
+                if player_data['is_winner']:
+                    winning_players.append(player_data['name'])
+                else:
+                    losing_players.append(player_data['name'])
+
+            # Assuming a 1v1 match, this would give you:
+            winner = winning_players[0] if winning_players else None
+            loser = losing_players[0] if losing_players else None
+
+            # Save the replay JSON to a file
+            filename = config.LAST_REPLAY_JSON_FILE
+            with open(filename, 'w') as file:
+                json.dump(replay_data, file, indent=4)
+                self.logger.debug('last replay file saved: ' + filename)
+
+            # Players and Map
+            players = [f"{player_data['name']}: {player_data['race']}" for player_data in
+                        replay_data['players'].values()]
+            region = replay_data['region']
+            game_type = replay_data['game_type']
+
+            if game_type != "1v1":
+                return  # we only process 1v1 games
+
+            unix_timestamp = replay_data['unix_timestamp']
+
+            replay_summary += f"Players: {', '.join(players)}\n"
+            replay_summary += f"Map: {replay_data['map']}\n"
+            replay_summary += f"Region: {region}\n"
+            replay_summary += f"Game Type: {game_type}\n"
+            replay_summary += f"Timestamp: {unix_timestamp}\n"
+            replay_summary += f"Winners: {winner}\n"
+            replay_summary += f"Losers: {loser}\n"                
+
+            # Game Duration
+            frames = replay_data['frames']
+            frames_per_second = replay_data['frames_per_second']
+
+            total_seconds = frames / frames_per_second
+            minutes = int(total_seconds // 60)
+            seconds = int(total_seconds % 60)
+
+            game_duration = f"{minutes}m {seconds}s"
+            replay_summary += f"Game Duration: {game_duration}\n\n"
+            print("Game Duration:", game_duration)
+
+            build_order_count = config.BUILD_ORDER_COUNT_TO_ANALYZE                    
+
+            # Units Lost
+            units_lost_summary = {player_key: player_data['unitsLost'] for player_key, player_data in
+                                    replay_data['players'].items()}
+            for player_key, units_lost in units_lost_summary.items():
+                player_info = f"Units Lost by {replay_data['players'][player_key]['name']}"  # ChatGPT gets confused if you use possessive 's vs by
+                replay_summary += player_info + '\n'
+                units_lost_aggregate = defaultdict(int)
+                if units_lost:  # Check if units_lost is not empty
+                    for unit in units_lost:
+                        name = unit.get('name', "N/A")
+                        units_lost_aggregate[name] += 1
+                    for unit_name, count in units_lost_aggregate.items():
+                        unit_info = f"{unit_name}: {count}"
+                        replay_summary += unit_info + '\n'
+                else:
+                    replay_summary += "None \n"
+                replay_summary += '\n'
+
+            # Build Orders
+            build_orders = {player_key: player_data['buildOrder'] for player_key, player_data in
+                            replay_data['players'].items()}
+            for player_key, build_order in build_orders.items():
+                player_info = f"{replay_data['players'][player_key]['name']}'s Build Order (first 20 steps):"
+                replay_summary += player_info + '\n'
+                for order in build_order[:int(build_order_count)]:
+                    time = order['time']
+                    name = order['name']
+                    supply = order['supply']
+                    order_info = f"Time: {time}, Name: {name}, Supply: {supply}"
+                    replay_summary += order_info + '\n'
+                replay_summary += '\n'
+
+            # replace player names with streamer name
+            for player_name in config.SC2_PLAYER_ACCOUNTS:
+                replay_summary = replay_summary.replace(player_name, config.STREAMER_NICKNAME)
+
+            # Save the replay summary to a file
+            filename = config.LAST_REPLAY_SUMMARY_FILE
+            with open(filename, 'w') as file:
+                file.write(replay_summary)
+                self.logger.debug('last replay summary saved: ' + filename)
+            print("Replay data saved to replay_data.json")
+        except Exception as e:
+            self.logger.debug(f"error parsing replay: {e}")
+            return False
+
+        # Save to the database
+        try:
+            self.db.insert_replay_info(replay_summary)
+            self.logger.debug("replay summary saved to database")
+            return True
+        except Exception as e:
+            self.logger.debug(f"error with database: {e}")
+
+
+    def __init__(self):
+        logging.basicConfig(level=logging.DEBUG)
+        self.logger = logging.getLogger("replay_loader")
+        # Generate the current datetime timestamp in the format YYYYMMDD-HHMMSS
+        
+        #get timestamp now
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+
+        formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s')
+        log_file_name = f"logs/replay_logger_{timestamp}.log"        
+        file_handler = logging.FileHandler(log_file_name)
+        file_handler.setFormatter(formatter)
+        self.logger.addHandler(file_handler)        
+        self.db = Database()
+        self.find_replay_files(config.REPLAYS_FOLDER)
+
+if __name__ == "__main__":
+    loader = ReplayLoader()          
