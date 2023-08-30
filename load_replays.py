@@ -22,13 +22,12 @@ class ReplayLoader:
             for folder in dirs:
                 folder_location = os.path.join(root, folder)
                 self.logger.debug(f"Checking subfolder: {folder_location}")
-                #print(f"Checking subfolder: r{folder_location.replace(config.REPLAYS_FOLDER, '')}")
                 # Convert both paths to use forward slashes for the replacement
                 folder_location_forward = folder_location.replace("\\", "/")
                 replays_folder_forward = config.REPLAYS_FOLDER.replace("\\", "/")
 
                 cleaned_path = folder_location_forward.replace(replays_folder_forward, '')
-                print(f"Checking subfolder: {cleaned_path}")
+                self.logger.debug(f"Checking subfolder: {cleaned_path}")
 
 
             for filename in files:
@@ -36,13 +35,7 @@ class ReplayLoader:
                     file_location = os.path.join(root, filename)
                     file_date = os.path.getmtime(file_location)
 
-                    # Create a datetime object from the Unix timestamp
-                    timestamp_utc = datetime.utcfromtimestamp(file_date)
-                    # Convert to US Eastern timezone
-                    eastern_timezone = pytz.timezone('US/Eastern')
-                    timestamp_eastern = timestamp_utc.replace(tzinfo=pytz.utc).astimezone(eastern_timezone)
-                    # Format the timestamp as YYYYMMDD:hh:mm:ss
-                    formatted_timestamp = timestamp_eastern.strftime('%Y-%m-%d %H:%M:%S')
+                    formatted_timestamp = self.db.convertUnixToDatetime(file_date)
 
                     logging.debug(f"{files_count}/{files_processed} - Found this file: {filename} \n dated: {formatted_timestamp}")
                     input("Press Enter to continue...")
@@ -77,7 +70,6 @@ class ReplayLoader:
             filename = config.LAST_REPLAY_JSON_FILE
             with open(filename, 'w') as file:
                 json.dump(replay_data, file, indent=4)
-                self.logger.debug('last replay file saved: ' + filename)
 
             # Players and Map
             players = [f"{player_data['name']}: {player_data['race']}" for player_data in
@@ -108,7 +100,6 @@ class ReplayLoader:
 
             game_duration = f"{minutes}m {seconds}s"
             replay_summary += f"Game Duration: {game_duration}\n\n"
-            print("Game Duration:", game_duration)
 
             build_order_count = config.BUILD_ORDER_COUNT_TO_ANALYZE                    
 
@@ -152,8 +143,6 @@ class ReplayLoader:
             filename = config.LAST_REPLAY_SUMMARY_FILE
             with open(filename, 'w') as file:
                 file.write(replay_summary)
-                self.logger.debug('last replay summary saved: ' + filename)
-            print("Replay data saved to replay_data.json")
         except Exception as e:
             self.logger.debug(f"error parsing replay: {e}")
             return False
@@ -176,7 +165,7 @@ class ReplayLoader:
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
 
         formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s')
-        log_file_name = f"logs/replay_logger_{timestamp}.log"        
+        log_file_name = f"logs/replay_loader_{timestamp}.log"        
         file_handler = logging.FileHandler(log_file_name)
         file_handler.setFormatter(formatter)
         self.logger.addHandler(file_handler)        

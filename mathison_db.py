@@ -1,14 +1,27 @@
 import mysql.connector
 import re
 import logging
-import datetime
 import pytz
+import traceback
+from datetime import datetime, timedelta
 from settings import config
+
 
 class Database:
     def __init__(self):
 
-        #logger = logging.getLogger("bot")
+        logging.basicConfig(level=logging.DEBUG)
+        self.logger = logging.getLogger("db_logger")
+        # Generate the current datetime timestamp in the format YYYYMMDD-HHMMSS
+        
+        #get timestamp now
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+
+        formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s')
+        log_file_name = f"logs/db_{timestamp}.log"        
+        file_handler = logging.FileHandler(log_file_name)
+        file_handler.setFormatter(formatter)
+        self.logger.addHandler(file_handler)        
 
         self.connection = mysql.connector.connect(
             host=config.DB_HOST,
@@ -16,7 +29,8 @@ class Database:
             password=config.DB_PASSWORD,
             database=config.DB_NAME
         )
-        self.cursor = self.connection.cursor()      
+        self.cursor = self.connection.cursor(dictionary=True, buffered=True)
+
 
     def create_user(self, data):
         sql = "INSERT INTO USER (LastName, DisplayName, TwitchName, Gender, Sex, Dob, Race, Nationality, Occupation, State, Country) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
@@ -76,10 +90,11 @@ class Database:
         try:
             # Define the query
             query = """
-                SELECT Replay_Summary 
+                SELECT * 
                 FROM Replays 
                 WHERE (Player1_Id = (SELECT Id FROM Players WHERE SC2_UserId = %s) AND Player1_Race = %s) 
-                OR (Player2_Id = (SELECT Id FROM Players WHERE SC2_UserId = %s) AND Player2_Race = %s);
+                OR (Player2_Id = (SELECT Id FROM Players WHERE SC2_UserId = %s) AND Player2_Race = %s)
+                ORDER BY Date_Played DESC;
             """
 
             # Execute the query
@@ -90,100 +105,139 @@ class Database:
 
             # Return the replay summary if found, else None
             if result:
-                return result[0]
-            return None
+                self.logger.debug(f"Player exists: {result}")            
+                return result
+            else:
+                self.logger.debug(f"Player does not exist in our DB")
+                return None
         except Exception as e:
-            #logger.error(f"Error checking if player exists: {e}")
-            print(f"Error checking if player exists: {e}")
+            self.logger.error(f"Error checking if player exists: {e}")
             return None
 
+    def convertUnixToDatetime(self, timestamp, timezone='US/Eastern'):
+        # Convert the Unix timestamp to US Eastern time
+        utc_dt = datetime.utcfromtimestamp(int(timestamp))
+        if timezone == "US/Eastern":
+            eastern = pytz.timezone('US/Eastern')
+            utc_dt = pytz.utc.localize(utc_dt)
+            eastern_dt = utc_dt.astimezone(eastern)
+            date_played = eastern_dt.strftime('%Y-%m-%d %H:%M:%S')   
+        else:
+            self.logger.error ("Timezone not supported at the moment. Please use US/Eastern.")
+            return None
+        return date_played
 
     def insert_replay_info(self, replay_summary):
         # The replay summary
         #with open("temp/replay_summary.txt", "r") as file:
         #    replay_summary = file.read()
 
-        # Extract details using regex
-        player_matches = re.search(r"Players: (\w+): (\w+), (\w+): (\w+)", replay_summary)
-        winners_matches = re.search(r"Winners: (\w+)", replay_summary)
-        losers_matches = re.search(r"Losers: (\w+)", replay_summary)
-        map_match = re.search(r"Map: (.+?)\n", replay_summary)
-        game_duration_match = re.search(r"Game Duration: (.+?)\n", replay_summary)
-        game_type_match = re.search(r"Game Type: (\w+)", replay_summary)
-        region_match = re.search(r"Region: (\w+)", replay_summary)
-        timestamp_match = re.search(r'Timestamp:\s*(\d+)', replay_summary)
+        try:
 
-        # Extracted details
-        player1_name, player1_race, player2_name, player2_race = player_matches.groups()
-        winner = winners_matches.group(1)
-        loser = losers_matches.group(1)
-        game_map = map_match.group(1)
-        game_duration = game_duration_match.group(1)
-        game_type = game_type_match.group(1)
-        region = region_match.group(1)
-        timestamp = timestamp_match.group(1)
+            # Extract details using regex
+            player_matches = re.search(r"Players: (\w+): (\w+), (\w+): (\w+)", replay_summary)
 
-        # Check if UnixTimestamp already exists
-        self.cursor.execute("SELECT 1 FROM Replays WHERE UnixTimestamp = %s", (timestamp,))
-        existing_entry = self.cursor.fetchone()
+            winners_matches = re.search(r"Winners: (\w+)", replay_summary)
+            losers_matches = re.search(r"Losers: (\w+)", replay_summary)
+            map_match = re.search(r"Map: (.+?)\n", replay_summary)
+            game_duration_match = re.search(r"Game Duration: (.+?)\n", replay_summary)
+            game_type_match = re.search(r"Game Type: (\w+)", replay_summary)
+            region_match = re.search(r"Region: (\w+)", replay_summary)
+            timestamp_match = re.search(r'Timestamp:\s*(\d+)', replay_summary)
 
-        # Convert the Unix timestamp to US Eastern time
-        utc_dt = datetime.datetime.utcfromtimestamp(int(timestamp))
-        eastern = pytz.timezone('US/Eastern')
-        utc_dt = pytz.utc.localize(utc_dt)
-        eastern_dt = utc_dt.astimezone(eastern)
-        date_played = eastern_dt.strftime('%Y-%m-%d %H:%M:%S')        
+            # Extracted details
+            if not player_matches:
+                self.logger.debug(f"Unable to find player matches in replay summary: {replay_summary}")
+                return
+            player1_name, player1_race, player2_name, player2_race = player_matches.groups()
 
-        if existing_entry:
-            #self.logger.debug(f"Entry with UnixTimestamp {timestamp} already exists in the database.")
-            print(f"Entry with UnixTimestamp {timestamp} already exists in the database.")
-            return
+            winner = winners_matches.group(1)
+            loser = losers_matches.group(1)
+            game_map = map_match.group(1)
+            game_duration = game_duration_match.group(1)
+            game_type = game_type_match.group(1)
+            region = region_match.group(1)
+            timestamp = timestamp_match.group(1)
 
-        # Insert players into the Players table
-        for player, race in [(player1_name, player1_race), (player2_name, player2_race)]:
-            self.cursor.execute("INSERT IGNORE INTO Players (Id, SC2_UserId) VALUES (NULL, %s)", (player,))
+            # Check if UnixTimestamp already exists
+            self.cursor.execute("SELECT 1 FROM Replays WHERE UnixTimestamp = %s", (timestamp,))
+            existing_entry = self.cursor.fetchall()
 
-        # Retrieve player IDs
-        self.cursor.execute("SELECT Id FROM Players WHERE SC2_UserId = %s", (player1_name,))
-        player1_id = self.cursor.fetchone()[0]
+            date_played = self.convertUnixToDatetime(timestamp,"US/Eastern")
+    
+            if existing_entry:
+                self.logger.debug(f"Entry with UnixTimestamp {timestamp} already exists in the database.")
+                return
 
-        self.cursor.execute("SELECT Id FROM Players WHERE SC2_UserId = %s", (player2_name,))
-        player2_id = self.cursor.fetchone()[0]
+            # Insert players into the Players table
+            for player, race in [(player1_name, player1_race), (player2_name, player2_race)]:
+                self.cursor.execute("INSERT IGNORE INTO Players (Id, SC2_UserId) VALUES (NULL, %s)", (player,))
 
-        # Insert replay details into the Replays table
-        self.cursor.execute("""
-            INSERT INTO Replays (
-                UnixTimestamp, Player1_Id, Player2_Id, Player1_PickRace, Player2_PickRace,
-                Player1_Race, Player2_Race, Player1_Result, Player2_Result,
-                Date_Uploaded, Date_Played, Replay_Summary, Map, Region, GameType, GameDuration
-            ) VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), %s, %s, %s, %s, %s, %s
-            )
-        """, (timestamp, player1_id, player2_id, player1_race, player2_race, player1_race, player2_race, 
-            'Win' if winner == player1_name else 'Lose', 
-            'Win' if winner == player2_name else 'Lose', 
-            date_played, replay_summary, game_map, region, game_type, game_duration))
-        self.connection.commit()
+            # Retrieve player IDs
+            self.cursor.execute("SELECT Id FROM Players WHERE SC2_UserId = %s", (player1_name,))
+            player1_result = self.cursor.fetchone()
+            if player1_result:
+                # Assuming you know the key:
+                # player1_id = player1_result['Id']
+                
+                # If you want the first value without knowing the key:
+                player1_id = next(iter(player1_result.values()))
+            else:
+                player1_id = None
 
-    def test_database():
+            self.cursor.execute("SELECT Id FROM Players WHERE SC2_UserId = %s", (player2_name,))
+            player2_result = self.cursor.fetchone()
+            if player2_result:
+                # Assuming you know the key:
+                # player2_id = player2_result['Id']
+                
+                # If you want the first value without knowing the key:
+                player2_id = next(iter(player2_result.values()))
+            else:
+                player2_id = None
+
+
+            # Insert replay details into the Replays table
+            self.cursor.execute("""
+                INSERT INTO Replays (
+                    UnixTimestamp, Player1_Id, Player2_Id, Player1_PickRace, Player2_PickRace,
+                    Player1_Race, Player2_Race, Player1_Result, Player2_Result,
+                    Date_Uploaded, Date_Played, Replay_Summary, Map, Region, GameType, GameDuration
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), %s, %s, %s, %s, %s, %s
+                )
+            """, (timestamp, player1_id, player2_id, player1_race, player2_race, player1_race, player2_race, 
+                'Win' if winner == player1_name else 'Lose', 
+                'Win' if winner == player2_name else 'Lose', 
+                date_played, replay_summary, game_map, region, game_type, game_duration))
+            self.connection.commit()
+            self.logger.debug(f"Inserted replay info with UnixTimestamp {timestamp}")
+            return True
+
+        except Exception as e:
+            error_message = str(e) + "\n" + traceback.format_exc()
+            self.logger.error(f"Error inserting replay info: {error_message}")
+            
+
+    def test_database(self):
 
         db = Database()
 
         # CREATE
         trait_id = db.create_major_trait(("TraitName", "TraitDescription"))
-        print(f"Inserted major trait with ID {trait_id}")
+        self.logger.debug(f"Inserted major trait with ID {trait_id}")
 
         # READ
-        print(db.read_major_trait(trait_id))
+        self.logger.debug(db.read_major_trait(trait_id))
 
         # UPDATE
         db.update_major_trait(trait_id, ("UpdatedTraitName", "UpdatedTraitDescription"))
-        print(f"Updated major trait with ID {trait_id}")
-        print(db.read_major_trait(trait_id))
+        self.logger.debug(f"Updated major trait with ID {trait_id}")
+        self.logger.debug(db.read_major_trait(trait_id))
 
         # DELETE
         #db.delete_major_trait(trait_id)
-        #print(f"Deleted major trait with ID {trait_id}")
+        #self.logger.debug(f"Deleted major trait with ID {trait_id}")
 
         # This is a sample test for one table. For testing other tables, you will need
         # to add their CRUD methods and use them in a similar fashion.
@@ -193,7 +247,7 @@ class Database:
         # have entries in the MAJOR_TRAITS, MOTIVATIONS, CORE_VALUES, and GOALS tables.
 
         db.create_user(("Doe", "JohnDoe", "JohnTwitch", "Male", "Male", "1990-01-01", "White", "American", "Engineer", "California", "USA"))
-        print(db.read_user(1))
+        self.logger.debug(db.read_user(1))
         db.update_user(1, ("Smith", "JohnSmith", "SmithTwitch", "Male", "Male", "1991-01-01", "White", "American", "Engineer", "California", "USA"))
         # db.delete_user(1)
 

@@ -18,6 +18,7 @@ import spawningtool.parser
 import wiki_utils
 import tiktoken
 import pygame
+import pytz
 from difflib import SequenceMatcher
 from datetime import datetime, timedelta
 from settings import config
@@ -54,18 +55,20 @@ class GameInfo:
                 in self.players if result_filter is None or player['result'] == result_filter]
 
     def get_player_race(self, player_name):
+        lower_player_name = player_name.lower()
         for player in self.players:
-            # SC2 server output on race for Terran seems to only return 4 chars
-            if player['name'] == player_name:
-                if player['race'] == 'Terr':
+            lower_name = player['name'].lower()
+            if lower_name == lower_player_name:
+                race = player['race'].lower()
+                if race == 'terr':
                     return 'Terran'
-                elif player['race'] == 'Prot':
-                    return 'Protoss'   
-                elif player['race'] == 'Rand':
-                    return 'Random'   
-                elif player['race'] == 'Zerg':
+                elif race == 'prot':
+                    return 'Protoss'
+                elif race == 'random':
+                    return 'Rand'
+                elif race == 'zerg':
                     return 'Zerg'
-        return None
+        return 'Unknown'  # Return a default value indicating the race is unknown
     
     def get_status(self):
         if all(player['result'] == 'Undecided' for player in self.players):
@@ -313,6 +316,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         losing_players = ', '.join(current_game.get_player_names(result_filter='Defeat'))
 
         if current_game.get_status() in ("MATCH_ENDED", "REPLAY_ENDED"):
+
             result = find_latest_file(config.REPLAYS_FOLDER, config.REPLAYS_FILE_EXTENSION)
             # there are times when current replay file is not ready and it still finds the prev. one despite the SLEEP TIMEOUT of 7 secs
             # so we are going to do this also to prevent the bot from commenting on the same replay file as the last one
@@ -321,10 +325,13 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 return
             
             if result:
-                print(f"The path to the latest file is: {result}")
+                logger.debug(f"The path to the latest file is: {result}")
 
                 if config.USE_CONFIG_TEST_REPLAY_FILE:
                     result = config.REPLAY_TEST_FILE  # use the config test file instead of latest found dynamically
+
+                # clear context history since replay analysis takes most of the tokens allowed
+                contextHistory.clear()
 
                 replay_data = spawningtool.parser.parse_replay(result)
 
@@ -359,7 +366,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
                 game_duration = f"{minutes}m {seconds}s"
                 replay_summary += f"Game Duration: {game_duration}\n\n"
-                print("Game Duration:", game_duration)
+                logger.debug(f"Game Duration: {game_duration}")
 
                 # Total Players greater than 2, usually gets the total token size to 6k, and max is 4k so we divide by 2 to be safe
                 if current_game.total_players > 2: 
@@ -388,7 +395,18 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 # Build Orders
                 build_orders = {player_key: player_data['buildOrder'] for player_key, player_data in
                                 replay_data['players'].items()}
-                for player_key, build_order in build_orders.items():
+
+                # Separate players based on SC2_PLAYER_ACCOUNTS, start with opponent first
+                player_order = []
+                for player_key, player_data in replay_data['players'].items():
+                    if player_data['name'] in config.SC2_PLAYER_ACCOUNTS:
+                        player_order.append(player_key)
+                    else:
+                        player_order.insert(0, player_key)  # Put opponent at the start
+
+                # Loop through build orders using the modified order
+                for player_key in player_order:
+                    build_order = build_orders[player_key]
                     player_info = f"{replay_data['players'][player_key]['name']}'s Build Order (first 20 steps):"
                     replay_summary += player_info + '\n'
                     for order in build_order[:int(build_order_count)]:
@@ -398,7 +416,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                         order_info = f"Time: {time}, Name: {name}, Supply: {supply}"
                         replay_summary += order_info + '\n'
                     replay_summary += '\n'
-
+                    
                 # replace player names with streamer name
                 for player_name in config.SC2_PLAYER_ACCOUNTS:
                     replay_summary = replay_summary.replace(player_name, config.STREAMER_NICKNAME)
@@ -408,54 +426,69 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 with open(filename, 'w') as file:
                     file.write(replay_summary)
                     logger.debug('last replay summary saved: ' + filename)
-                print("Replay data saved to replay_data.json")
 
                 # Save to the database
                 try:
-                    self.db.insert_replay_info(replay_summary)
-                    logger.debug("replay summary saved to database")
+                    if self.db.insert_replay_info(replay_summary):
+                        logger.debug("replay summary saved to database")
+                    else:
+                        logger.debug("replay summary not saved to database")
                 except Exception as e:
                     logger.debug(f"error with database: {e}")
 
             else:
-                print("No result found or an error occurred.")
+                logger.debug("No result found!")
 
         if current_game.get_status() == "MATCH_STARTED":
-            self.play_SC2_sound("start")
-            # clear context history so that the bot doesn't mix up results from previous games
-            contextHistory.clear()
+            # check to see if player exists in database
+            try:
+                #if game_type == "1v1":
+                if current_game.total_players == 2:
+                    logger.debug("1v1 game, so checking if player exists in database")
+                    game_player_names = [name.strip() for name in game_player_names.split(',')]
+                    for player_name in game_player_names:
+                        logger.debug(f"looking for: {player_name}")
+                        if player_name != config.STREAMER_NICKNAME:
+                            result = self.db.check_player_exists(player_name, current_game.get_player_race(player_name))
+                            if result is not None:
 
-            if config.IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN:
-                response = f"Game has just started with these players: {game_player_names}"
+                                # Set the timezone for Eastern Time
+                                eastern = pytz.timezone('US/Eastern')
 
-                # check to see if player exists in database
-                try:
-                    #if game_type == "1v1":
-                    if current_game.total_players == 2:
-                        logger.debug("1v1 game, so checking if player exists in database")
-                        game_player_names = [name.strip() for name in game_player_names.split(',')]
-                        for player_name in game_player_names:
-                            logger.debug(f"looking for: {player_name}")
-                            if player_name != config.STREAMER_NICKNAME:
-                                result = self.db.check_player_exists(player_name, current_game.get_player_race(player_name))
-                                if result is not None:
-                                    msg =  "As a StarCraft 2 expert, summarize what KJ's opponent did. Be concise giving only 2 sentences total of 25 words or less. \n"
-                                    msg += "Structure the response like this: \n"
-                                    msg += f"KJ played someone named {player_name} before in {{Map name}}, and the result was a {{Win/Loss for KJ}} in {{game duration}}. \n"
-                                    msg += "This player did: {{your summary}}"
-                                    msg += "\n"
-                                    msg += "-----"
-                                    msg += result
-                                    self.processMessageForOpenAI(msg, self.conversation_mode)        
-                                    break
+                                # Assign result['Date_Played'] directly to date_obj and set its timezone
+                                date_obj = result['Date_Played'].replace(tzinfo=pytz.UTC).astimezone(eastern)
+
+                                # Get the current datetime in Eastern Time
+                                current_time_eastern = datetime.now(eastern)
+
+                                # Calculate the difference
+                                delta = current_time_eastern - date_obj
+
+                                # Extract the number of days
+                                days_ago = delta.days
+                                seconds_ago = delta.seconds
+
+                                # Determine the appropriate message
+                                if days_ago == 0:
+                                    mins_ago = seconds_ago // 60
+                                    how_long_ago = f"{mins_ago} minutes ago."
                                 else:
-                                    logger.debug(f"player {player_name} of race {current_game.get_player_race(player_name)} not found in database")
-                except Exception as e:
-                    logger.debug(f"error with find if player exists: {e}")
+                                    how_long_ago = f"{days_ago} days ago"
+                                
+                                msg =  "As a StarCraft 2 expert, summarize what KJ's opponent did. Be concise giving only 2 sentences total of 25 words or less. \n"
+                                msg += "Structure the response like this: \n"
+                                msg += f"\t KJ last played someone named {player_name} {how_long_ago} in {{Map name}}, and the result was a {{Win/Loss for KJ}} in {{game duration}}. "
+                                msg += "\t This player did: {{your summary}}"
+                                msg += "\n"
+                                msg += "-----\n"
+                                msg += result['Replay_Summary']
+                                self.processMessageForOpenAI(msg, "last_time_played")   
 
-            else:
-                # no players list from previous game, since this is a first run
-                response = f"Mathison just started, will review previous game results based on " + config.STREAMER_NICKNAME + "'s configuration settings"
+                                break
+                            else:
+                                logger.debug(f"player {player_name} of race {current_game.get_player_race(player_name)} not found in database")
+            except Exception as e:
+                logger.debug(f"error with find if player exists: {e}")
 
         elif current_game.get_status() == "MATCH_ENDED":
             if len(winning_players) == 0:
@@ -595,6 +628,17 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         total_tokens = tokensArray.num_tokens_from_string(msg, config.TOKENIZER_ENCODING)
         msg_length = len(msg)
         logger.debug(f"string length: {msg_length}, {total_tokens} tokens")
+
+        # This approach calculates the token_ratio as the desired token limit divided by the actual total tokens. 
+        # Then, it trims the message length based on this ratio, ensuring that the message fits within the desired token limit.
+        # Additionally, the code adjusts the desired token limit by subtracting the buffer size before calculating the token ratio. 
+        # This ensures that the trimming process takes the buffer into account and helps prevent the message from 
+        # exceeding the desired token limit by an additional (BUFFER) of 200 tokens.
+
+        # check tokensize
+        total_tokens = tokensArray.num_tokens_from_string(msg, config.TOKENIZER_ENCODING)
+        msg_length = len(msg)
+        logger.debug(f"string length: {msg_length}, {total_tokens} tokens")
         if  int(total_tokens) > config.CONVERSATION_MAX_TOKENS:
             divided_by = math.ceil(len(msg) // config.CONVERSATION_MAX_TOKENS)
             logger.debug(f"msg is too long so we are truncating it 1/{divided_by} of its length")
@@ -604,35 +648,44 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             msg_length = len(msg)
             logger.debug(f"new string length: {msg_length}, {total_tokens} tokens")
 
-        # add User msg to conversation context
-        tokensArray.add_new_msg(contextHistory, 'User: ' + msg + "\n", logger)
-
-        # add complete array as msg to OpenAI
-        msg = msg + tokensArray.get_printed_array("reversed", contextHistory)
-
-        # Choose a random mood and perspective from the selected options
-        mood = random.choice(self.selected_moods)
-
-        if conversation_mode == "replay_analysis":
-            perspective_indices = config.BOT_PERSPECTIVES[:config.PERSPECTIVE_INDEX_CUTOFF]  # say cutoff is 4, then select indices 0-3
+        # add User msg to conversation context if not replay nor last time played analysis
+        if conversation_mode not in ["replay_analysis", "last_time_played"]:
+            # add User msg to conversation context
+            tokensArray.add_new_msg(contextHistory, 'User: ' + msg + "\n", logger)
+            logger.debug ("adding msg to context history")
         else:
-            perspective_indices = config.BOT_PERSPECTIVES[config.PERSPECTIVE_INDEX_CUTOFF:]  # Select indices 4-onwards
+            contextHistory.clear()
 
-        selected_perspectives = [config.PERSPECTIVE_OPTIONS[i] for i in perspective_indices]
-        perspective = random.choice(selected_perspectives)
-
-        if(conversation_mode == "normal"):
-            # Add custom SC2 viewer perspective
-            msg = (f"As a {mood} acquaintance of {config.STREAMER_NICKNAME}, {perspective}, "
-                + msg)
+        if conversation_mode == "last_time_played":
+            # no mood / perspective
+            pass
         else:
-            if(conversation_mode == "in_game"):
-                msg = (f"As a {mood} observer of matches in StarCraft 2, {perspective}, talk only about what you know from this statement: "
+
+            # add complete array as msg to OpenAI
+            msg = msg + tokensArray.get_printed_array("reversed", contextHistory)
+            # Choose a random mood and perspective from the selected options
+            mood = random.choice(self.selected_moods)
+
+            if conversation_mode == "replay_analysis":
+                perspective_indices = config.BOT_PERSPECTIVES[:config.PERSPECTIVE_INDEX_CUTOFF]  # say cutoff is 4, then select indices 0-3
+            else:
+                perspective_indices = config.BOT_PERSPECTIVES[config.PERSPECTIVE_INDEX_CUTOFF:]  # Select indices 4-onwards
+
+            selected_perspectives = [config.PERSPECTIVE_OPTIONS[i] for i in perspective_indices]
+            perspective = random.choice(selected_perspectives)
+
+            if(conversation_mode == "normal"):
+                # Add custom SC2 viewer perspective
+                msg = (f"As a {mood} acquaintance of {config.STREAMER_NICKNAME}, {perspective}, "
                     + msg)
             else:
-                msg = (f"As a {mood} observer of matches in StarCraft 2, {perspective}, "            
-                    + msg)
-     
+                if(conversation_mode == "in_game"):
+                    msg = (f"As a {mood} observer of matches in StarCraft 2, {perspective}, talk only about what you know from this statement: "
+                        + msg)
+                else:
+                    msg = (f"As a {mood} observer of matches in StarCraft 2, {perspective}, "            
+                        + msg)
+        
         logger.debug("CONVERSATION MODE: " + conversation_mode)
 
         logger.debug("sent to OpenAI: %s", msg)

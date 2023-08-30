@@ -39,6 +39,14 @@ TOKENIZER = "tiktoken"  # tiktoken or nltk supported
 TOKENIZER_ENCODING = "cl100k_base"  # cl100k_base
 
 """
+|   DB Settings
+"""
+DB_HOST = "localhost"
+DB_USER = ""
+DB_PASSWORD = ""
+DB_NAME = "mathison"
+
+"""
 |   SC2 Settings
 """
 # StarCraft II settings
@@ -53,7 +61,8 @@ REPLAY_TEST_FILE = ("test/replays/Royal Blood LE (428).SC2Replay")
 BUILD_ORDER_COUNT_TO_ANALYZE = 60
 ABANDONED_GAME_THRESHOLD = 15  # games less than this seconds will be considered abandoned for better commentary
 # TODO: make this more intuitive and less confusing, as test modes are different from running replays period
-TEST_MODE = False  # will review SC2 game status JSON file in test instead of the SC2 client
+TEST_MODE = True  # misc. tests, like with DB and other items
+TEST_MODE_SC2_CLIENT_JSON = False  # will review SC2 game status JSON file in test instead of the SC2 client
 IGNORE_GAME_STATUS_WHILE_WATCHING_REPLAYS = False  # will ignore game status when watching a replay
 IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN = True  # will not comment on game status since its from last game before run
 GAME_RESULT_TEST_FILE = "test/SC2_game_result_test.json"  # output of game result JSON file for analysis if needed
