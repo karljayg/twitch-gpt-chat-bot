@@ -483,10 +483,10 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                                 msg += "-----\n"
                                 msg += result['Replay_Summary']
                                 self.processMessageForOpenAI(msg, "last_time_played")   
-
-                                break
                             else:
                                 logger.debug(f"player {player_name} of race {current_game.get_player_race(player_name)} not found in database")
+                            break  # avoid processingMessageForOpenAI again below
+                        
             except Exception as e:
                 logger.debug(f"error with find if player exists: {e}")
 
