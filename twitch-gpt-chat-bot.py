@@ -455,8 +455,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                                 # Set the timezone for Eastern Time
                                 eastern = pytz.timezone('US/Eastern')
 
-                                # Assign result['Date_Played'] directly to date_obj and set its timezone
-                                date_obj = result['Date_Played'].replace(tzinfo=pytz.UTC).astimezone(eastern)
+                                # already in Eastern Time since it is using DB replay table Date_Played column
+                                date_obj = eastern.localize(result['Date_Played'])
 
                                 # Get the current datetime in Eastern Time
                                 current_time_eastern = datetime.now(eastern)
@@ -475,9 +475,9 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                                 else:
                                     how_long_ago = f"{days_ago} days ago"
                                 
-                                msg =  "As a StarCraft 2 expert, summarize what KJ's opponent did. Be concise giving only 2 sentences total of 25 words or less. \n"
+                                msg =  f"As a StarCraft 2 expert, summarize what {config.STREAMER_NICKNAME}'s opponent did. Be concise giving only 2 sentences total of 25 words or less. \n"
                                 msg += "Structure the response like this: \n"
-                                msg += f"\t KJ last played someone named {player_name} {how_long_ago} in {{Map name}}, and the result was a {{Win/Loss for KJ}} in {{game duration}}. "
+                                msg += f"\t {config.STREAMER_NICKNAME} last played someone named {player_name} {how_long_ago} in {{Map name}}, and the result was a {{Win/Loss for {config.STREAMER_NICKNAME}}} in {{game duration}}. "
                                 msg += "\t This player did: {{your summary}}"
                                 msg += "\n"
                                 msg += "-----\n"
