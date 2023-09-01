@@ -298,6 +298,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             #logger.debug("previous game status: " + str(previous_game.get_status()) + " current game status: " + str(current_game.get_status()))            
             return
         else:
+            previous_game = current_game # do this here also, to ensure it does not get processed again
             if previous_game:
                 pass
                 #logger.debug("previous game status: " + str(previous_game.get_status()) + " current game status: " + str(current_game.get_status()))
@@ -466,25 +467,30 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
                                 # Extract the number of days
                                 days_ago = delta.days
+                                hours_ago = delta.seconds // 3600
                                 seconds_ago = delta.seconds
 
                                 # Determine the appropriate message
                                 if days_ago == 0:
                                     mins_ago = seconds_ago // 60
-                                    how_long_ago = f"{mins_ago} minutes ago."
+                                    if mins_ago > 60:
+                                        how_long_ago = f"{hours_ago} hours ago."
+                                    else:
+                                        how_long_ago = f"{mins_ago} seconds ago."
                                 else:
                                     how_long_ago = f"{days_ago} days ago"
                                 
-                                msg =  f"As a StarCraft 2 expert, summarize what {config.STREAMER_NICKNAME}'s opponent did. Be concise giving only 2 sentences total of 25 words or less. \n"
-                                msg += "Structure the response like this: \n"
-                                msg += f"\t {config.STREAMER_NICKNAME} last played someone named {player_name} {how_long_ago} in {{Map name}}, and the result was a {{Win/Loss for {config.STREAMER_NICKNAME}}} in {{game duration}}. "
-                                msg += "\t This player did: {{your summary}}"
-                                msg += "\n"
+                                msg = "Please do both:"
+                                msg += f"1. Mention all details here: {config.STREAMER_NICKNAME} played {player_name} {how_long_ago} in {{Map name}}," 
+                                msg += f"and the result was a {{Win/Loss for {config.STREAMER_NICKNAME}}} in {{game duration}}. \n"
+                                msg += f"2. As a StarCraft 2 expert, summarize the build order {config.STREAMER_NICKNAME}'s opponent did below. Be concise. Only 2 sentences total of 25 words or less. \n"
                                 msg += "-----\n"
-                                msg += result['Replay_Summary']
+                                msg += f"last game summary: \n {result['Replay_Summary']}"
                                 self.processMessageForOpenAI(msg, "last_time_played")   
                             else:
-                                logger.debug(f"player {player_name} of race {current_game.get_player_race(player_name)} not found in database")
+                                msg = f"I think this is the first time {config.STREAMER_NICKNAME} is playing{player_name} at least with this race {current_game.get_player_race(player_name)}"
+                                logger.debug(msg)
+                                self.processMessageForOpenAI(msg, "in_game")   
                             break  # avoid processingMessageForOpenAI again below
                         
             except Exception as e:
@@ -519,20 +525,20 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             losing_players = ', '.join(current_game.get_player_names(result_filter='Defeat'))
 
             if len(winning_players) == 0:
-                response = f"Replayed game with {game_player_names} ended with a Tie!"
+                response = f"The game with {game_player_names} ended with a Tie!"
             else:
 
                 # Compare with the threshold
                 if self.total_seconds < config.ABANDONED_GAME_THRESHOLD:
-                    logger.debug("The replay was an abandoned game where duration was less than " + str(config.ABANDONED_GAME_THRESHOLD) + " seconds.")
-                    response = f"The replay was an abandoned game where duration was just {self.total_seconds} seconds between {game_player_names} and so {winning_players} get the free win."
+                    response = f"This was an abandoned game where duration was just {self.total_seconds} seconds between {game_player_names} and so {winning_players} get the free win."
+                    logger.debug(response)                    
                     self.play_SC2_sound("abandoned")  
                 else:
                     if config.STREAMER_NICKNAME in winning_players:
                         self.play_SC2_sound("victory")
                     else:
                         self.play_SC2_sound("defeat")
-                    response = (f"The replay has finished, game with {game_player_names} ended in a win for "
+                    response = (f"The game with {game_player_names} ended in a win for "
                                 f"{winning_players} and a loss for {losing_players}")
 
         if not config.OPENAI_DISABLED:
