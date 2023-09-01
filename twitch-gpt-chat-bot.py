@@ -334,7 +334,11 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 # clear context history since replay analysis takes most of the tokens allowed
                 contextHistory.clear()
 
-                replay_data = spawningtool.parser.parse_replay(result)
+                # capture error so it does not run another processSC2game
+                try:
+                    replay_data = spawningtool.parser.parse_replay(result)
+                except Exception as e:
+                    logger.error(f"An error occurred while trying to parse the replay: {e}")
 
                 # Save the replay JSON to a file
                 filename = config.LAST_REPLAY_JSON_FILE
@@ -480,15 +484,25 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                                 else:
                                     how_long_ago = f"{days_ago} days ago"
                                 
-                                msg = "Please do both:"
-                                msg += f"1. Mention all details here: {config.STREAMER_NICKNAME} played {player_name} {how_long_ago} in {{Map name}}," 
+                                first_30_build_steps = self.db.extract_opponent_build_order(player_name)
+
+                                msg = "Do both: \n"
+                                msg += f"Mention all details here: {config.STREAMER_NICKNAME} played {player_name} {how_long_ago} in {{Map name}}," 
                                 msg += f"and the result was a {{Win/Loss for {config.STREAMER_NICKNAME}}} in {{game duration}}. \n"
-                                msg += f"2. As a StarCraft 2 expert, summarize the build order {config.STREAMER_NICKNAME}'s opponent did below. Be concise. Only 2 sentences total of 25 words or less. \n"
-                                msg += "-----\n"
-                                msg += f"last game summary: \n {result['Replay_Summary']}"
+                                msg += f"As a StarCraft 2 expert, comment on last game summary. Be concise with only 2 sentences total of 25 words or less. \n"
+                                msg += "-----\n"                                
+                                msg += f"last game summary: \n {result['Replay_Summary']} \n"
                                 self.processMessageForOpenAI(msg, "last_time_played")   
+
+                                msg = f"Do both: \n"
+                                msg += "First, print the build order exactly as shown. \n"
+                                msg += "After, summarize the build order 7 words or less. \n"
+                                msg += "-----\n"
+                                msg += f"{first_30_build_steps} \n"                                                                
+                                self.processMessageForOpenAI(msg, "last_time_played")   
+                                
                             else:
-                                msg = f"I think this is the first time {config.STREAMER_NICKNAME} is playing{player_name} at least with this race {current_game.get_player_race(player_name)}"
+                                msg = f"I think this is the first time {config.STREAMER_NICKNAME} is playing {player_name}, at least the {current_game.get_player_race(player_name)} of {player_name}"
                                 logger.debug(msg)
                                 self.processMessageForOpenAI(msg, "in_game")   
                             break  # avoid processingMessageForOpenAI again below

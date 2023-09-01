@@ -217,7 +217,64 @@ class Database:
         except Exception as e:
             error_message = str(e) + "\n" + traceback.format_exc()
             self.logger.error(f"Error inserting replay info: {error_message}")
+
+    def extract_opponent_build_order(self, opponent_name):
+        
+        # SQL to get the latest game of the opponent from the Replays table
+        sql = """
+        SELECT r.Replay_Summary
+        FROM Replays r
+        JOIN Players p1 ON r.Player1_Id = p1.Id
+        JOIN Players p2 ON r.Player2_Id = p2.Id
+        WHERE p1.SC2_UserId = %s OR p2.SC2_UserId = %s
+        ORDER BY r.Date_Played DESC
+        LIMIT 1
+        """       
+        self.cursor.execute(sql, (opponent_name, opponent_name))
+        row = self.cursor.fetchone()
+      
+        if row and row['Replay_Summary']:  # Updated this line
+            replay_summary = row['Replay_Summary']
+
+            # Find the index of the opponent's build order
+            build_order_start = replay_summary.find(f"{opponent_name}'s Build Order")
             
+            # If the opponent's build order is not found, return an empty list
+            if build_order_start == -1:
+                return []
+            
+            # Slice the replay summary from the start of the build order
+            build_order_section = replay_summary[build_order_start:]
+            
+            # Split this section into lines
+            build_order_lines = build_order_section.split('\n')
+
+            # remove the Time: entries
+            stripped_list = []
+            for line in build_order_lines:
+                # Split the line based on the comma
+                parts = line.split(',', 1)
+                if len(parts) > 1:
+                    stripped_list.append(parts[1].strip())
+                else:
+                    stripped_list.append(parts[0])
+
+            reformatted_list = []
+            for line in stripped_list:
+                match = re.match(r"Name: (\w+), Supply: (\d+)", line)
+                if match:
+                    reformatted_list.append(f"{match.group(1)} at {match.group(2)}")
+                else:
+                    reformatted_list.append(line)
+
+            # remove the ' and " characters
+            reformatted_list = [line.replace("'", "").replace('"', '') for line in reformatted_list]
+
+            # Extract the first 10 lines (or as many as exist)
+            return reformatted_list[1:30]
+
+        else:
+            return None
 
     def test_database(self):
 
@@ -254,3 +311,16 @@ class Database:
         #db.insert_replay_info()
 
         db.close()
+
+# TEST
+
+if(config.TEST_MODE):
+
+    db = Database()
+    opponent_name = "Vales"
+    result = db.extract_opponent_build_order(opponent_name)
+    if result:
+        #print(", ".join(result).replace(",", "\n", 1))  # CSV in one line
+        print(result)
+    else:
+        print(f"No game found for opponent {opponent_name}.")
