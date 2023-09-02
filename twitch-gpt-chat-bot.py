@@ -502,7 +502,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                                 self.processMessageForOpenAI(msg, "last_time_played")   
                                 
                             else:
-                                msg = f"I think this is the first time {config.STREAMER_NICKNAME} is playing {player_name}, at least the {current_game.get_player_race(player_name)} of {player_name}"
+                                msg = "Restate this without missing any details: \n "
+                                msg += f"I think this is the first time {config.STREAMER_NICKNAME} is playing {player_name}, at least the {current_game.get_player_race(player_name)} of {player_name}"
                                 logger.debug(msg)
                                 self.processMessageForOpenAI(msg, "in_game")   
                             break  # avoid processingMessageForOpenAI again below
@@ -700,7 +701,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                     + msg)
             else:
                 if(conversation_mode == "in_game"):
-                    msg = (f"As a {mood} observer of matches in StarCraft 2, {perspective}, talk only about what you know from this statement: "
+                    msg = (f"As a {mood} observer of matches in StarCraft 2, {perspective}, comment on this statement: "
                         + msg)
                 else:
                     msg = (f"As a {mood} observer of matches in StarCraft 2, {perspective}, "            

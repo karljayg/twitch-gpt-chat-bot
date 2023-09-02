@@ -1,4 +1,5 @@
 import mysql.connector
+import sys
 import re
 import logging
 import pytz
@@ -220,6 +221,7 @@ class Database:
 
     def extract_opponent_build_order(self, opponent_name):
         
+        self.logger.debug(f"searching in DB for {opponent_name}")
         # SQL to get the latest game of the opponent from the Replays table
         sql = """
         SELECT r.Replay_Summary
@@ -315,9 +317,12 @@ class Database:
 # TEST
 
 if(config.TEST_MODE):
+#if True:
 
     db = Database()
-    opponent_name = "Vales"
+    # get opponent_name from command line
+    opponent_name = input("Enter opponent name: ")
+    
     result = db.extract_opponent_build_order(opponent_name)
     if result:
         #print(", ".join(result).replace(",", "\n", 1))  # CSV in one line
