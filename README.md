@@ -42,7 +42,7 @@ python -m spacy download en_core_web_sm
 To start the bot, run in your terminal:
 
 ```
-python twitch-gpt-chat-bot.py
+python app.py
 ```
 
 In your Twitch channel chat, type "open sesame" followed by your message to generate a response from the OpenAI API.
