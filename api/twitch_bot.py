@@ -1,7 +1,5 @@
 import irc.bot
 import openai
-import re
-import asyncio
 import json
 import random
 import time
@@ -12,13 +10,10 @@ import sys
 import requests
 import logging
 import math
-import os
 import spawningtool.parser
 import tiktoken
 import pygame
 import pytz
-from difflib import SequenceMatcher
-from datetime import datetime, timedelta
 from datetime import datetime
 from collections import defaultdict
 
@@ -26,6 +21,10 @@ from settings import config
 import utils.tokensArray as tokensArray
 import utils.wiki_utils as wiki_utils
 from models.mathison_db import Database
+
+from models.game_info import GameInfo
+from models.log_once_within_interval_filter import LogOnceWithinIntervalFilter
+from utils.file_utils import find_latest_file
 
 # The contextHistory array is a list of tuples, where each tuple contains two elements: the message string and its
 # corresponding token size. This allows us to keep track of both the message content and its size in the array. When
@@ -42,85 +41,6 @@ from models.mathison_db import Database
 # messages in the array.
 global contextHistory
 contextHistory = []
-
-
-class GameInfo:
-    def __init__(self, json_data):
-        self.isReplay = json_data['isReplay']
-        self.players = json_data['players']
-        self.displayTime = json_data['displayTime']
-        self.total_players = len(self.players)
-
-    def get_player_names(self, result_filter=None):
-        return [config.STREAMER_NICKNAME if player['name'] in config.SC2_PLAYER_ACCOUNTS else player['name'] for player
-                in self.players if result_filter is None or player['result'] == result_filter]
-
-    def get_player_race(self, player_name):
-        lower_player_name = player_name.lower()
-        for player in self.players:
-            lower_name = player['name'].lower()
-            if lower_name == lower_player_name:
-                race = player['race'].lower()
-                if race == 'terr':
-                    return 'Terran'
-                elif race == 'prot':
-                    return 'Protoss'
-                elif race == 'random':
-                    return 'Rand'
-                elif race == 'zerg':
-                    return 'Zerg'
-        return 'Unknown'  # Return a default value indicating the race is unknown
-
-    def get_status(self):
-        if all(player['result'] == 'Undecided' for player in self.players):
-            return "REPLAY_STARTED" if self.isReplay else "MATCH_STARTED"
-        elif any(player['result'] in ['Defeat', 'Victory', 'Tie'] for player in self.players):
-            return "REPLAY_ENDED" if self.isReplay else "MATCH_ENDED"
-        return None
-
-    def get_winner(self):
-        for player in self.players:
-            if player['result'] == 'Victory':
-                return player['name']
-        return None
-
-
-class LogOnceWithinIntervalFilter(logging.Filter):
-    """Logs each unique message only once within a specified time interval if they are similar."""
-
-    def __init__(self, similarity_threshold=0.95, interval_seconds=120):
-        super().__init__()
-        self.similarity_threshold = similarity_threshold
-        self.interval = timedelta(seconds=interval_seconds)
-        self.last_logged_message = None
-        self.last_logged_time = None
-        self.loop_count = 0  # Initialize the loop counter
-        self.loops_to_print = 5  # Number of loops to wait before printing
-
-    # log filter for similar repetitive messages to suppress
-    def filter(self, record):
-        now = datetime.now()
-        time_left = None
-        self.loop_count += 1  # Increment the loop counter
-        time_left = ...  # Calculate the time left
-        time_since_last_logged = ...  # Calculate the time since last logged
-
-        if self.last_logged_message:
-            time_since_last_logged = now - self.last_logged_time
-            time_left = self.interval - time_since_last_logged
-            if time_since_last_logged < self.interval:
-                similarity = SequenceMatcher(
-                    None, self.last_logged_message, record.msg).ratio()
-                if similarity > self.similarity_threshold:
-                    if self.loop_count % self.loops_to_print == 0:  # Check if it's time to print
-                        print(
-                            f"suppressed: {math.floor(time_left.total_seconds())} secs")
-                    return False
-
-        self.last_logged_message = record.msg
-        self.last_logged_time = now
-        return True
-
 
 # Initialize the logger at the beginning of the script
 logger = logging.getLogger(__name__)
@@ -139,59 +59,6 @@ player_names = config.SC2_PLAYER_ACCOUNTS
 def get_random_emote():
     emote_names = config.BOT_GREETING_EMOTES
     return f'{random.choice(emote_names)}'
-
-
-# Global variable to save the path of the latest file found
-latest_file_found = None
-
-
-def find_latest_file(folder, file_extension):
-    global latest_file_found
-
-    try:
-        if not os.path.isdir(folder):
-            logger.debug(
-                f"The provided path '{folder}' is not a directory. Please provide a valid directory path.")
-            return None
-
-        if not file_extension.startswith('.'):
-            file_extension = '.' + file_extension
-
-        logger.debug(
-            f"Searching for files with extension '{file_extension}' in folder '{folder}' & subdirectories...")
-
-        latest_file = None
-        latest_timestamp = None
-
-        for root, _, files in os.walk(folder):
-            for filename in files:
-                if filename.endswith(file_extension):
-                    filepath = os.path.join(root, filename)
-                    file_timestamp = os.path.getmtime(filepath)
-
-                    if latest_file is None or file_timestamp > latest_timestamp:
-                        latest_file = filepath
-                        latest_timestamp = file_timestamp
-
-        if latest_file:
-            if latest_file == latest_file_found:
-                logger.debug(
-                    f"The latest file with extension '{file_extension}' has not changed: {latest_file}")
-            else:
-                logger.debug(
-                    f"Found a new latest file with extension '{file_extension}': {latest_file}")
-                latest_file_found = latest_file
-
-            return latest_file
-        else:
-            logger.debug(
-                f"No files with extension '{file_extension}' were found in the folder '{folder}' and its subdirectories.")
-            return None
-
-    except Exception as e:
-        logger.debug(
-            f"An error occurred while searching for the latest file: {e}")
-        return None
 
 
 class TwitchBot(irc.bot.SingleServerIRCBot):
@@ -275,7 +142,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                     f"An error occurred while trying to play sound: {e}")
                 return None
         else:
-            logger.debug("SC2 player intros and other sounds are disabled")
+            logger.debug(
+                "SC2 player intros and other sounds are disabled")
 
     # incorrect IDE warning here, keep parameters at 3
     def signal_handler(self, signal, frame):
@@ -337,7 +205,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         if current_game.get_status() in ("MATCH_ENDED", "REPLAY_ENDED"):
 
             result = find_latest_file(
-                config.REPLAYS_FOLDER, config.REPLAYS_FILE_EXTENSION)
+                config.REPLAYS_FOLDER, config.REPLAYS_FILE_EXTENSION, logger)
             # there are times when current replay file is not ready and it still finds the prev. one despite the SLEEP TIMEOUT of 7 secs
             # so we are going to do this also to prevent the bot from commenting on the same replay file as the last one
             if (self.last_replay_file == result):
@@ -462,7 +330,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                     if self.db.insert_replay_info(replay_summary):
                         logger.debug("replay summary saved to database")
                     else:
-                        logger.debug("replay summary not saved to database")
+                        logger.debug(
+                            "replay summary not saved to database")
                 except Exception as e:
                     logger.debug(f"error with database: {e}")
 
@@ -690,7 +559,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         total_tokens = tokensArray.num_tokens_from_string(
             msg, config.TOKENIZER_ENCODING)
         msg_length = len(msg)
-        logger.debug(f"string length: {msg_length}, {total_tokens} tokens")
+        logger.debug(
+            f"string length: {msg_length}, {total_tokens} tokens")
 
         # This approach calculates the token_ratio as the desired token limit divided by the actual total tokens.
         # Then, it trims the message length based on this ratio, ensuring that the message fits within the desired token limit.
@@ -702,7 +572,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         total_tokens = tokensArray.num_tokens_from_string(
             msg, config.TOKENIZER_ENCODING)
         msg_length = len(msg)
-        logger.debug(f"string length: {msg_length}, {total_tokens} tokens")
+        logger.debug(
+            f"string length: {msg_length}, {total_tokens} tokens")
         if int(total_tokens) > config.CONVERSATION_MAX_TOKENS:
             divided_by = math.ceil(len(msg) // config.CONVERSATION_MAX_TOKENS)
             logger.debug(
@@ -953,26 +824,3 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 3: f"Calm down {sender}. What's with the attitude?"
             }
             self.msgToChannel(switcher.get(response))
-
-
-username = config.USERNAME
-token = config.TOKEN  # get this from https://twitchapps.com/tmi/
-channel = config.USERNAME
-
-
-async def tasks_to_do():
-    try:
-        # Create an instance of the bot and start it
-        bot = TwitchBot()
-        await bot.start()
-    except SystemExit as e:
-        # Handle the SystemExit exception if needed, or pass to suppress it
-        pass
-
-
-async def main():
-    tasks = [asyncio.create_task(tasks_to_do())]
-    for task in tasks:
-        await task  # Await the task here to handle exceptions
-
-asyncio.run(main())

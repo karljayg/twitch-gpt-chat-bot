@@ -49,3 +49,10 @@ In your Twitch channel chat, type "open sesame" followed by your message to gene
 
 ## License
 
+
+# chan notes(to be removed once done):
+   - https://www.youtube.com/watch?v=25P5apB4XWM
+
+   - https://www.youtube.com/watch?v=e9yMYdnSlUA
+
+   - https://www.youtube.com/watch?v=rp1QR3eGI1k

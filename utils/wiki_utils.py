@@ -8,7 +8,8 @@ llm = OpenAI(temperature=0.6, openai_api_key=OpenAI.api_key)
 
 tool_names = ['wikipedia']
 tools = load_tools(tool_names)
-agent = initialize_agent(tools, llm, agent='zero-shot-react-description', verbose=True)
+agent = initialize_agent(
+    tools, llm, agent='zero-shot-react-description', verbose=True)
 
 
 def wikipedia_question(question, self):

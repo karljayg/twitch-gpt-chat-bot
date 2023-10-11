@@ -65,6 +65,7 @@ maxContextTokens = config.CONVERSATION_MAX_TOKENS
 # global contextHistory
 # contextHistory = []
 
+
 def get_toxicity_probability(message, logger):
     logger.debug("checking toxicity score.")
     # api_key = config.PERSPECTIVE_API_KEY
@@ -130,7 +131,6 @@ def add_new_msg(contextHistory, newMsg, logger):
         logger.debug("reduced totalTokens: " + str(totalTokens))
 
 
-
 def get_printed_array(order, contextHistory):
     arrayString = ""
     if order == "reversed":
@@ -161,12 +161,13 @@ def apply_stop_words_filter(words):
     new_text = " ".join(words)
     return new_text, removed_words
 
+
 def num_tokens_from_string(string: str, encoding_name: str) -> int:
     # Returns the number of tokens in a text string depending on tokenizer used
-    encoding = tiktoken.get_encoding(encoding_name)            
-    if(config.TOKENIZER == "tiktoken"):
+    encoding = tiktoken.get_encoding(encoding_name)
+    if (config.TOKENIZER == "tiktoken"):
         num_tokens = len(encoding.encode(string))
     else:
         num_tokens = len(nltk.word_tokenize(str))
-   
+
     return num_tokens
