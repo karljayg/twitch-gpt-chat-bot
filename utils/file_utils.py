@@ -2,8 +2,10 @@ import logging
 import os
 
 
+global latest_file_found
+
+
 def find_latest_file(folder, file_extension, logger):
-    global latest_file_found
 
     try:
         if not os.path.isdir(folder):

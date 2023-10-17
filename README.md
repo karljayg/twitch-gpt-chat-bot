@@ -39,6 +39,16 @@ python -m spacy download en_core_web_sm
 
 ### Usage
 
+Initilize DB migration
+
+```
+cd setup
+```
+```
+python setup.py
+```
+
+
 To start the bot, run in your terminal:
 
 ```
@@ -51,8 +61,44 @@ In your Twitch channel chat, type "open sesame" followed by your message to gene
 
 
 # chan notes(to be removed once done):
-   - https://www.youtube.com/watch?v=25P5apB4XWM
+   - https://www.youtube.com/watch?v=25P5apB4XWM - 
 
-   - https://www.youtube.com/watch?v=e9yMYdnSlUA
+   - https://www.youtube.com/watch?v=e9yMYdnSlUA - organized python codes
+      
+   - https://www.youtube.com/watch?v=rp1QR3eGI1k - refactoring tips
 
-   - https://www.youtube.com/watch?v=rp1QR3eGI1k
+
+### project package/module file structuring
+twitch-gpt-chat-bot
+    ┣ api
+    ┃   ┣ aligulac.py
+    ┃   ┗ twitch_bot.py
+    ┣ logs
+    ┣ models
+    ┃   ┣ game_info.py
+    ┃   ┣ log_once_within_interval_filter.py
+    ┃   ┗ mathison_db.py
+    ┣ settings
+    ┃   ┣ config.example.py
+    ┃   ┣ config.py
+    ┃   ┣ SC2_sounds.example.json
+    ┃   ┗ SC2_sounds.json
+    ┣ setup
+    ┃   ┗ setup.sql
+    ┣ sound
+    ┣ temp
+    ┣ test
+    ┃   ┗ replays
+    ┃   ┗ SC2_game_result_test.json
+    ┣ utils
+    ┃   ┣ file_utils.py
+    ┃   ┣ load_replays.py
+    ┃   ┣ sc2replaystats.py
+    ┃   ┣ tokensArray.py
+    ┃   ┗ wiki_utils.py
+    ┣ .gitignore
+    ┣ app.py
+    ┣ LICENSE.md
+    ┣ README.md
+    ┣ requirements.txt
+    

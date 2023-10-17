@@ -1,0 +1,61 @@
+
+
+def play_SC2_sound(self, game_event):
+def signal_handler(self, signal, frame):
+def check_SC2_game_status():
+def handle_SC2_game_results(self, previous_game, current_game):
+def monitor_game(self):
+def msgToChannel(self, message):
+def processMessageForOpenAI(self, msg, conversation_mode):
+def on_welcome(self, connection, event):
+def on_pubmsg(self, connection, event):
+
+
+
+chat_utils.py
+def on_welcome(self, connection, event):
+def processMessageForOpenAI(self, msg, conversation_mode):
+def msgToChannel(self, message):
+def on_pubmsg(self, connection, event):
+
+sc2_game_utils.py
+def play_SC2_sound():
+def check_SC2_game_status():
+def handle_SC2_game_results():
+
+game_monitoring.py
+def monitor_game(self):
+def signal_handler(self, signal, frame):
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+DB
+-- DROP TABLE IF EXISTS Replays RESTRICT;
+
+-- DROP SEQUENCE IF EXISTS <seq_name>;
+
+-- DROP FUNCTION IF EXISTS <function_name()>;
+
+-- DROP FUNCTION IF EXISTS <function_name(flake BIGINT)>;

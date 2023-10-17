@@ -25,7 +25,7 @@ from models.mathison_db import Database
 from models.game_info import GameInfo
 from models.log_once_within_interval_filter import LogOnceWithinIntervalFilter
 from utils.file_utils import find_latest_file
-
+from .game_monitoring import monitor_game
 # The contextHistory array is a list of tuples, where each tuple contains two elements: the message string and its
 # corresponding token size. This allows us to keep track of both the message content and its size in the array. When
 # a new message is added to the contextHistory array, its token size is determined using the nltk.word_tokenize()
@@ -60,6 +60,8 @@ def get_random_emote():
     emote_names = config.BOT_GREETING_EMOTES
     return f'{random.choice(emote_names)}'
 
+# Global variable to save the path of the latest file found
+latest_file_found = None
 
 class TwitchBot(irc.bot.SingleServerIRCBot):
     def __init__(self):
@@ -76,7 +78,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         signal.signal(signal.SIGINT, self.signal_handler)
 
         # threads to be terminated as soon as the main program finishes when set as daemon threads
-        monitor_thread = threading.Thread(target=self.monitor_game)
+        monitor_thread = threading.Thread(target=monitor_game,args=(self,))
         monitor_thread.daemon = True
         monitor_thread.start()
 
@@ -492,32 +494,6 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             else:
                 logger.debug("not analyzing replay")
                 return
-
-    def monitor_game(self):
-        previous_game = None
-
-        while True and not self.shutdown_flag:
-            try:
-                current_game = self.check_SC2_game_status()
-                if (current_game.get_status() == "MATCH_STARTED" or current_game.get_status() == "REPLAY_STARTED"):
-                    self.conversation_mode = "in_game"
-                else:
-                    self.conversation = "normal"
-                if current_game:
-                    if config.IGNORE_GAME_STATUS_WHILE_WATCHING_REPLAYS and current_game.isReplay:
-                        pass
-                    else:
-                        # wait so abandoned games doesnt result in false data of 0 seconds
-                        time.sleep(2)
-                        self.handle_SC2_game_results(
-                            previous_game, current_game)
-
-                previous_game = current_game
-                time.sleep(config.MONITOR_GAME_SLEEP_SECONDS)
-                # heartbeat indicator
-                print(".", end="", flush=True)
-            except Exception as e:
-                pass
 
     # all msgs to channel are now logged
     def msgToChannel(self, message):
