@@ -1,8 +1,18 @@
+import datetime
+import json
 import pygame
 import random
-from settings import config
+import pytz
+import requests
+import spawningtool.parser
+from collections import defaultdict
 
-def play_SC2_sound(self, game_event):
+from settings import config
+from models.game_info import GameInfo
+from utils.file_utils import find_latest_file
+
+
+def play_SC2_sound(self, game_event, logger):
     if config.PLAYER_INTROS_ENABLED:
         if config.IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN and self.first_run:
             logger.debug(
@@ -28,8 +38,9 @@ def play_SC2_sound(self, game_event):
         logger.debug(
             "SC2 player intros and other sounds are disabled")
 
+
 @staticmethod
-def check_SC2_game_status():
+def check_SC2_game_status(logger):
     if config.TEST_MODE_SC2_CLIENT_JSON:
         try:
             with open(config.GAME_RESULT_TEST_FILE, 'r') as file:
@@ -48,26 +59,27 @@ def check_SC2_game_status():
             logger.debug(f"Is SC2 on? error: {e}")
             return None
 
-def handle_SC2_game_results(self, previous_game, current_game):
+
+def handle_SC2_game_results(self, previous_game, current_game, contextHistory):
 
     # do not proceed if no change
     if previous_game and current_game.get_status() == previous_game.get_status():
-        # TODO: hide logger after testing
-        # logger.debug("previous game status: " + str(previous_game.get_status()) + " current game status: " + str(current_game.get_status()))
+        # TODO: hide self.logger after testing
+        # self.logger.debug("previous game status: " + str(previous_game.get_status()) + " current game status: " + str(current_game.get_status()))
         return
     else:
         # do this here also, to ensure it does not get processed again
         previous_game = current_game
         if previous_game:
             pass
-            # logger.debug("previous game status: " + str(previous_game.get_status()) + " current game status: " + str(current_game.get_status()))
+            # self.logger.debug("previous game status: " + str(previous_game.get_status()) + " current game status: " + str(current_game.get_status()))
         else:
-            # logger.debug("previous game status: (assumed None) current game status: " + str(current_game.get_status()))
+            # self.logger.debug("previous game status: (assumed None) current game status: " + str(current_game.get_status()))
             pass
     response = ""
     replay_summary = ""  # Initialize summary string
 
-    logger.debug("game status is " + current_game.get_status())
+    self.logger.debug("game status is " + current_game.get_status())
 
     # prevent the array brackets from being included
     game_player_names = ', '.join(current_game.get_player_names())
@@ -80,16 +92,16 @@ def handle_SC2_game_results(self, previous_game, current_game):
     if current_game.get_status() in ("MATCH_ENDED", "REPLAY_ENDED"):
 
         result = find_latest_file(
-            config.REPLAYS_FOLDER, config.REPLAYS_FILE_EXTENSION, logger)
+            config.REPLAYS_FOLDER, config.REPLAYS_FILE_EXTENSION, self.logger)
         # there are times when current replay file is not ready and it still finds the prev. one despite the SLEEP TIMEOUT of 7 secs
         # so we are going to do this also to prevent the bot from commenting on the same replay file as the last one
         if (self.last_replay_file == result):
-            logger.debug(
+            self.logger.debug(
                 "last replay file is same as current, skipping: \n" + result)
             return
 
         if result:
-            logger.debug(f"The path to the latest file is: {result}")
+            self.logger.debug(f"The path to the latest file is: {result}")
 
             if config.USE_CONFIG_TEST_REPLAY_FILE:
                 # use the config test file instead of latest found dynamically
@@ -102,18 +114,18 @@ def handle_SC2_game_results(self, previous_game, current_game):
             try:
                 replay_data = spawningtool.parser.parse_replay(result)
             except Exception as e:
-                logger.error(
+                self.logger.error(
                     f"An error occurred while trying to parse the replay: {e}")
 
             # Save the replay JSON to a file
             filename = config.LAST_REPLAY_JSON_FILE
             with open(filename, 'w') as file:
                 json.dump(replay_data, file, indent=4)
-                logger.debug('last replay file saved: ' + filename)
+                self.logger.debug('last replay file saved: ' + filename)
 
             # Players and Map
             players = [f"{player_data['name']}: {player_data['race']}" for player_data in
-                        replay_data['players'].values()]
+                       replay_data['players'].values()]
             region = replay_data['region']
             game_type = replay_data['game_type']
             unix_timestamp = replay_data['unix_timestamp']
@@ -136,7 +148,7 @@ def handle_SC2_game_results(self, previous_game, current_game):
 
             game_duration = f"{minutes}m {seconds}s"
             replay_summary += f"Game Duration: {game_duration}\n\n"
-            logger.debug(f"Game Duration: {game_duration}")
+            self.logger.debug(f"Game Duration: {game_duration}")
 
             # Total Players greater than 2, usually gets the total token size to 6k, and max is 4k so we divide by 2 to be safe
             if current_game.total_players > 2:
@@ -146,7 +158,7 @@ def handle_SC2_game_results(self, previous_game, current_game):
 
             # Units Lost
             units_lost_summary = {player_key: player_data['unitsLost'] for player_key, player_data in
-                                    replay_data['players'].items()}
+                                  replay_data['players'].items()}
             for player_key, units_lost in units_lost_summary.items():
                 # ChatGPT gets confused if you use possessive 's vs by
                 player_info = f"Units Lost by {replay_data['players'][player_key]['name']}"
@@ -198,32 +210,32 @@ def handle_SC2_game_results(self, previous_game, current_game):
             filename = config.LAST_REPLAY_SUMMARY_FILE
             with open(filename, 'w') as file:
                 file.write(replay_summary)
-                logger.debug('last replay summary saved: ' + filename)
+                self.logger.debug('last replay summary saved: ' + filename)
 
             # Save to the database
             try:
                 if self.db.insert_replay_info(replay_summary):
-                    logger.debug("replay summary saved to database")
+                    self.logger.debug("replay summary saved to database")
                 else:
-                    logger.debug(
+                    self.logger.debug(
                         "replay summary not saved to database")
             except Exception as e:
-                logger.debug(f"error with database: {e}")
+                self.logger.debug(f"error with database: {e}")
 
         else:
-            logger.debug("No result found!")
+            self.logger.debug("No result found!")
 
     if current_game.get_status() == "MATCH_STARTED":
         # check to see if player exists in database
         try:
             # if game_type == "1v1":
             if current_game.total_players == 2:
-                logger.debug(
+                self.logger.debug(
                     "1v1 game, so checking if player exists in database")
                 game_player_names = [name.strip()
-                                        for name in game_player_names.split(',')]
+                                     for name in game_player_names.split(',')]
                 for player_name in game_player_names:
-                    logger.debug(f"looking for: {player_name}")
+                    self.logger.debug(f"looking for: {player_name}")
                     if player_name != config.STREAMER_NICKNAME:
                         result = self.db.check_player_exists(
                             player_name, current_game.get_player_race(player_name))
@@ -280,12 +292,12 @@ def handle_SC2_game_results(self, previous_game, current_game):
                         else:
                             msg = "Restate this without missing any details: \n "
                             msg += f"I think this is the first time {config.STREAMER_NICKNAME} is playing {player_name}, at least the {current_game.get_player_race(player_name)} of {player_name}"
-                            logger.debug(msg)
+                            self.logger.debug(msg)
                             self.processMessageForOpenAI(msg, "in_game")
                         break  # avoid processingMessageForOpenAI again below
 
         except Exception as e:
-            logger.debug(f"error with find if player exists: {e}")
+            self.logger.debug(f"error with find if player exists: {e}")
 
     elif current_game.get_status() == "MATCH_ENDED":
         if len(winning_players) == 0:
@@ -295,8 +307,8 @@ def handle_SC2_game_results(self, previous_game, current_game):
         else:
             # Compare with the threshold
             if self.total_seconds < config.ABANDONED_GAME_THRESHOLD:
-                logger.debug("Game duration is less than " +
-                                str(config.ABANDONED_GAME_THRESHOLD) + " seconds.")
+                self.logger.debug("Game duration is less than " +
+                             str(config.ABANDONED_GAME_THRESHOLD) + " seconds.")
                 response = f"The game was abandoned immediately in just {self.total_seconds} seconds between {game_player_names} and so {winning_players} get the free win."
                 self.play_SC2_sound("abandoned")
             else:
@@ -325,7 +337,7 @@ def handle_SC2_game_results(self, previous_game, current_game):
             # Compare with the threshold
             if self.total_seconds < config.ABANDONED_GAME_THRESHOLD:
                 response = f"This was an abandoned game where duration was just {self.total_seconds} seconds between {game_player_names} and so {winning_players} get the free win."
-                logger.debug(response)
+                self.logger.debug(response)
                 self.play_SC2_sound("abandoned")
             else:
                 if config.STREAMER_NICKNAME in winning_players:
@@ -337,22 +349,22 @@ def handle_SC2_game_results(self, previous_game, current_game):
 
     if not config.OPENAI_DISABLED:
         if self.first_run:
-            logger.debug("this is the first run")
+            self.logger.debug("this is the first run")
             self.first_run = False
             if config.IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN:
-                logger.debug(
+                self.logger.debug(
                     "per config, ignoring previous game results on first run")
                 return  # exit function, do not proceed to comment on the result, and analysis on game summary
         else:
-            logger.debug("this is not first run")
+            self.logger.debug("this is not first run")
 
         # proceed
         self.processMessageForOpenAI(response, self.conversation_mode)
 
         # get analysis of game summary from the last real game's replay file that created, unless using config test replay file
-        logger.debug("current game status: " + current_game.get_status() +
-                        " isReplay: " + str(current_game.isReplay) +
-                        " ANALYZE_REPLAYS_FOR_TEST: " + str(config.USE_CONFIG_TEST_REPLAY_FILE))
+        self.logger.debug("current game status: " + current_game.get_status() +
+                     " isReplay: " + str(current_game.isReplay) +
+                     " ANALYZE_REPLAYS_FOR_TEST: " + str(config.USE_CONFIG_TEST_REPLAY_FILE))
 
         # we do not want to analyze when the game (live or replay) is not in an ended state
         # or if the duration is short (abandoned game)
@@ -360,10 +372,11 @@ def handle_SC2_game_results(self, previous_game, current_game):
         if ((current_game.get_status() not in ["MATCH_STARTED", "REPLAY_STARTED"] and self.total_seconds >= config.ABANDONED_GAME_THRESHOLD)
                 or (current_game.isReplay and config.USE_CONFIG_TEST_REPLAY_FILE)):
             # get analysis of ended games, or during testing of config test replay file
-            logger.debug("analyzing, replay summary to AI: ")
+            self.logger.debug("analyzing, replay summary to AI: ")
             self.processMessageForOpenAI(replay_summary, "replay_analysis")
             # clear after analyzing and making a comment
             replay_summary = ""
         else:
-            logger.debug("not analyzing replay")
+            self.logger.debug("not analyzing replay")
             return
+
