@@ -2,10 +2,9 @@ import sys
 import time
 
 from settings import config
-from .sc2_game_utils import handle_SC2_game_results
 
 
-def monitor_game(self,contextHistory):
+def monitor_game(self, contextHistory):
     previous_game = None
 
     while True and not self.shutdown_flag:
@@ -23,13 +22,12 @@ def monitor_game(self,contextHistory):
                     time.sleep(2)
                     # self.handle_SC2_game_results(
                     #     previous_game, current_game)
-                    handle_SC2_game_results(self, previous_game,
-                            current_game, contextHistory)
+                    self.SC2_game_results_handler(previous_game,
+                                                 current_game, contextHistory)
             previous_game = current_game
             time.sleep(config.MONITOR_GAME_SLEEP_SECONDS)
             # heartbeat indicator
-            print(".", end="", flush=True)
             print("testings")
+            print(".", end="", flush=True)
         except Exception as e:
             pass
-
