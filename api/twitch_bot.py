@@ -25,9 +25,11 @@ from models.mathison_db import Database
 from models.game_info import GameInfo
 from models.log_once_within_interval_filter import LogOnceWithinIntervalFilter
 # from .game_monitoring import monitor_game
-# from .sc2_game_utils import check_SC2_game_status
+from .sc2_game_utils import sc2_game_status
 # from .sc2_game_utils import handle_SC2_game_results
+from .chat_utils import welcome
 from utils.file_utils import find_latest_file
+from utils.emote_utils import get_random_emote
 
 # The contextHistory array is a list of tuples, where each tuple contains two elements: the message string and its
 # corresponding token size. This allows us to keep track of both the message content and its size in the array. When
@@ -59,9 +61,9 @@ logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 player_names = config.SC2_PLAYER_ACCOUNTS
 
 
-def get_random_emote():
-    emote_names = config.BOT_GREETING_EMOTES
-    return f'{random.choice(emote_names)}'
+# def get_random_emote():
+#     emote_names = config.BOT_GREETING_EMOTES
+#     return f'{random.choice(emote_names)}'
 
 
 # Global variable to save the path of the latest file found
@@ -163,25 +165,26 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         sys.exit(0)
 
     # check_SC2_game_status(logger)
-    @staticmethod
+    # @staticmethod
     def check_SC2_game_status():
-        if config.TEST_MODE_SC2_CLIENT_JSON:
-            try:
-                with open(config.GAME_RESULT_TEST_FILE, 'r') as file:
-                    json_data = json.load(file)
-                return GameInfo(json_data)
-            except Exception as e:
-                logger.debug(
-                    f"An error occurred while reading the test file: {e}")
-                return None
-        else:
-            try:
-                response = requests.get("http://localhost:6119/game")
-                response.raise_for_status()
-                return GameInfo(response.json())
-            except Exception as e:
-                logger.debug(f"Is SC2 on? error: {e}")
-                return None
+        sc2_game_status(logger)
+        # if config.TEST_MODE_SC2_CLIENT_JSON:
+        #     try:
+        #         with open(config.GAME_RESULT_TEST_FILE, 'r') as file:
+        #             json_data = json.load(file)
+        #         return GameInfo(json_data)
+        #     except Exception as e:
+        #         logger.debug(
+        #             f"An error occurred while reading the test file: {e}")
+        #         return None
+        # else:
+        #     try:
+        #         response = requests.get("http://localhost:6119/game")
+        #         response.raise_for_status()
+        #         return GameInfo(response.json())
+        #     except Exception as e:
+        #         logger.debug(f"Is SC2 on? error: {e}")
+        #         return None
 
     def handle_SC2_game_results(self, previous_game, current_game):
 
@@ -733,27 +736,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         #     logger.error('Failed to send response: %s', e)
 
     def on_welcome(self, connection, event):
-        # Join the channel and say a greeting
-        connection.join(self.channel)
-        logger.debug(
-            "================================================STARTING BOT========================================")
-        bot_mode = "BOT MODES \n"
-        bot_mode += "TEST_MODE: " + str(config.TEST_MODE) + "\n"
-        bot_mode += "TEST_MODE_SC2_CLIENT_JSON: " + \
-            str(config.TEST_MODE_SC2_CLIENT_JSON) + "\n"
-        bot_mode += "ANALYZE_REPLAYS_FOR_TEST: " + \
-            str(config.USE_CONFIG_TEST_REPLAY_FILE) + "\n"
-        bot_mode += "IGNORE_REPLAYS: " + \
-            str(config.IGNORE_GAME_STATUS_WHILE_WATCHING_REPLAYS) + "\n"
-        bot_mode += "IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN: " + \
-            str(config.IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN) + "\n"
-        bot_mode += "MONITOR_GAME_SLEEP_SECONDS: " + \
-            str(config.MONITOR_GAME_SLEEP_SECONDS) + "\n"
-        logger.debug(bot_mode)
-
-        prefix = ""  # if any
-        greeting_message = f'{prefix} {get_random_emote()}'
-        self.msgToChannel(greeting_message)
+        welcome(self, connection, event, logger)
 
     def on_pubmsg(self, connection, event):
 

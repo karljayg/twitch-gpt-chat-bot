@@ -40,7 +40,7 @@ def play_SC2_sound(self, game_event, logger):
 
 
 @staticmethod
-def check_SC2_game_status(logger):
+def sc2_game_status(logger):
     if config.TEST_MODE_SC2_CLIENT_JSON:
         try:
             with open(config.GAME_RESULT_TEST_FILE, 'r') as file:
