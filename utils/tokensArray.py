@@ -1,3 +1,5 @@
+import json
+import requests
 import spacy  # language small model of spacy
 import nltk  # token libraries
 from settings import config
