@@ -139,15 +139,16 @@ class Database:
 
             # Extract details using regex
             # player_matches = re.search(r"Players: (\w+): (\w+), (\w+): (\w+)", replay_summary)
-            player_matches = re.search(r"Players: (\w+[^:]+): (\w+), (\w+[^:]+): (\w+)", replay_summary)
+            player_matches = re.search(
+                r"Players: (\w+[^:]+): (\w+), (\w+[^:]+): (\w+)", replay_summary)
 
-            winners_matches = re.search(r"Winners: (\w+)", replay_summary)
-            losers_matches = re.search(r"Losers: (\w+)", replay_summary)
+            winners_matches = re.search(r"Winners: (.+?)\n", replay_summary)
+            losers_matches = re.search(r"Losers: (.+?)\n", replay_summary)
             map_match = re.search(r"Map: (.+?)\n", replay_summary)
             game_duration_match = re.search(
                 r"Game Duration: (.+?)\n", replay_summary)
-            game_type_match = re.search(r"Game Type: (\w+)", replay_summary)
-            region_match = re.search(r"Region: (\w+)", replay_summary)
+            game_type_match = re.search(r"Game Type: (.+?)\n", replay_summary)
+            region_match = re.search(r"Region: (.+?)\n", replay_summary)
             timestamp_match = re.search(r'Timestamp:\s*(\d+)', replay_summary)
 
             # Extracted details
