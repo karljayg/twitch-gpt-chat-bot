@@ -138,8 +138,8 @@ class Database:
         try:
 
             # Extract details using regex
-            player_matches = re.search(
-                r"Players: (\w+): (\w+), (\w+): (\w+)", replay_summary)
+            # player_matches = re.search(r"Players: (\w+): (\w+), (\w+): (\w+)", replay_summary)
+            player_matches = re.search(r"Players: (\w+[^:]+): (\w+), (\w+[^:]+): (\w+)", replay_summary)
 
             winners_matches = re.search(r"Winners: (\w+)", replay_summary)
             losers_matches = re.search(r"Losers: (\w+)", replay_summary)

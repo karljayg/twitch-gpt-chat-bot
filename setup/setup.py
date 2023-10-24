@@ -16,7 +16,7 @@ db_params = {
 }
 
 # SQL file to execute
-sql_file = 'init_schema_down.sql'
+sql_file = 'init_schema_up.sql'
 
 # Establish a database connection
 connection = mysql.connector.connect(**db_params)

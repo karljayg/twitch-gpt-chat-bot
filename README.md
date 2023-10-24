@@ -67,6 +67,8 @@ In your Twitch channel chat, type "open sesame" followed by your message to gene
       
    - https://www.youtube.com/watch?v=rp1QR3eGI1k - refactoring tips
 
+   - https://www.youtube.com/watch?v=8rynRTOr4mE -  state management
+
 
 ### project package/module file structuring
 twitch-gpt-chat-bot

@@ -140,7 +140,7 @@ def welcome(self, connection, event, logger):
 
 #     logger.debug("sent to OpenAI: %s", msg)
 
-#     self.msgToChannel("nownow")
+#     self.msgToChannel("chanchan")
 #     # completion = openai.ChatCompletion.create(
 #     #     model=config.ENGINE,
 #     #     messages=[

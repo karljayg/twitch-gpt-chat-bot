@@ -762,7 +762,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
         logger.debug("sent to OpenAI: %s", msg)
 
-        self.msgToChannel("nownow")
+        self.msgToChannel("chanchan")
         # completion = openai.ChatCompletion.create(
         #     model=config.ENGINE,
         #     messages=[
