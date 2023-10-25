@@ -1,16 +1,15 @@
 
-
-def play_SC2_sound(self, game_event):
-def signal_handler(self, signal, frame):
-def check_SC2_game_status():
-def handle_SC2_game_results(self, previous_game, current_game):
-def monitor_game(self):
-def msgToChannel(self, message):
-def processMessageForOpenAI(self, msg, conversation_mode):
-def on_welcome(self, connection, event):
-def on_pubmsg(self, connection, event):
-
-
+original content of api>twitch_bot.py file
+class TwitchBot:
+    def play_SC2_sound(self, game_event):
+    def signal_handler(self, signal, frame):
+    def check_SC2_game_status():
+    def handle_SC2_game_results(self, previous_game, current_game):
+    def monitor_game(self):
+    def msgToChannel(self, message):
+    def processMessageForOpenAI(self, msg, conversation_mode):
+    def on_welcome(self, connection, event):
+    def on_pubmsg(self, connection, event):
 
 chat_utils.py
 def on_welcome(self, connection, event):
@@ -19,10 +18,10 @@ def msgToChannel(self, message):
 def on_pubmsg(self, connection, event):
 
 sc2_game_utils.py
-def check_SC2_game_status():
+def check_SC2_game_status(): => [DONE]
 def handle_SC2_game_results():
 
-sound_player_utils.py
+sound_player_utils.py => [DONE]
 def play_SC2_sound():
 
 game_monitoring.py
