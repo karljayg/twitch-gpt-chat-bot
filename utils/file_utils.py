@@ -1,12 +1,8 @@
-import logging
 import os
 
 
-global latest_file_found
-
-
 def find_latest_file(folder, file_extension, logger):
-
+    latest_file_found = None
     try:
         if not os.path.isdir(folder):
             logger.debug(
@@ -51,14 +47,3 @@ def find_latest_file(folder, file_extension, logger):
         logger.debug(
             f"An error occurred while searching for the latest file: {e}")
         return None
-
-
-# REPLAYS_FOLDER = r"D:\game1\projects\mathison"
-# REPLAYS_FILE_EXTENSION = "SC2Replay"
-
-
-# # Initialize the logger at the beginning of the script
-# logger = logging.getLogger(__name__)
-# logger.setLevel(logging.DEBUG)
-# print(find_latest_file(
-#     REPLAYS_FOLDER, REPLAYS_FILE_EXTENSION, logger))

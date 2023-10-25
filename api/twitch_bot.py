@@ -1,5 +1,7 @@
 import irc.bot
 import openai
+import re
+import asyncio
 import json
 import random
 import time
@@ -10,10 +12,13 @@ import sys
 import requests
 import logging
 import math
+import os
 import spawningtool.parser
 import tiktoken
 import pygame
 import pytz
+from difflib import SequenceMatcher
+from datetime import datetime, timedelta
 from datetime import datetime
 from collections import defaultdict
 
@@ -21,15 +26,10 @@ from settings import config
 import utils.tokensArray as tokensArray
 import utils.wiki_utils as wiki_utils
 from models.mathison_db import Database
-
 from models.game_info import GameInfo
 from models.log_once_within_interval_filter import LogOnceWithinIntervalFilter
-# from .game_monitoring import monitor_game
-from .sc2_game_utils import sc2_game_status
-# from .sc2_game_utils import handle_SC2_game_results
-from .chat_utils import welcome
-from utils.file_utils import find_latest_file
 from utils.emote_utils import get_random_emote
+from utils.file_utils import find_latest_file
 
 # The contextHistory array is a list of tuples, where each tuple contains two elements: the message string and its
 # corresponding token size. This allows us to keep track of both the message content and its size in the array. When
@@ -47,6 +47,7 @@ from utils.emote_utils import get_random_emote
 global contextHistory
 contextHistory = []
 
+
 # Initialize the logger at the beginning of the script
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -59,15 +60,6 @@ logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
 # Player names of streamer to check results for
 player_names = config.SC2_PLAYER_ACCOUNTS
-
-
-# def get_random_emote():
-#     emote_names = config.BOT_GREETING_EMOTES
-#     return f'{random.choice(emote_names)}'
-
-
-# Global variable to save the path of the latest file found
-latest_file_found = None
 
 
 class TwitchBot(irc.bot.SingleServerIRCBot):
@@ -86,8 +78,6 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
         # threads to be terminated as soon as the main program finishes when set as daemon threads
         monitor_thread = threading.Thread(target=self.monitor_game)
-        # monitor_thread = threading.Thread(
-        #     target=monitor_game, args=(self, contextHistory))
         monitor_thread.daemon = True
         monitor_thread.start()
 
@@ -153,8 +143,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                     f"An error occurred while trying to play sound: {e}")
                 return None
         else:
-            logger.debug(
-                "SC2 player intros and other sounds are disabled")
+            logger.debug("SC2 player intros and other sounds are disabled")
 
     # incorrect IDE warning here, keep parameters at 3
     def signal_handler(self, signal, frame):
@@ -164,7 +153,6 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         self.die("Shutdown requested.")
         sys.exit(0)
 
-    # check_SC2_game_status(logger)
     @staticmethod
     def check_SC2_game_status():
         if config.TEST_MODE_SC2_CLIENT_JSON:
@@ -217,7 +205,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         if current_game.get_status() in ("MATCH_ENDED", "REPLAY_ENDED"):
 
             result = find_latest_file(
-                config.REPLAYS_FOLDER, config.REPLAYS_FILE_EXTENSION)
+                config.REPLAYS_FOLDER, config.REPLAYS_FILE_EXTENSION, logger)
             # there are times when current replay file is not ready and it still finds the prev. one despite the SLEEP TIMEOUT of 7 secs
             # so we are going to do this also to prevent the bot from commenting on the same replay file as the last one
             if (self.last_replay_file == result):
@@ -342,8 +330,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                     if self.db.insert_replay_info(replay_summary):
                         logger.debug("replay summary saved to database")
                     else:
-                        logger.debug(
-                            "replay summary not saved to database")
+                        logger.debug("replay summary not saved to database")
                 except Exception as e:
                     logger.debug(f"error with database: {e}")
 
@@ -532,7 +519,6 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 pass
 
     # all msgs to channel are now logged
-
     def msgToChannel(self, message):
         self.connection.privmsg(self.channel, message)
         logger.debug(
@@ -572,8 +558,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         total_tokens = tokensArray.num_tokens_from_string(
             msg, config.TOKENIZER_ENCODING)
         msg_length = len(msg)
-        logger.debug(
-            f"string length: {msg_length}, {total_tokens} tokens")
+        logger.debug(f"string length: {msg_length}, {total_tokens} tokens")
 
         # This approach calculates the token_ratio as the desired token limit divided by the actual total tokens.
         # Then, it trims the message length based on this ratio, ensuring that the message fits within the desired token limit.
@@ -585,8 +570,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         total_tokens = tokensArray.num_tokens_from_string(
             msg, config.TOKENIZER_ENCODING)
         msg_length = len(msg)
-        logger.debug(
-            f"string length: {msg_length}, {total_tokens} tokens")
+        logger.debug(f"string length: {msg_length}, {total_tokens} tokens")
         if int(total_tokens) > config.CONVERSATION_MAX_TOKENS:
             divided_by = math.ceil(len(msg) // config.CONVERSATION_MAX_TOKENS)
             logger.debug(
