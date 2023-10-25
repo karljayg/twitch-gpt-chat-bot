@@ -1,7 +1,5 @@
 import irc.bot
 import openai
-import re
-import asyncio
 import json
 import random
 import time
@@ -9,16 +7,11 @@ import urllib3
 import threading
 import signal
 import sys
-import requests
 import logging
 import math
-import os
 import spawningtool.parser
 import tiktoken
-import pygame
 import pytz
-from difflib import SequenceMatcher
-from datetime import datetime, timedelta
 from datetime import datetime
 from collections import defaultdict
 
@@ -26,11 +19,11 @@ from settings import config
 import utils.tokensArray as tokensArray
 import utils.wiki_utils as wiki_utils
 from models.mathison_db import Database
-from models.game_info import GameInfo
 from models.log_once_within_interval_filter import LogOnceWithinIntervalFilter
 from utils.emote_utils import get_random_emote
 from utils.file_utils import find_latest_file
 from utils.sound_player_utils import SoundPlayer
+from .sc2_game_utils import check_SC2_game_status
 
 # The contextHistory array is a list of tuples, where each tuple contains two elements: the message string and its
 # corresponding token size. This allows us to keep track of both the message content and its size in the array. When
@@ -123,12 +116,12 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
     def play_SC2_sound(self, game_event):
         if config.PLAYER_INTROS_ENABLED:
             if config.IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN and self.first_run:
-                logger.info(
+                logger.debug(
                     "Per config, ignoring previous game on the first run, so no sound will be played")
                 return
             self.sound_player.play_sound(game_event)
         else:
-            logger.info("SC2 player intros and other sounds are disabled")
+            logger.debug("SC2 player intros and other sounds are disabled")
 
     # incorrect IDE warning here, keep parameters at 3
     def signal_handler(self, signal, frame):
@@ -137,26 +130,6 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             "================================================SHUTTING DOWN BOT========================================")
         self.die("Shutdown requested.")
         sys.exit(0)
-
-    @staticmethod
-    def check_SC2_game_status():
-        if config.TEST_MODE_SC2_CLIENT_JSON:
-            try:
-                with open(config.GAME_RESULT_TEST_FILE, 'r') as file:
-                    json_data = json.load(file)
-                return GameInfo(json_data)
-            except Exception as e:
-                logger.debug(
-                    f"An error occurred while reading the test file: {e}")
-                return None
-        else:
-            try:
-                response = requests.get("http://localhost:6119/game")
-                response.raise_for_status()
-                return GameInfo(response.json())
-            except Exception as e:
-                logger.debug(f"Is SC2 on? error: {e}")
-                return None
 
     def handle_SC2_game_results(self, previous_game, current_game):
 
@@ -482,7 +455,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
         while True and not self.shutdown_flag:
             try:
-                current_game = self.check_SC2_game_status()
+                current_game = check_SC2_game_status()
                 if (current_game.get_status() == "MATCH_STARTED" or current_game.get_status() == "REPLAY_STARTED"):
                     self.conversation_mode = "in_game"
                 else:

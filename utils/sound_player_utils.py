@@ -25,6 +25,6 @@ class SoundPlayer:
                 pygame.mixer.music.play()
                 logger.debug(f"Playing sound: {game_event}")
             else:
-                logger.error(f"Sound for game event '{game_event}' not found.")
+                logger.debu(f"Sound for game event '{game_event}' not found.")
         except Exception as e:
-            logger.error(f"An error occurred while trying to play sound: {e}")
+            logger.debu(f"An error occurred while trying to play sound: {e}")
