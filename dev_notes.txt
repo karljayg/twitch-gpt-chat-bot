@@ -19,9 +19,11 @@ def msgToChannel(self, message):
 def on_pubmsg(self, connection, event):
 
 sc2_game_utils.py
-def play_SC2_sound():
 def check_SC2_game_status():
 def handle_SC2_game_results():
+
+sound_player_utils.py
+def play_SC2_sound():
 
 game_monitoring.py
 def monitor_game(self):

@@ -30,6 +30,7 @@ from models.game_info import GameInfo
 from models.log_once_within_interval_filter import LogOnceWithinIntervalFilter
 from utils.emote_utils import get_random_emote
 from utils.file_utils import find_latest_file
+from utils.sound_player_utils import SoundPlayer
 
 # The contextHistory array is a list of tuples, where each tuple contains two elements: the message string and its
 # corresponding token size. This allows us to keep track of both the message content and its size in the array. When
@@ -113,9 +114,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         # Initialize the IRC bot
         irc.bot.SingleServerIRCBot.__init__(self, [(self.server, self.port, 'oauth:' + self.token)], self.username,
                                             self.username)
-        # SC2 sounds
-        with open(config.SOUNDS_CONFIG_FILE) as f:
-            self.sounds_config = json.load(f)
+        # # SC2 sounds
+        self.sound_player = SoundPlayer()
 
         # Initialize the database
         self.db = Database()
@@ -123,27 +123,12 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
     def play_SC2_sound(self, game_event):
         if config.PLAYER_INTROS_ENABLED:
             if config.IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN and self.first_run:
-                logger.debug(
-                    "per config, ignoring previous game on first run, so no sound will be played")
+                logger.info(
+                    "Per config, ignoring previous game on the first run, so no sound will be played")
                 return
-            try:
-                # start defeat victory or tie is what is supported for now
-                logger.debug(f"playing sound: {game_event} ")
-                pygame.mixer.init()
-
-                # Set the maximum volume (1.0 = max)
-                pygame.mixer.music.set_volume(0.7)
-
-                sound_file = random.choice(
-                    self.sounds_config['sounds'][game_event])
-                pygame.mixer.music.load(sound_file)
-                pygame.mixer.music.play()
-            except Exception as e:
-                logger.debug(
-                    f"An error occurred while trying to play sound: {e}")
-                return None
+            self.sound_player.play_sound(game_event)
         else:
-            logger.debug("SC2 player intros and other sounds are disabled")
+            logger.info("SC2 player intros and other sounds are disabled")
 
     # incorrect IDE warning here, keep parameters at 3
     def signal_handler(self, signal, frame):
