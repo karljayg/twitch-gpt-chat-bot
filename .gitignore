@@ -18,3 +18,7 @@ test/replays/
 config.py
 SC2_sounds.json
 dummy.py
+
+# notebook files
+.ipynb_checkpoints/
+
