@@ -28,3 +28,20 @@ def check_SC2_game_status():
         except Exception as e:
             logger.debug(f"Is SC2 on? error: {e}")
             return None
+
+
+def sc2_game_checkpoint(previous_game, current_game):
+    # do not proceed if no change
+    if previous_game and current_game.get_status() == previous_game.get_status():
+        # TODO: hide logger after testing
+        # logger.debug("previous game status: " + str(previous_game.get_status()) + " current game status: " + str(current_game.get_status()))
+        return True
+    else:
+        # do this here also, to ensure it does not get processed again
+        previous_game = current_game
+        if previous_game:
+            pass
+            # logger.debug("previous game status: " + str(previous_game.get_status()) + " current game status: " + str(current_game.get_status()))
+        else:
+            # logger.debug("previous game status: (assumed None) current game status: " + str(current_game.get_status()))
+            pass
