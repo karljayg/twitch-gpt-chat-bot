@@ -25,6 +25,9 @@ from utils.file_utils import find_latest_file
 from utils.sound_player_utils import SoundPlayer
 from .sc2_game_utils import check_SC2_game_status, sc2_game_checkpoint
 from .game_event_utils import game_started_handler
+from .game_event_utils import game_replay_handler
+from .game_event_utils import game_ended_handler
+
 # The contextHistory array is a list of tuples, where each tuple contains two elements: the message string and its
 # corresponding token size. This allows us to keep track of both the message content and its size in the array. When
 # a new message is added to the contextHistory array, its token size is determined using the nltk.word_tokenize()
@@ -131,6 +134,12 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         self.die("Shutdown requested.")
         sys.exit(0)
 
+
+
+
+
+
+
     def handle_SC2_game_results(self, previous_game, current_game):
         # do not proceed if no change
         if sc2_game_checkpoint(previous_game, current_game):
@@ -139,7 +148,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         response = ""
         replay_summary = ""  # Initialize summary string
 
-        logger.debug("game status is " + current_game.get_status())
+        logger.debug("The game status is " + current_game.get_status())
 
         # prevent the array brackets from being included
         game_player_names = ', '.join(current_game.get_player_names())
@@ -150,25 +159,38 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         losing_players = ', '.join(
             current_game.get_player_names(result_filter='Defeat'))
 
-        if current_game.get_status() in ("MATCH_ENDED", "REPLAY_ENDED"):
 
-            result = find_latest_file(
-                config.REPLAYS_FOLDER, config.REPLAYS_FILE_EXTENSION, logger)
+
+
+
+#####################################################################################################
+#####################################################################################################
+#####################################################################################################
+#####################################################################################################
+#####################################################################################################
+#####################################################################################################
+#####################################################################################################
+
+
+
+
+        if current_game.get_status() in ("MATCH_ENDED", "REPLAY_ENDED"):
+            result = find_latest_file(config.REPLAYS_FOLDER, config.REPLAYS_FILE_EXTENSION)
+            
             # there are times when current replay file is not ready and it still finds the prev. one despite the SLEEP TIMEOUT of 7 secs
             # so we are going to do this also to prevent the bot from commenting on the same replay file as the last one
-            if (self.last_replay_file == result):
-                logger.debug(
-                    "last replay file is same as current, skipping: \n" + result)
+            if self.last_replay_file == result:
+                logger.debug("last replay file is same as current, skipping: \n" + result)
                 return
 
             if result:
                 logger.debug(f"The path to the latest file is: {result}")
-
                 if config.USE_CONFIG_TEST_REPLAY_FILE:
                     # use the config test file instead of latest found dynamically
                     result = config.REPLAY_TEST_FILE
 
                 # clear context history since replay analysis takes most of the tokens allowed
+                # print(', '.join(map(str, contextHistory)))
                 contextHistory.clear()
 
                 # capture error so it does not run another processSC2game
@@ -179,10 +201,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                         f"An error occurred while trying to parse the replay: {e}")
 
                 # Save the replay JSON to a file
-                filename = config.LAST_REPLAY_JSON_FILE
-                with open(filename, 'w') as file:
-                    json.dump(replay_data, file, indent=4)
-                    logger.debug('last replay file saved: ' + filename)
+                game_ended_handler.save_replay_json(replay_data)
 
                 # Players and Map
                 players = [f"{player_data['name']}: {player_data['race']}" for player_data in
@@ -199,17 +218,10 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 replay_summary += f"Winners: {winning_players}\n"
                 replay_summary += f"Losers: {losing_players}\n"
 
-                # Game Duration
-                frames = replay_data['frames']
-                frames_per_second = replay_data['frames_per_second']
-
-                self.total_seconds = frames / frames_per_second
-                minutes = int(self.total_seconds // 60)
-                seconds = int(self.total_seconds % 60)
-
-                game_duration = f"{minutes}m {seconds}s"
-                replay_summary += f"Game Duration: {game_duration}\n\n"
-                logger.debug(f"Game Duration: {game_duration}")
+                # Game Duration Calculations
+                game_duration_result = game_ended_handler.calculate_game_duration(replay_data)
+                self.total_seconds = game_duration_result["totalSeconds"]
+                replay_summary += f"Game Duration: {game_duration_result['gameDuration']}\n\n"
 
                 # Total Players greater than 2, usually gets the total token size to 6k, and max is 4k so we divide by 2 to be safe
                 if current_game.total_players > 2:
@@ -285,28 +297,36 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             else:
                 logger.debug("No result found!")
 
+
+
+
+
+
+
+
+
+
+#####################################################################################################
+#####################################################################################################
+#####################################################################################################
+#####################################################################################################
+#####################################################################################################
+#####################################################################################################
+#####################################################################################################
+
+
+
+
+
+
+
+
         if current_game.get_status() == "MATCH_STARTED":
             # check to see if player exists in database
             game_player_names = game_started_handler.game_started(self, current_game)
 
         elif current_game.get_status() == "MATCH_ENDED":
-            if len(winning_players) == 0:
-                response = f"Game with {game_player_names} ended with a Tie!"
-                self.play_SC2_sound("tie")
-
-            else:
-                # Compare with the threshold
-                if self.total_seconds < config.ABANDONED_GAME_THRESHOLD:
-                    logger.debug("Game duration is less than " +
-                                 str(config.ABANDONED_GAME_THRESHOLD) + " seconds.")
-                    response = f"The game was abandoned immediately in just {self.total_seconds} seconds between {game_player_names} and so {winning_players} get the free win."
-                    self.play_SC2_sound("abandoned")
-                else:
-                    response = f"Game with {game_player_names} ended with {winning_players} beating {losing_players}"
-                    if config.STREAMER_NICKNAME in winning_players:
-                        self.play_SC2_sound("victory")
-                    else:
-                        self.play_SC2_sound("defeat")
+            response = game_ended_handler.game_ended(self, game_player_names,winning_players,losing_players)
 
         elif current_game.get_status() == "REPLAY_STARTED":
             self.play_SC2_sound("start")
@@ -315,27 +335,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             response = f"{config.STREAMER_NICKNAME} is watching a replay of a game. The players are {game_player_names}"
 
         elif current_game.get_status() == "REPLAY_ENDED":
-            winning_players = ', '.join(
-                current_game.get_player_names(result_filter='Victory'))
-            losing_players = ', '.join(
-                current_game.get_player_names(result_filter='Defeat'))
-
-            if len(winning_players) == 0:
-                response = f"The game with {game_player_names} ended with a Tie!"
-            else:
-
-                # Compare with the threshold
-                if self.total_seconds < config.ABANDONED_GAME_THRESHOLD:
-                    response = f"This was an abandoned game where duration was just {self.total_seconds} seconds between {game_player_names} and so {winning_players} get the free win."
-                    logger.debug(response)
-                    self.play_SC2_sound("abandoned")
-                else:
-                    if config.STREAMER_NICKNAME in winning_players:
-                        self.play_SC2_sound("victory")
-                    else:
-                        self.play_SC2_sound("defeat")
-                    response = (f"The game with {game_player_names} ended in a win for "
-                                f"{winning_players} and a loss for {losing_players}")
+            response = game_replay_handler.replay_ended(self, current_game, game_player_names)
 
         if not config.OPENAI_DISABLED:
             if self.first_run:

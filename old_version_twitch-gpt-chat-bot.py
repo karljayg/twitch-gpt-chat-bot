@@ -334,6 +334,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         losing_players = ', '.join(
             current_game.get_player_names(result_filter='Defeat'))
 
+
         if current_game.get_status() in ("MATCH_ENDED", "REPLAY_ENDED"):
 
             result = find_latest_file(
