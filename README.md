@@ -102,6 +102,7 @@ python app.py
 
 In your Twitch channel chat, type "open sesame" followed by your message to generate a response from the OpenAI API.
 
+
 ## License
 
 
