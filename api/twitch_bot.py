@@ -324,7 +324,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
         if current_game.get_status() == "MATCH_STARTED":
             # check to see if player exists in database
-            game_player_names = game_started_handler.game_started(self, current_game)
+            game_player_names = game_started_handler.game_started(self, current_game, contextHistory)
 
         elif current_game.get_status() == "MATCH_ENDED":
             response = game_ended_handler.game_ended(self, game_player_names,winning_players,losing_players)
