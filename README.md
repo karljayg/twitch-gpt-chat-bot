@@ -16,40 +16,85 @@ Additional documentation: https://docs.google.com/document/d/1C8MM_BqbOYL9W0N0qu
 
 ### Prerequisites
 
-Before you can use this bot, you will need to:
+Before you can use this bot, you will need to have:
+   1. Python Version 3.11.4
+   2. pip version 23.2.1
+   3. Twitch Account
+	   a. To create twitch account go to https://www.twitch.tv/ and sign up.
+	   b. Then obtain OAuth token / Twitch Chat Auth go to https://twitchapps.com/tmi/
+   4. OpenAI Key	
+      a. Create OpenAI Account using https://openai.com/
+      b. Navigate to your profile then choose View API Keys
+      c. Create API Key
 
-- Obtain a Twitch account
-- Obtain an OAuth token for your Twitch account from https://twitchapps.com/tmi/
-- Obtain an OpenAI API key
+
 
 ### Installing
 
 1. Clone this repository to your local machine
-2. Install the required Python packages by running:
-```
-pip install -r requirements.txt
-```
-   or manually:
-```
-pip install irc openai logging requests re asyncio random irc.bot spacy nltk en_core_web_sm logging urllib3
-python -m spacy download en_core_web_sm
+   - git clone https://github.com/karljayg/twitch-gpt-chat-bot.git
+   - cd /path/to/repository
+   - git branch -a
+   - git checkout branch_name
+
+2. Create Environment
+   - Navigate to directory
+      cd /path/to/repository
+   - Install virtualenv (If not yet installed)
+      pip install virtualenv
+   - Create new virtual environment (example name: venv)
+      virtualenv venv
+   - Activate the virtual environment
+      source venv/Scripts/activate
+   Once activated, the terminal prompt should change to show name of the virtual environment.
+
+3. Install the required Python packages by running:
+   ```
+   pip install -r requirements.txt
+   ```
+      or manually:
+   ```
+   pip install irc openai logging requests re asyncio random irc.bot spacy nltk en_core_web_sm logging urllib3
+   python -m spacy download en_core_web_sm
+   ```
+   If there are errors encountered related to wheel binding try installing this package first before the others:
+   ```
+   pip install en-core-web-sm@https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.0.0/en_core_web_sm-3.0.0-py3-none-any.whl
 ```
 
-3. Set up the configuration file by copying `settings.example.py` to `settings.py` and replacing the placeholders with your own values
 
-### Usage
+4. After installing all the required packages, create `config.py` file under settings folder
+   Copy the contents of `config.example.py` then change the following configurations
+   And edit the settings below:
 
-Initilize DB migration
+   - Twitch Settings
+      `TOKEN = "twitch token"`
+   - OpenAI Settings
+      `OPENAI_API_KEY = "sk-open AI Key"`
+   - DB Settings
+      `DB_USER = "root"`
+      `DB_PASSWORD = ""`
+   - SC2 Settings - Change the directory to  StarScraft Account folder
+      `REPLAYS_FOLDER = "C:\path\to\StarCraft II\Accounts"`
+   - If SCII is running, set
+      `TEST_MODE = True`
+      else
+      `TEST_MODE = False`
 
-```
-cd setup
-```
-```
-python setup.py
-```
+5. Create SC2_sounds.json
+   Just copy the contents of SC2_sound.example.json
 
+6. Create the database
+   Initilize DB migration
 
-To start the bot, run in your terminal:
+   ```
+   cd setup
+   ```
+   ```
+   python setup.py
+   ```
+
+7. To start the bot, run in your terminal:
 
 ```
 python app.py
