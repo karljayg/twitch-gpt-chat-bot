@@ -1,14 +1,12 @@
-import datetime
-import logging
+from datetime import datetime
 import pytz
 from ..chat_utils import processMessageForOpenAI
 
 from settings import config
 
-logger = logging.getLogger(__name__)
 
 
-def game_started(self, current_game, contextHistory):
+def game_started(self, current_game, contextHistory, logger):
     # prevent the array brackets from being included
     game_player_names = ', '.join(current_game.get_player_names())
     try:
@@ -62,7 +60,7 @@ def game_started(self, current_game, contextHistory):
                         msg += f"As a StarCraft 2 expert, comment on last game summary. Be concise with only 2 sentences total of 25 words or less. \n"
                         msg += "-----\n"
                         msg += f"last game summary: \n {result['Replay_Summary']} \n"
-                        processMessageForOpenAI(self, msg,  "last_time_played", logger, contextHistory)
+                        processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
                         #self.processMessageForOpenAI(
                         #   msg, "last_time_played")
 
@@ -71,7 +69,7 @@ def game_started(self, current_game, contextHistory):
                         msg += "After, summarize the build order 7 words or less. \n"
                         msg += "-----\n"
                         msg += f"{first_30_build_steps} \n"
-                        processMessageForOpenAI(self, msg,  "last_time_played", logger, contextHistory)
+                        processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
                         #self.processMessageForOpenAI(
                         #    msg, "last_time_played")
 
@@ -80,7 +78,7 @@ def game_started(self, current_game, contextHistory):
                         msg += f"I think this is the first time {config.STREAMER_NICKNAME} is playing {player_name}, at least the {current_game.get_player_race(player_name)} of {player_name}"
                         logger.debug(msg)
                         #self.processMessageForOpenAI(msg, "in_game")
-                        processMessageForOpenAI(self, msg,  "in_game", logger, contextHistory)
+                        processMessageForOpenAI(self, msg, "in_game", logger, contextHistory)
                     break  # avoid processingMessageForOpenAI again below
 
     except Exception as e:

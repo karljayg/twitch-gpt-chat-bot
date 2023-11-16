@@ -5,7 +5,7 @@ import json
 
 from settings import config
 
-logger = logging.getLogger(__name__)
+#logger = logging.getLogger(__name__)
 
 
 class SoundPlayer:
@@ -16,15 +16,15 @@ class SoundPlayer:
         with open(config.SOUNDS_CONFIG_FILE) as f:
             self.sounds_config = json.load(f)
 
-    def play_sound(self, game_event):
+    def play_sound(self, game_event, logger):
         try:
-            if game_event in self.sounds_config['sounds']:
+            if game_event in self.sounds_config['sounds']: 
                 sound_file = random.choice(
                     self.sounds_config['sounds'][game_event])
                 pygame.mixer.music.load(sound_file)
                 pygame.mixer.music.play()
                 logger.debug(f"Playing sound: {game_event}")
             else:
-                logger.debu(f"Sound for game event '{game_event}' not found.")
+                logger.debug(f"Sound for game event '{game_event}' not found.")
         except Exception as e:
-            logger.debu(f"An error occurred while trying to play sound: {e}")
+            logger.debug(f"An error occurred while trying to play sound: {e}")

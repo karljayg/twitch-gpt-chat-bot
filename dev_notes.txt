@@ -1,51 +1,65 @@
+[Structure]
+app.py - Main (initialize twitch bot)
 
+> api
+    twitch_bot.py
+        class TwitchBot
+        def play_SC2_sound
+        def signal_handler
+        def monitor_game
+        def on_welcome
+        def on_pubmsg
+
+    sc2_game_utils.py
+        def check_SC2_game_status
+        def handle_SC2_game_results (uses game_event_utils)
+
+    chat_utils.py
+        def message_on_welcome
+        def msgToChannel
+        def process_pubmsg
+
+    >game_event_utils
+        game_started_handler.py
+            def game_started
+        game_ended_handler.py
+            def save_file
+            def calculate_game_duration
+            def game_ended
+        game_replay_handler.py
+            def replay_ended
+> utils 
+    file_utils.py
+        def find_latest_file
+
+    sound_player_utils.py
+        class SoundPlayer
+        def play_sound
+
+    emote_utils.py
+        def get_random_emote
+
+
+
+
+[TASK]: CODE REFACTORING
 original content of api>twitch_bot.py file
 class TwitchBot:
-    def play_SC2_sound(self, game_event):
-    def signal_handler(self, signal, frame):
-    def check_SC2_game_status():
+    def play_SC2_sound(self, game_event): => [DONE]
+    def signal_handler(self, signal, frame):   => [DONE]
+    def check_SC2_game_status():  => [DONE]
+    #original function
     def handle_SC2_game_results(self, previous_game, current_game):
-    def monitor_game(self):
-    def msgToChannel(self, message):
-    def processMessageForOpenAI(self, msg, conversation_mode):
-    def on_welcome(self, connection, event):
-    def on_pubmsg(self, connection, event):
-
-chat_utils.py
-def on_welcome(self, connection, event):
-def processMessageForOpenAI(self, msg, conversation_mode):
-def msgToChannel(self, message):
-def on_pubmsg(self, connection, event):
-
-sc2_game_utils.py
-def check_SC2_game_status(): => [DONE]
-def handle_SC2_game_results():
-
-sound_player_utils.py => [DONE]
-def play_SC2_sound():
-
-game_monitoring.py
-def monitor_game(self):
-def signal_handler(self, signal, frame):
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        #list of methods refactored from the original
+        game_started_handler module => [DONE]
+        game_ended_handler module => [DONE]
+        game_replay_handler module => [DONE]
+    
+    @Ms. Michelle started refactoring this chat related functions, I will proceed here once done above
+    def msgToChannel(self, message): => [DONE]
+    def processMessageForOpenAI(self, msg, conversation_mode): => [DONE]
+    def on_welcome(self, connection, event): => [DONE]
+    def on_pubmsg(self, connection, event): => [DONE]
 
 
 
@@ -60,3 +74,60 @@ DB
 -- DROP FUNCTION IF EXISTS <function_name()>;
 
 -- DROP FUNCTION IF EXISTS <function_name(flake BIGINT)>;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+----------------------------------------
+import random
+import pygame
+import logging
+from settings import config
+
+logger = logging.getLogger(__name__)
+
+class SoundPlayer:
+    def __init__(self):
+        pygame.mixer.init()
+        pygame.mixer.music.set_volume(0.7)
+        self.sounds_config = config.SOUNDS_CONFIG  # Adjust the actual config attribute
+
+    def play_sound(self, game_event):
+        try:
+            if game_event in self.sounds_config['sounds']:
+                sound_file = random.choice(self.sounds_config['sounds'][game_event])
+                pygame.mixer.music.load(sound_file)
+                pygame.mixer.music.play()
+                logger.debug(f"Playing sound: {game_event}")
+            else:
+                logger.debug(f"Sound for game event '{game_event}' not found.")
+        except Exception as e:
+            logger.debug(f"An error occurred while trying to play sound: {e}")
+
+class YourMainClass:
+    def __init__(self):
+        self.first_run = True
+        self.sound_player = SoundPlayer()
+
+    def play_SC2_sound(self, game_event):
+        if config.PLAYER_INTROS_ENABLED:
+            if config.IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN and self.first_run:
+                logger.debug("Per config, ignoring previous game on the first run, so no sound will be played")
+                return
+            self.sound_player.play_sound(game_event)
+        else:
+            logger.debug("SC2 player intros and other sounds are disabled")

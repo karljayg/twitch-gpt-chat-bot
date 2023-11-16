@@ -1,6 +1,5 @@
 import os
 
-
 def find_latest_file(folder, file_extension, logger):
     latest_file_found = None
     try:
