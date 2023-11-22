@@ -1,7 +1,7 @@
 import os
+import globals
 
 def find_latest_file(folder, file_extension, logger):
-    latest_file_found = None
     try:
         if not os.path.isdir(folder):
             logger.debug(
@@ -28,13 +28,13 @@ def find_latest_file(folder, file_extension, logger):
                         latest_timestamp = file_timestamp
 
         if latest_file:
-            if latest_file == latest_file_found:
+            if latest_file == globals.latest_file_found:
                 logger.debug(
                     f"The latest file with extension '{file_extension}' has not changed: {latest_file}")
             else:
                 logger.debug(
                     f"Found a new latest file with extension '{file_extension}': {latest_file}")
-                latest_file_found = latest_file
+                globals.latest_file_found = latest_file
 
             return latest_file
         else:

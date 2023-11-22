@@ -121,7 +121,7 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
             # Units Lost
             units_lost_summary = {player_key: player_data['unitsLost'] for player_key, player_data in
                                     replay_data['players'].items()}
-            #replay_summary = game_ended_handler.handle_unit_lost(player_key, units_lost_summary, replay_data, replay_summary)
+            
             for player_key, units_lost in units_lost_summary.items():
                 # ChatGPT gets confused if you use possessive 's vs by
                 player_info = f"Units Lost by {replay_data['players'][player_key]['name']}"
