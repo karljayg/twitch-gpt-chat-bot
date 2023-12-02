@@ -194,7 +194,8 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
         response = game_ended_handler.game_ended(self, game_player_names,winning_players,losing_players, logger)
 
     elif current_game.get_status() == "REPLAY_STARTED":
-        self.play_SC2_sound("start")
+        # no game intros during replays
+        # self.play_SC2_sound("start")
         # clear context history so that the bot doesn't mix up results from previous games
         contextHistory.clear()
         response = f"{config.STREAMER_NICKNAME} is watching a replay of a game. The players are {game_player_names}"
@@ -214,7 +215,7 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
             logger.debug("this is not first run")
 
         # proceed
-        processMessageForOpenAI(self, response, self.conversation_mode, logger, contextHistory)
+        # processMessageForOpenAI(self, response, self.conversation_mode, logger, contextHistory)
 
         # get analysis of game summary from the last real game's replay file that created, unless using config test replay file
         logger.debug("current game status: " + current_game.get_status() +

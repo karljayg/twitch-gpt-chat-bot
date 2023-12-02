@@ -21,6 +21,7 @@ def game_started(self, current_game, contextHistory, logger):
                 msg = f" \n New match starting between these players: {game_player_names} \n"
                 processMessageForOpenAI(self, msg, "in_game", logger, contextHistory)
             else:
+                self.play_SC2_sound("start")
                 for player_name in game_player_names:
                     logger.debug(f"looking for: {player_name}")
                     if player_name != config.STREAMER_NICKNAME:
@@ -70,8 +71,8 @@ def game_started(self, current_game, contextHistory, logger):
                             #   msg, "last_time_played")
 
                             msg = f"Do both: \n"
-                            msg += "First, print the build order exactly as shown. \n"
-                            msg += "After, summarize the build order 7 words or less. \n"
+                            msg += "First, print the first 20 steps of build order and group consecutive items together. Fox example, Probe 10 - Probe 11 - Probe 12 should be Probe (11-13). \n"
+                            msg += "After that, list if any of these are made: roach warren, baneling nest, spire, nydus, hydra den, starport, forge, fusion core, ghost, factory, twilight, dark shrine, stargate, robotics \n"
                             msg += "-----\n"
                             msg += f"{first_30_build_steps} \n"
                             processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)

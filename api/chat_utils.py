@@ -47,6 +47,8 @@ def msgToChannel(self, message, logger):
 # And this will generate the response
 def process_pubmsg(self, event, logger, contextHistory):
 
+    logger.debug("processing pubmsg")
+
     # Get message from chat
     msg = event.arguments[0].lower()
     sender = event.source.split('!')[0]
