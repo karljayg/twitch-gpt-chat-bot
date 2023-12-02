@@ -1,4 +1,6 @@
-import mysql.connector
+import mysql.connector.pooling
+from mysql.connector import Error
+import time
 import sys
 import re
 import logging
@@ -9,6 +11,33 @@ from settings import config
 
 
 class Database:
+    def __init__(self):
+        self.pool = mysql.connector.pooling.MySQLConnectionPool(
+            pool_name="mypool",
+            pool_size=5,
+            host=config.DB_HOST,
+            user=config.DB_USER,
+            password=config.DB_PASSWORD,
+            database=config.DB_NAME
+        )
+    def execute_query(self, query, params=None, retries=3, delay=2):
+        try:
+            conn = self.pool.get_connection()
+            cursor = conn.cursor(dictionary=True, buffered=True)
+            cursor.execute(query, params)
+            result = cursor.fetchall()
+            conn.commit()
+            return result
+        except Error as e:
+            if retries > 0:
+                time.sleep(delay)
+                return self.execute_query(query, params, retries - 1, delay)
+            else:
+                raise
+        finally:
+            if conn.is_connected():
+                cursor.close()
+                conn.close()
     def __init__(self):
 
         logging.basicConfig(level=logging.DEBUG)
