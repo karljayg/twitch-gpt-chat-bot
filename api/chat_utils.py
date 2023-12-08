@@ -2,6 +2,7 @@ from settings import config
 import openai
 import re
 import random
+import sys
 import time
 import math
 from utils.emote_utils import get_random_emote
@@ -34,13 +35,28 @@ def message_on_welcome(self, logger):
 
 # This function sends and logs the messages sent to twitch chat channel
 def msgToChannel(self, message, logger):
-    self.connection.privmsg(self.channel, message)
+    # Calculate the size of the message in bytes
+    message_bytes = message.encode()
+    message_size = len(message_bytes)
+
+    # Log the byte size of the message
+    logger.debug(f"Message size in bytes: {message_size}")
+
+    # Check if the message exceeds the 512-byte limit
+    if message_size > 512:
+        truncated_message_bytes = message_bytes[:512 - len(" ... more".encode())] + " ... more".encode()
+    else:
+        truncated_message_bytes = message_bytes
+
+    # Convert the truncated message back to a string
+    truncated_message_str = truncated_message_bytes.decode()
+
+    self.connection.privmsg(self.channel, truncated_message_str)
     logger.debug(
         "---------------------MSG TO CHANNEL----------------------")
-    logger.debug(message)
+    logger.debug(truncated_message_str)
     logger.debug(
         "---------------------------------------------------------")
-
 
 # This function processes the message receive in twitch chat channel
 # This will determine if the bot will reply base on dice roll
