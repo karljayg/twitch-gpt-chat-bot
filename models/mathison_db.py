@@ -145,6 +145,44 @@ class Database:
             self.logger.error(f"Error checking if player exists: {e}")
             return None
 
+    def get_player_records(self, player_name):
+        # Reset the cursor if needed
+        self.cursor.reset()
+
+        # SQL Query
+        sql = """
+        SELECT 
+            CASE 
+                WHEN p1.SC2_UserId = %s THEN p2.SC2_UserId
+                ELSE p1.SC2_UserId 
+            END AS Opponent,
+            SUM(CASE WHEN (p1.SC2_UserId = %s AND r.Player1_Result = 'Win') OR (p2.SC2_UserId = %s AND r.Player2_Result = 'Win') THEN 1 ELSE 0 END) AS Wins,
+            SUM(CASE WHEN (p1.SC2_UserId = %s AND r.Player1_Result = 'Lose') OR (p2.SC2_UserId = %s AND r.Player2_Result = 'Lose') THEN 1 ELSE 0 END) AS Losses
+        FROM 
+            Replays r
+        JOIN 
+            Players p1 ON r.Player1_Id = p1.Id
+        JOIN 
+            Players p2 ON r.Player2_Id = p2.Id
+        WHERE 
+            p1.SC2_UserId = %s OR p2.SC2_UserId = %s
+        GROUP BY 
+            Opponent;
+        """
+
+        # Execute the query
+        self.cursor.execute(sql, (player_name, player_name, player_name, player_name, player_name, player_name, player_name))
+        results = self.cursor.fetchall()
+
+        # Formatting results
+        formatted_results = []
+        for row in results:
+            opponent, wins, losses = row['Opponent'], row['Wins'], row['Losses']
+            formatted_result = f"{player_name}, {opponent}, {wins} wins, {losses} losses"
+            formatted_results.append(formatted_result)
+
+        return formatted_results
+
     def convertUnixToDatetime(self, timestamp, timezone='US/Eastern'):
         # Convert the Unix timestamp to US Eastern time
         utc_dt = datetime.utcfromtimestamp(int(timestamp))

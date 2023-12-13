@@ -5,6 +5,11 @@ import json
 import spawningtool.parser
 import time
 import pytz
+import sys
+
+# Add the parent directory (project_root) to sys.path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from settings import config
 from models.mathison_db import Database
 from datetime import datetime
@@ -19,8 +24,8 @@ class ReplayLoader:
         files_processed = 0
 
         # date range to process
-        start_date = datetime.strptime('2023-12-12', '%Y-%m-%d')
-        end_date = datetime.strptime('2023-12-13', '%Y-%m-%d')
+        start_date = datetime.strptime('2023-12-13', '%Y-%m-%d')
+        end_date = datetime.strptime('2024-12-15', '%Y-%m-%d')
 
         for root, dirs, files in os.walk(folder_path):
 
@@ -36,6 +41,10 @@ class ReplayLoader:
                     replays_folder_forward, '')
                 self.logger.debug(f"Checking subfolder: {cleaned_path}")
 
+            #testing DB calls here, delete this later
+            #self.logger.debug("here ya go:\n" + '\n'.join(self.db.get_player_records('DAYGAMER')))
+            #input("Press Enter to continue...")
+
             for filename in files:
                 if filename.endswith(".SC2Replay"):
                     file_location = os.path.join(root, filename)
@@ -47,7 +56,7 @@ class ReplayLoader:
                         formatted_timestamp = self.db.convertUnixToDatetime(file_mod_time)
                         logging.debug(
                             f"{files_count}/{files_processed} - Found this file: {filename} \n dated: {formatted_timestamp}")
-                        #input("Press Enter to continue...")
+                        input("Press Enter to continue...")
                         files_count += 1
                         if self.processReplayFile(file_location):
                             files_processed += 1

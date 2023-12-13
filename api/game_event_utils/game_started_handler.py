@@ -59,11 +59,14 @@ def game_started(self, current_game, contextHistory, logger):
 
                             first_30_build_steps = self.db.extract_opponent_build_order(
                                 player_name)
+                                                        
+                            player_record = "past results:\n" + '\n'.join(self.db.get_player_records(player_name))
 
-                            msg = "Do both: \n"
-                            msg += f"Mention all details here: {config.STREAMER_NICKNAME} played {player_name} {how_long_ago} in {{Map name}},"
+                            msg = "Do these 3: \n"
+                            msg += f"1. Mention all details here: {config.STREAMER_NICKNAME} played {player_name} {how_long_ago} in {{Map name}},"
                             msg += f" a {{Win/Loss for {config.STREAMER_NICKNAME}}} in {{game duration}}. \n"
-                            msg += f"As a StarCraft 2 expert, comment on last game summary. Be concise with only 2 sentences total of 25 words or less. \n"
+                            msg += f"2. Restate win/loss records concisely: {player_record} \n"
+                            msg += f"3. As a StarCraft 2 expert, comment on last game summary. Be concise with only 2 sentences total of 25 words or less. \n"
                             msg += "-----\n"
                             msg += f" \n {result['Replay_Summary']} \n"
                             processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
