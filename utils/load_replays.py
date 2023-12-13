@@ -18,6 +18,10 @@ class ReplayLoader:
         files_count = 0
         files_processed = 0
 
+        # date range to process
+        start_date = datetime.strptime('2023-12-12', '%Y-%m-%d')
+        end_date = datetime.strptime('2023-12-13', '%Y-%m-%d')
+
         for root, dirs, files in os.walk(folder_path):
 
             for folder in dirs:
@@ -35,17 +39,18 @@ class ReplayLoader:
             for filename in files:
                 if filename.endswith(".SC2Replay"):
                     file_location = os.path.join(root, filename)
-                    file_date = os.path.getmtime(file_location)
+                    file_mod_time = os.path.getmtime(file_location)
+                    file_date = datetime.fromtimestamp(file_mod_time)  # Convert to datetime
 
-                    formatted_timestamp = self.db.convertUnixToDatetime(
-                        file_date)
-
-                    logging.debug(
-                        f"{files_count}/{files_processed} - Found this file: {filename} \n dated: {formatted_timestamp}")
-                    input("Press Enter to continue...")
-                    files_count += 1
-                    if self.processReplayFile(file_location):
-                        files_processed += 1
+                    # Check if the file modification date is within the range
+                    if start_date <= file_date <= end_date:
+                        formatted_timestamp = self.db.convertUnixToDatetime(file_mod_time)
+                        logging.debug(
+                            f"{files_count}/{files_processed} - Found this file: {filename} \n dated: {formatted_timestamp}")
+                        #input("Press Enter to continue...")
+                        files_count += 1
+                        if self.processReplayFile(file_location):
+                            files_processed += 1
                 self.logger.debug(
                     f"---------------Files found: {files_count}, Files processed: {files_processed}------------")
 
