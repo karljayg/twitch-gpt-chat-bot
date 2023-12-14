@@ -1,0 +1,20 @@
+# Python files
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs
+*.log
+
+# IDE-specific files
+.vscode/
+.idea/
+
+# Environment-specific files
+.env
+venv/
+temp/
+test/replays/
+config.py
+SC2_sounds.json
+dummy.py

@@ -5,6 +5,7 @@ ALIGULAC_API_KEY = config.ALIGULAC_API_KEY
 YOUR_API_KEY = ALIGULAC_API_KEY
 BASE_URL = 'http://aligulac.com'  # Replace with the correct base URL
 
+
 def search_player_by_tag(tag):
     url = f'{BASE_URL}/api/v1/player/?tag={tag}&limit=10&apikey={YOUR_API_KEY}&format=json&limit=10'
     response = requests.get(url)
@@ -19,6 +20,7 @@ def search_player_by_tag(tag):
         print("Error in the request", response.status_code)
         return None
 
+
 def get_player_matches(player_id):
     url = f'{BASE_URL}/api/v1/results/?id={player_id}&limit=10&apikey={YOUR_API_KEY}&format=json&limit=10'
     response = requests.get(url)
@@ -29,29 +31,37 @@ def get_player_matches(player_id):
         print("Error in the request", response.status_code)
         return None
 
+
 def player_overview(player_id):
     response = requests.get(f'{BASE_URL}/api/v1/player/{player_id}/overview')
     return response.json() if response.status_code == 200 else None
+
 
 def player_details(player_id):
     response = requests.get(f'{BASE_URL}/api/v1/player/{player_id}')
     return response.json() if response.status_code == 200 else None
 
+
 def player_season_statistics(player_id):
     response = requests.get(f'{BASE_URL}/api/v1/player/{player_id}/season')
     return response.json() if response.status_code == 200 else None
 
+
 def ladder_information(season_id, region_id):
-    response = requests.get(f'{BASE_URL}/api/v1/ladder/{season_id}/{region_id}')
+    response = requests.get(
+        f'{BASE_URL}/api/v1/ladder/{season_id}/{region_id}')
     return response.json() if response.status_code == 200 else None
+
 
 def search_players(query):
     response = requests.get(f'{BASE_URL}/api/v1/search/{query}')
     return response.json() if response.status_code == 200 else None
 
+
 def seasons_list():
     response = requests.get(f'{BASE_URL}/api/v1/season')
     return response.json() if response.status_code == 200 else None
+
 
 player_tag = 'Dark'  # Replace with the in-game tag of the player you're searching for
 players = search_player_by_tag(player_tag)

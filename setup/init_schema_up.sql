@@ -1,6 +1,3 @@
-DROP DATABASE IF EXISTS mathison;
-CREATE DATABASE mathison;
-
 USE Mathison;
 
 CREATE TABLE MAJOR_TRAITS (
@@ -96,7 +93,7 @@ CREATE TABLE Replays (
     Player1_Result VARCHAR(50),
     Player2_Result VARCHAR(50),
     Date_Uploaded TIMESTAMP,
-    Date_Played TIMESTAMP,  -- This will hold the converted US Eastern time from UnixTimestamp
+    Date_Played TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  -- This will hold the converted US Eastern time from UnixTimestamp
     Replay_Summary TEXT,
     Map VARCHAR(255),
     Region VARCHAR(50),
@@ -106,4 +103,5 @@ CREATE TABLE Replays (
     FOREIGN KEY (Player1_Id) REFERENCES Players(Id),
     FOREIGN KEY (Player2_Id) REFERENCES Players(Id)
 );
+
 

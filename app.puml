@@ -1,0 +1,47 @@
+@startuml
+
+start
+
+:Load configuration settings;
+:Set up logger;
+:Connect to database;
+:Establish connection to OpenAI API;
+while (Main Execution Loop) is (True)
+    :Monitor Twitch channel;
+    if (New message received?) then (Yes)
+        :Check message content;
+        if (Message meets criteria or triggers events?) then (Yes)
+            :Generate response;
+            if (Response involves querying database?) then (Yes)
+                :Query database;
+            endif
+            if (Response involves OpenAI API?) then (Yes)
+                :Invoke OpenAI API;
+            endif
+            :Send message back to chat;
+        endif
+    endif
+    :Monitor game status;
+    if (Game status change?) then (Yes)
+        :React to game status change;
+        if (Game ends?) then (Yes)
+            :Process replay data;
+            :Extract game information;
+        endif
+    endif
+    :Interact with database;
+    :Communicate with OpenAI API;
+    :Manage context;
+    :Interact with users in chat;
+endwhile
+
+:Handle graceful shutdown;
+:Log events and errors;
+if (GUI enabled?) then (Yes)
+    :User interaction via GUI;
+endif
+
+:Terminate script;
+stop
+
+@enduml

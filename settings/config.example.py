@@ -22,7 +22,8 @@ PORT = 6667
 USERNAME = OWNER
 CHANNEL = f"#{PAGE}"
 URL = f"https://api.twitch.tv/kraken/users?login={USERNAME}"
-HEADERS = {"Client-ID": CLIENT_ID, "Accept": "application/vnd.twitchtv.v5+json"}
+HEADERS = {"Client-ID": CLIENT_ID,
+           "Accept": "application/vnd.twitchtv.v5+json"}
 
 """
 |   OpenAI Settings
@@ -54,20 +55,27 @@ SC2_PLAYER_ACCOUNTS = ['myname']
 REPLAYS_FOLDER = r"C:\Users\WHATEVER\OneDrive\Documents\StarCraft II\Accounts"
 REPLAYS_FILE_EXTENSION = "SC2Replay"
 
-#goes together, turn off to not get confused
+# goes together, turn off to not get confused
 USE_CONFIG_TEST_REPLAY_FILE = False
 REPLAY_TEST_FILE = ("test/replays/Royal Blood LE (428).SC2Replay")
 
 BUILD_ORDER_COUNT_TO_ANALYZE = 60
-ABANDONED_GAME_THRESHOLD = 15  # games less than this seconds will be considered abandoned for better commentary
+# games less than this seconds will be considered abandoned for better commentary
+ABANDONED_GAME_THRESHOLD = 15
 # TODO: make this more intuitive and less confusing, as test modes are different from running replays period
 TEST_MODE = True  # misc. tests, like with DB and other items
-TEST_MODE_SC2_CLIENT_JSON = False  # will review SC2 game status JSON file in test instead of the SC2 client
-IGNORE_GAME_STATUS_WHILE_WATCHING_REPLAYS = False  # will ignore game status when watching a replay
-IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN = True  # will not comment on game status since its from last game before run
-GAME_RESULT_TEST_FILE = "test/SC2_game_result_test.json"  # output of game result JSON file for analysis if needed
-LAST_REPLAY_JSON_FILE = "temp/last_replay_data.json"  # json file of the last replay from sc2reader
-LAST_REPLAY_SUMMARY_FILE = "temp/replay_summary.txt"  # summary file of build orders and units lost TODO: add other info
+# will review SC2 game status JSON file in test instead of the SC2 client
+TEST_MODE_SC2_CLIENT_JSON = False
+# will ignore game status when watching a replay
+IGNORE_GAME_STATUS_WHILE_WATCHING_REPLAYS = False
+# will not comment on game status since its from last game before run
+IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN = True
+# output of game result JSON file for analysis if needed
+GAME_RESULT_TEST_FILE = "test/SC2_game_result_test.json"
+# json file of the last replay from sc2reader
+LAST_REPLAY_JSON_FILE = "temp/last_replay_data.json"
+# summary file of build orders and units lost TODO: add other info
+LAST_REPLAY_SUMMARY_FILE = "temp/replay_summary.txt"
 
 PLAYER_INTROS_ENABLED = True  # enabled playing mp3 files of player intros
 SOUNDS_CONFIG_FILE = 'settings/SC2_sounds.json'
@@ -75,12 +83,16 @@ SOUNDS_CONFIG_FILE = 'settings/SC2_sounds.json'
 """
 |   Bot Behavior Settings
 """
-IGNORE = ["psistorm_mathison", "psi_mathison", "Streamelements", "StreamElements"]  # users to ignore
+IGNORE = ["psistorm_mathison", "psi_mathison",
+          "Streamelements", "StreamElements"]  # users to ignore
 RESPONSE_PROBABILITY = 0.7  # how often to respond? 1.0 = 100%  0.7 = 70%
-MONITOR_GAME_SLEEP_SECONDS = 7  # sleep time between execution, any less than 7 risks new replay not done yet
+# sleep time between execution, any less than 7 risks new replay not done yet
+MONITOR_GAME_SLEEP_SECONDS = 7
 GREETINGS_LIST_FROM_OTHERS = ['hi', 'HeyGuys', 'Hello']  # Mathison will say hi
-OPEN_SESAME_SUBSTITUTES = "open sesame"  # override any delays/blocks and Mathison will respond
-STOP_WORDS_FLAG = "adios amigo"  # remove/stop words - TODO: redo logic as it is off right now coz buggy
+# override any delays/blocks and Mathison will respond
+OPEN_SESAME_SUBSTITUTES = "open sesame"
+# remove/stop words - TODO: redo logic as it is off right now coz buggy
+STOP_WORDS_FLAG = "adios amigo"
 RESP_FREQUENCY = 1.0  # TODO: unused
 RESP_WAIT = 5  # wait in seconds to respond TODO: review if this works
 MAX_RESPONSIVENESS = 0.5  # TODO: unused
@@ -94,29 +106,38 @@ LOG_FILE = "logs/bot.log"  # log file location
 |   Mood / Perspective Settings
 """
 
-BOT_MOODS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]  # selected flavors of mood
-BOT_PERSPECTIVES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]  # additional selected perspectives of response
+BOT_MOODS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
+             14, 15, 16, 17, 18, 19]  # selected flavors of mood
+# additional selected perspectives of response
+BOT_PERSPECTIVES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 PERSPECTIVE_INDEX_CUTOFF = 6  # if 4, the first 4 index are for replays: 0,1,2,3
 
 # mood and perspectives options selected above (not to be confused with Google Perspective API
 MOOD_OPTIONS = [
-    "formal",  # 0 Use a more professional and refined tone in your instructions.
+    # 0 Use a more professional and refined tone in your instructions.
+    "formal",
     "enthusiastic",  # 1 Show excitement and energy in your instructions.
     "confident",  # 2 Provide instructions with a strong and assured tone.
     "helpful",  # 3 Instruct in a supportive and assisting manner.
-    "direct",  # 4 Provide clear and straightforward instructions without any extra frills.
+    # 4 Provide clear and straightforward instructions without any extra frills.
+    "direct",
     "playful",  # 5 Add a touch of playfulness and fun to your instructions.
     "authoritative",  # 6 Instruct with authority and decisiveness.
-    "thoughtful",  # 7 Provide instructions with careful consideration and depth.
-    "upbeat",  # 8 Maintain a positive and optimistic tone in your instructions.
+    # 7 Provide instructions with careful consideration and depth.
+    "thoughtful",
+    # 8 Maintain a positive and optimistic tone in your instructions.
+    "upbeat",
     "empathetic",  # 9 Show understanding and empathy in your instructions.
-    "curious",  # 10 Pose questions and instructions with a curious and inquisitive tone.
+    # 10 Pose questions and instructions with a curious and inquisitive tone.
+    "curious",
     "dry humor",
     # 11 Delivering statements with a subtle and understated sense of humor, often using irony or clever wordplay.
     "sarcastic",
     # 12 Using statements that express the opposite of what is actually meant, often with a sharp and mocking tone.
-    "friendly",  # 13 Providing instructions in a warm and approachable manner, creating a sense of comfort and ease.
-    "casual",  # 14 Instructing in a relaxed and informal way, as if having a laid-back conversation with a friend.
+    # 13 Providing instructions in a warm and approachable manner, creating a sense of comfort and ease.
+    "friendly",
+    # 14 Instructing in a relaxed and informal way, as if having a laid-back conversation with a friend.
+    "casual",
     "witty",
     # 15 Crafting instructions with clever and intelligent remarks, often using wordplay or clever insights
     # to engage effectively.
@@ -125,7 +146,8 @@ MOOD_OPTIONS = [
     # instructions.
     "serious",
     # 17 Communicating with a focused and grave tone, indicating the importance and gravity of the instructions.
-    "informative",  # 18 Delivering clear and factual instructions that provide valuable information and insights.
+    # 18 Delivering clear and factual instructions that provide valuable information and insights.
+    "informative",
     "silly"  # 19 Expressing a lighthearted and humorous mood.
 ]
 
