@@ -12,6 +12,8 @@ from settings import config
 
 class Database:
     def __init__(self):
+        db = Database()
+
         self.pool = mysql.connector.pooling.MySQLConnectionPool(
             pool_name="mypool",
             pool_size=5,
@@ -163,7 +165,8 @@ class Database:
                 ELSE p1.SC2_UserId 
             END AS Opponent,
             SUM(CASE WHEN (p1.SC2_UserId = %s AND r.Player1_Result = 'Win') OR (p2.SC2_UserId = %s AND r.Player2_Result = 'Win') THEN 1 ELSE 0 END) AS Wins,
-            SUM(CASE WHEN (p1.SC2_UserId = %s AND r.Player1_Result = 'Lose') OR (p2.SC2_UserId = %s AND r.Player2_Result = 'Lose') THEN 1 ELSE 0 END) AS Losses
+            SUM(CASE WHEN (p1.SC2_UserId = %s AND r.Player1_Result = 'Lose') OR (p2.SC2_UserId = %s AND r.Player2_Result = 'Lose') THEN 1 ELSE 0 END) AS Losses,
+            MAX(r.Date_Played) AS Last_Played
         FROM 
             Replays r
         JOIN 
@@ -173,7 +176,9 @@ class Database:
         WHERE 
             p1.SC2_UserId = %s OR p2.SC2_UserId = %s
         GROUP BY 
-            Opponent;
+            Opponent
+        ORDER BY 
+            Last_Played DESC;
         """
 
         # Execute the query
@@ -186,6 +191,8 @@ class Database:
             opponent, wins, losses = row['Opponent'], row['Wins'], row['Losses']
             formatted_result = f"{player_name}, {opponent}, {wins} wins, {losses} losses"
             formatted_results.append(formatted_result)
+
+        self.logger.debug(f"result: \n {formatted_results}")
 
         return formatted_results
 
@@ -410,7 +417,6 @@ class Database:
 if (config.TEST_MODE):
     # if True:
 
-    db = Database()
     # get opponent_name from command line
     opponent_name = input("Enter opponent name: ")
 

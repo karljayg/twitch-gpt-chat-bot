@@ -8,7 +8,7 @@ import math
 from utils.emote_utils import get_random_emote
 import utils.wiki_utils as wiki_utils
 import utils.tokensArray as tokensArray
-
+from models.mathison_db import Database
 
 # This function logs that the bot is starting with also logs some configurations of th bot
 # This also sends random emoticon to twitch chat room
@@ -82,8 +82,27 @@ def process_pubmsg(self, event, logger, contextHistory):
         logger.debug("received wiki command: /n" + msg)
         msg = wiki_utils.wikipedia_question(msg, self)
         logger.debug("wiki answer: /n" + msg)
-        msg = msg[:500]  # temporarily limit to 500 char
-        msgToChannel(self, msg, logger)
+        trimmed_msg = tokensArray.truncate_to_byte_limit(msg, config.TWITCH_CHAT_BYTE_LIMIT)        
+        msgToChannel(self, trimmed_msg, logger)
+        return
+    
+    # search replays DB
+    if 'history' in msg.lower():
+        logger.debug("received history command: /n" + msg)
+        player_name = msg.split(" ", 1)[1]
+        history_list = self.db.get_player_records(player_name)
+        logger.debug("history answer: /n" + str(history_list))  
+
+        # Process each record and format it as desired
+        formatted_records = [f"{rec.split(', ')[0]} vs {rec.split(', ')[1]}, {rec.split(', ')[2].split(' ')[0]}-{rec.split(', ')[3].split(' ')[0]}" for rec in history_list]
+
+        # Join the formatted records into a single string
+        result_string = " and ".join(formatted_records)
+
+        trimmed_msg = tokensArray.truncate_to_byte_limit(result_string, config.TWITCH_CHAT_BYTE_LIMIT)
+        msg = "Restate this without losing the detail: Here is the total win/loss record against all opponents we know the results of: " + trimmed_msg
+        #msgToChannel(self, msg, logger)
+        processMessageForOpenAI(self, msg, self.conversation_mode, logger, contextHistory)
         return
 
     # ignore certain users

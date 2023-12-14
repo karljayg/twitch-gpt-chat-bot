@@ -24,6 +24,7 @@ CHANNEL = f"#{PAGE}"
 URL = f"https://api.twitch.tv/kraken/users?login={USERNAME}"
 HEADERS = {"Client-ID": CLIENT_ID,
            "Accept": "application/vnd.twitchtv.v5+json"}
+TWITCH_CHAT_BYTE_LIMIT = 450 #512 but to account for overhead
 
 """
 |   OpenAI Settings

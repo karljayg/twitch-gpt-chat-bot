@@ -143,7 +143,6 @@ def get_printed_array(order, contextHistory):
             arrayString = arrayString + item[0]
     return arrayString
 
-
 def apply_stop_words_filter(words):
     removed_words = []
     # loading the english language small model of spacy
@@ -163,6 +162,18 @@ def apply_stop_words_filter(words):
     new_text = " ".join(words)
     return new_text, removed_words
 
+def truncate_to_byte_limit(input_string, byte_limit):
+    encoded_string = input_string.encode('utf-8')
+    current_byte_total = len(encoded_string)
+
+    if current_byte_total <= byte_limit:
+        print(f"Current byte total: {current_byte_total} bytes (within limit)")
+        return input_string
+    else:
+        truncated_string = encoded_string[:byte_limit].decode('utf-8', 'ignore').rstrip()
+        new_byte_total = len(truncated_string.encode('utf-8'))
+        print(f"Current byte total: {current_byte_total} bytes, truncated to {new_byte_total} bytes")
+        return truncated_string
 
 def num_tokens_from_string(string: str, encoding_name: str) -> int:
     # Returns the number of tokens in a text string depending on tokenizer used
