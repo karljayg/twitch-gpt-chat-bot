@@ -20,24 +20,30 @@ class Database:
             password=config.DB_PASSWORD,
             database=config.DB_NAME
         )
-    def execute_query(self, query, params=None, retries=3, delay=2):
+
+    # override execute with retry logic due to DB connection issues
+    def execute(self, sql, data=None):
         try:
+            _retries = 3
+            _delay = 2
             conn = self.pool.get_connection()
             cursor = conn.cursor(dictionary=True, buffered=True)
-            cursor.execute(query, params)
+            cursor.execute(sql, data)
             result = cursor.fetchall()
             conn.commit()
-            return result
+            return result if cursor.description else cursor.lastrowid
         except Error as e:
-            if retries > 0:
-                time.sleep(delay)
-                return self.execute_query(query, params, retries - 1, delay)
+            if _retries > 0:
+                self.logger.debug(f"encountered error: {e}, wait and retry #{_retries}")
+                time.sleep(_delay)
+                return self.execute(sql, data)
             else:
                 raise
         finally:
             if conn.is_connected():
                 cursor.close()
                 conn.close()
+
     def __init__(self):
 
         logging.basicConfig(level=logging.DEBUG)
