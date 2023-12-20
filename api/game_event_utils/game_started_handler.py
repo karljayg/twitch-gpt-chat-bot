@@ -78,10 +78,10 @@ def game_started(self, current_game, contextHistory, logger):
 
                             msg = "Here is a list of special buildings or units: roach warren, baneling nest, spire, nydus, hydra den, starport, forge, fusion core, ghost, factory, twilight, dark shrine, stargate, robotics \n"
                             msg += f"Mention any special buildings that exist in the build order for the opponent, if none then only say something like 'the opponent seemed to have a normal build': {first_30_build_steps} \n"
-                            processMessageForOpenAI(self, msg, "also_speak", logger, contextHistory)
+                            processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
 
                             msg = f"The CSV is listed as player1, player2, player 1 wins, player 1 losses. Respond with only 10 words with player1's name, and player1's total wins and total losses from the {player_record} \n"
-                            processMessageForOpenAI(self, msg, "also_speak", logger, contextHistory)
+                            processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
 
                         else:
                             msg = "Restate this without missing any details: \n "

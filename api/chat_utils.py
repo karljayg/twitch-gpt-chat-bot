@@ -6,6 +6,7 @@ import sys
 import time
 import math
 from utils.emote_utils import get_random_emote
+from utils.emote_utils import remove_emotes_from_message
 import utils.wiki_utils as wiki_utils
 import utils.tokensArray as tokensArray
 import datetime
@@ -36,7 +37,7 @@ def message_on_welcome(self, logger):
     msgToChannel(self, greeting_message, logger)
 
 # This function sends and logs the messages sent to twitch chat channel
-def msgToChannel(self, message, logger):
+def msgToChannel(self, message, logger, text2speech=False):
     # Calculate the size of the message in bytes
     message_bytes = message.encode()
     message_size = len(message_bytes)
@@ -59,6 +60,12 @@ def msgToChannel(self, message, logger):
     logger.debug(truncated_message_str)
     logger.debug(
         "---------------------------------------------------------")
+    
+    if text2speech:
+        # use text to speech capability to speak the response if enabled
+        logger.debug(f"Speaking")          
+        truncated_message_str = remove_emotes_from_message(truncated_message_str)          
+        speak_text(truncated_message_str, mode=1)
 
 # This function processes the message receive in twitch chat channel
 # This will determine if the bot will reply base on dice roll
@@ -381,7 +388,12 @@ def processMessageForOpenAI(self, msg, conversation_mode, logger, contextHistory
                         f'Conversation in context so far: {tokensArray.get_printed_array("reversed", contextHistory)}')
             else:
                 response = re.sub(r'\bAI: ', '', response)
-                msgToChannel(self, response, logger)
+                # if response is less than 150 characters
+                if len(response) <= 150:
+                    # really short messages get to be spoken
+                    msgToChannel(self, response, logger, text2speech=True)
+                else:
+                    msgToChannel(self, response, logger)                                        
 
                 # Add AI response to conversation context
                 tokensArray.add_new_msg(
@@ -391,11 +403,6 @@ def processMessageForOpenAI(self, msg, conversation_mode, logger, contextHistory
                 logger.debug(f'AI msg to chat: {response}')
                 logger.debug(
                     f'Conversation in context so far: {tokensArray.get_printed_array("reversed", contextHistory)}')
-
-            if conversation_mode == 'also_speak':
-                # use text to speech capability to speak the response
-                logger.debug(f"Speaking")                    
-                speak_text(response, mode=1)
 
         else:
             response = 'oops, I have no response to that'
