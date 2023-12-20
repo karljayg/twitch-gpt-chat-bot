@@ -196,6 +196,48 @@ class Database:
 
         return formatted_results
 
+    def get_games_for_last_x_hours(self, hours):
+        # Calculate the start and end dates
+        end_date = datetime.now()
+        start_date = end_date - timedelta(hours=hours)
+        formatted_start_date = start_date.strftime("%Y-%m-%d %H:%M:%S")
+        formatted_end_date = end_date.strftime("%Y-%m-%d %H:%M:%S")
+
+        # SQL Query
+        sql = """
+        SELECT 
+            CONCAT(p1.SC2_UserId, ' vs ', p2.SC2_UserId) AS Players,
+            CASE
+                WHEN r.Player1_Result = 'Win' THEN p1.SC2_UserId
+                WHEN r.Player2_Result = 'Win' THEN p2.SC2_UserId
+                ELSE 'Draw'
+            END AS Winner,
+            r.Map,
+            r.Date_Played
+        FROM 
+            Replays r
+        JOIN 
+            Players p1 ON r.Player1_Id = p1.Id
+        JOIN 
+            Players p2 ON r.Player2_Id = p2.Id
+        WHERE 
+            r.Date_Played >= %s AND r.Date_Played <= %s
+        ORDER BY 
+            r.Date_Played DESC;
+        """
+
+        # Execute the query
+        self.cursor.execute(sql, (formatted_start_date, formatted_end_date))
+        results = self.cursor.fetchall()
+
+        # Formatting results
+        formatted_results = []
+        for row in results:
+            game_info = f"{row['Players']} on {row['Map']}, Winner: {row['Winner']}, Played at: {row['Date_Played'].strftime('%Y-%m-%d %H:%M:%S')}"
+            formatted_results.append(game_info)
+
+        return formatted_results
+
     def convertUnixToDatetime(self, timestamp, timezone='US/Eastern'):
         # Convert the Unix timestamp to US Eastern time
         utc_dt = datetime.utcfromtimestamp(int(timestamp))

@@ -8,6 +8,7 @@ import math
 from utils.emote_utils import get_random_emote
 import utils.wiki_utils as wiki_utils
 import utils.tokensArray as tokensArray
+import datetime
 from models.mathison_db import Database
 from .text2speech import speak_text 
 
@@ -105,6 +106,45 @@ def process_pubmsg(self, event, logger, contextHistory):
         #msgToChannel(self, msg, logger)
         processMessageForOpenAI(self, msg, self.conversation_mode, logger, contextHistory)
         return
+  
+    def chunk_list(lst, max_chunk_size):
+        """Splits the list into smaller lists each having a length less than or equal to max_chunk_size."""
+        for i in range(0, len(lst), max_chunk_size):
+            yield lst[i:i + max_chunk_size]
+
+    if 'games in past hours' in msg.lower():
+        logger.debug("Received command to fetch games in the last X hours")
+
+        # Extract the number of hours from the message
+        hours = int(msg.split(' ')[-1])  # Assumes the last word in msg is the number of hours
+        if hours > 72:
+            hours = 72  # Max number of hours allowed is 72
+
+        # Retrieve games for the last X hours
+        recent_games = self.db.get_games_for_last_x_hours(hours)
+        logger.debug(f"Games in the last {hours} hours: \n" + str(recent_games))
+
+        # Process each game record and format it as desired
+        formatted_records = [f"{game}" for game in recent_games]
+
+        # Define chunk size based on an estimated average size of each record
+        avg_record_size = 100  # This is an estimation; you might need to adjust it
+        max_chunk_size = config.TWITCH_CHAT_BYTE_LIMIT // avg_record_size
+
+        msg = f"Games played in the last {hours} hours are: "
+        msgToChannel(self, msg, logger)
+        
+        # Split the formatted records into chunks
+        for chunk in chunk_list(formatted_records, max_chunk_size):
+            # Join the records in the chunk into a single string
+            chunk_string = " and ".join(chunk)
+
+            # Truncate the chunk string to byte limit
+            trimmed_msg = tokensArray.truncate_to_byte_limit(chunk_string, config.TWITCH_CHAT_BYTE_LIMIT)
+
+            # Send the chunk message
+            msgToChannel(self, trimmed_msg, logger)
+            # processMessageForOpenAI(self, msg, self.conversation_mode, logger, contextHistory)
 
     # ignore certain users
     logger.debug("checking user: " + sender + " against ignore list")
