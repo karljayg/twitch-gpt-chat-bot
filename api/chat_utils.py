@@ -9,6 +9,7 @@ from utils.emote_utils import get_random_emote
 import utils.wiki_utils as wiki_utils
 import utils.tokensArray as tokensArray
 from models.mathison_db import Database
+from .text2speech import speak_text 
 
 # This function logs that the bot is starting with also logs some configurations of th bot
 # This also sends random emoticon to twitch chat room
@@ -350,6 +351,11 @@ def processMessageForOpenAI(self, msg, conversation_mode, logger, contextHistory
                 logger.debug(f'AI msg to chat: {response}')
                 logger.debug(
                     f'Conversation in context so far: {tokensArray.get_printed_array("reversed", contextHistory)}')
+
+            if conversation_mode == 'also_speak':
+                # use text to speech capability to speak the response
+                logger.debug(f"Speaking")                    
+                speak_text(response, mode=1)
 
         else:
             response = 'oops, I have no response to that'

@@ -63,9 +63,9 @@ def game_started(self, current_game, contextHistory, logger):
                             player_record = "past results:\n" + '\n'.join(self.db.get_player_records(player_name))
 
                             msg = "Do these 2: \n"
-                            msg += f"1. Mention all details here: {config.STREAMER_NICKNAME} played {player_name} {how_long_ago} in {{Map name}},"
+                            msg += f"Mention all details here: {config.STREAMER_NICKNAME} played {player_name} {how_long_ago} in {{Map name}},"
                             msg += f" a {{Win/Loss for {config.STREAMER_NICKNAME}}} in {{game duration}}. \n"
-                            msg += f"2. As a StarCraft 2 expert, comment on last game summary. Be concise with only 2 sentences total of 25 words or less. \n"
+                            msg += f"As a StarCraft 2 expert, comment on last game summary. Be concise with only 2 sentences total of 25 words or less. \n"
                             msg += "-----\n"
                             msg += f" \n {result['Replay_Summary']} \n"
                             processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
@@ -78,10 +78,10 @@ def game_started(self, current_game, contextHistory, logger):
 
                             msg = "Here is a list of special buildings or units: roach warren, baneling nest, spire, nydus, hydra den, starport, forge, fusion core, ghost, factory, twilight, dark shrine, stargate, robotics \n"
                             msg += f"Mention any special buildings that exist in the build order for the opponent, if none then only say something like 'the opponent seemed to have a normal build': {first_30_build_steps} \n"
-                            processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
+                            processMessageForOpenAI(self, msg, "also_speak", logger, contextHistory)
 
                             msg = f"The CSV is listed as player1, player2, player 1 wins, player 1 losses. Respond with only 10 words with player1's name, and player1's total wins and total losses from the {player_record} \n"
-                            processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
+                            processMessageForOpenAI(self, msg, "also_speak", logger, contextHistory)
 
                         else:
                             msg = "Restate this without missing any details: \n "
