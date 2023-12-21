@@ -63,10 +63,16 @@ def msgToChannel(self, message, logger, text2speech=False):
     
     if text2speech:
         # use text to speech capability to speak the response if enabled
-        logger.debug(f"Speaking")          
-        truncated_message_str = remove_emotes_from_message(truncated_message_str)          
-        speak_text(truncated_message_str, mode=1)
-
+        # try catch
+        try:
+            logger.debug(f"Speaking")          
+            truncated_message_str = remove_emotes_from_message(truncated_message_str)          
+            speak_text(truncated_message_str, mode=1)
+        except Exception as e:
+            logger.debug(f"Error: {e}") 
+        finally:
+            logger.debug(f"Spoken")
+        
 # This function processes the message receive in twitch chat channel
 # This will determine if the bot will reply base on dice roll
 # And this will generate the response

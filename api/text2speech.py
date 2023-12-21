@@ -1,5 +1,7 @@
 import pyttsx3
 import logging
+import time
+from settings import config
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger('comtypes').setLevel(logging.INFO)
@@ -11,17 +13,20 @@ def speak_text(text, mode=1):
     # Set properties based on the mode
     if mode == 1:
         # Normal voice
-        converter.setProperty('rate', 150)  # Normal speed
-        converter.setProperty('volume', 0.7)
+        converter.setProperty('rate', 180)  # Normal speed
+        converter.setProperty('volume', 1.0)
         voices = converter.getProperty('voices')
         converter.setProperty('voice', voices[0].id)  # Typically the first voice is male
     elif mode == 2:
         # Placeholder for a different type of voice
-        converter.setProperty('rate', 120)
-        converter.setProperty('volume', 0.9)
+        converter.setProperty('rate', 170)
+        converter.setProperty('volume', 1.0)
         voices = converter.getProperty('voices')
         converter.setProperty('voice', voices[1].id)  # Change the index for a different voice
     # Add more elif blocks for other modes
+
+    # wait for intro sound to finish
+    time.sleep(config.MONITOR_GAME_SLEEP_SECONDS)
 
     # Say the text
     converter.say(text)
