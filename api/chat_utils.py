@@ -103,6 +103,7 @@ def process_pubmsg(self, event, logger, contextHistory):
     
     # search replays DB
     if 'history' in msg.lower():
+        contextHistory.clear()
         logger.debug("received history command: /n" + msg)
         player_name = msg.split(" ", 1)[1]
         history_list = self.db.get_player_records(player_name)
@@ -115,7 +116,11 @@ def process_pubmsg(self, event, logger, contextHistory):
         result_string = " and ".join(formatted_records)
 
         trimmed_msg = tokensArray.truncate_to_byte_limit(result_string, config.TWITCH_CHAT_BYTE_LIMIT)
-        msg = "Restate this without losing the detail: Here is the total win/loss record against all opponents we know the results of: " + trimmed_msg
+        # if history_list is empty then msg is "no records found"
+        if history_list == []:
+            msg = (f"restate all of the info here: there are no game records in history for {player_name}")
+        else:
+            msg = (f"restate all of the info here: total win/loss record of {player_name} we know the results of so far {trimmed_msg}")
         #msgToChannel(self, msg, logger)
         processMessageForOpenAI(self, msg, self.conversation_mode, logger, contextHistory)
         return

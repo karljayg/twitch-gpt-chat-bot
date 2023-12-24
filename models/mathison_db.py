@@ -12,8 +12,7 @@ from settings import config
 
 class Database:
     def __init__(self):
-        db = Database()
-
+        # Connection pool initialization
         self.pool = mysql.connector.pooling.MySQLConnectionPool(
             pool_name="mypool",
             pool_size=5,
@@ -22,6 +21,20 @@ class Database:
             password=config.DB_PASSWORD,
             database=config.DB_NAME
         )
+
+        # Logging setup
+        logging.basicConfig(level=logging.DEBUG)
+        self.logger = logging.getLogger("db_logger")
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s')
+        log_file_name = f"logs/db_{timestamp}.log"
+        file_handler = logging.FileHandler(log_file_name)
+        file_handler.setFormatter(formatter)
+        self.logger.addHandler(file_handler)
+
+        # Connection setup
+        self.connection = self.pool.get_connection()
+        self.cursor = self.connection.cursor(dictionary=True, buffered=True)
 
     # override execute with retry logic due to DB connection issues
     def execute(self, sql, data=None):
@@ -45,30 +58,6 @@ class Database:
             if conn.is_connected():
                 cursor.close()
                 conn.close()
-
-    def __init__(self):
-
-        logging.basicConfig(level=logging.DEBUG)
-        self.logger = logging.getLogger("db_logger")
-        # Generate the current datetime timestamp in the format YYYYMMDD-HHMMSS
-
-        # get timestamp now
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-
-        formatter = logging.Formatter(
-            '%(asctime)s:%(levelname)s:%(name)s: %(message)s')
-        log_file_name = f"logs/db_{timestamp}.log"
-        file_handler = logging.FileHandler(log_file_name)
-        file_handler.setFormatter(formatter)
-        self.logger.addHandler(file_handler)
-
-        self.connection = mysql.connector.connect(
-            host=config.DB_HOST,
-            user=config.DB_USER,
-            password=config.DB_PASSWORD,
-            database=config.DB_NAME
-        )
-        self.cursor = self.connection.cursor(dictionary=True, buffered=True)
 
     def create_user(self, data):
         sql = "INSERT INTO USER (LastName, DisplayName, TwitchName, Gender, Sex, Dob, Race, Nationality, Occupation, State, Country) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"

@@ -30,7 +30,8 @@ def check_SC2_game_status(logger):
             return GameInfo(response.json())
         except Exception as e:
             logger.debug(f"Is SC2 on? error: {e}")
-            return None
+            #return None
+            return GameInfo({"status": "ERROR"})
 
 def handle_SC2_game_results(self, previous_game, current_game, contextHistory, logger):
     # do not proceed if no change

@@ -140,7 +140,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
     def monitor_game(self):
         previous_game = None
 
-        while True and not self.shutdown_flag:
+        while not self.shutdown_flag:
             try:
                 current_game = check_SC2_game_status(logger)
                 if (current_game.get_status() == "MATCH_STARTED" or current_game.get_status() == "REPLAY_STARTED"):
