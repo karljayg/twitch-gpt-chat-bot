@@ -36,12 +36,25 @@ class Database:
         self.connection = self.pool.get_connection()
         self.cursor = self.connection.cursor(dictionary=True, buffered=True)
 
+    def ensure_connection(self):
+        """
+        Ensures that the database connection is alive, reconnecting if necessary.
+        """
+        try:
+            if not self.connection.is_connected():
+                self.logger.debug("Re-establishing a lost database connection.")
+                self.connection = self.pool.get_connection()
+        except Error as e:
+            self.logger.error(f"Error while re-establishing connection: {e}")
+            self.connection = self.pool.get_connection()
+        return self.connection        
+
     # override execute with retry logic due to DB connection issues
     def execute(self, sql, data=None):
         try:
             _retries = 3
             _delay = 2
-            conn = self.pool.get_connection()
+            conn = self.ensure_connection()
             cursor = conn.cursor(dictionary=True, buffered=True)
             cursor.execute(sql, data)
             result = cursor.fetchall()

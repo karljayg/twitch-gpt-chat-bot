@@ -98,7 +98,8 @@ def process_pubmsg(self, event, logger, contextHistory):
         msg = wiki_utils.wikipedia_question(msg, self)
         logger.debug("wiki answer: /n" + msg)
         trimmed_msg = tokensArray.truncate_to_byte_limit(msg, config.TWITCH_CHAT_BYTE_LIMIT)        
-        msgToChannel(self, trimmed_msg, logger)
+        trimmed_msg = "restate all the info, do not ommit any details: " + trimmed_msg
+        processMessageForOpenAI(self, trimmed_msg, self.conversation_mode, logger, contextHistory)
         return
     
     # search replays DB
