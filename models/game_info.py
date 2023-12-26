@@ -13,10 +13,13 @@ class GameInfo:
         return [config.STREAMER_NICKNAME if player['name'] in config.SC2_PLAYER_ACCOUNTS else player['name'] for player
                 in self.players if result_filter is None or player['result'] == result_filter]
 
+    # TODO: fix the replay parser as support for Random is not provided
+    # hence the DB has never saved race as Random period
+    # then we will need to rerun all the replays to fix old data as well
     RACE_MAPPING = {
         'terr': 'Terran',
         'prot': 'Protoss',
-        'random': 'Rand',
+        'random': 'Random', 
         'zerg': 'Zerg',
     }
 

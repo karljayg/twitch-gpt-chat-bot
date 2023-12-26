@@ -36,7 +36,10 @@ def check_SC2_game_status(logger):
 def handle_SC2_game_results(self, previous_game, current_game, contextHistory, logger):
     # do not proceed if no change
     if previous_game and current_game.get_status() == previous_game.get_status():
-        logger.debug(f"GAME STATES (1): {previous_game}, {current_game.get_status()}, {previous_game.get_status()} \n")
+        # when there is no change, no need to log so it does not repeat constantly
+        # only turn on when there is an issue to debug
+        # unlike below when there are changes, we always log
+        # logger.debug(f"GAME STATES (1): {previous_game}, {current_game.get_status()}, {previous_game.get_status()} \n")
         return
     else:
         # do this here also, to ensure it does not get processed again
@@ -227,11 +230,6 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
         # unless we are testing with a replay file
         if ((current_game.get_status() not in ["MATCH_STARTED", "REPLAY_STARTED"] and self.total_seconds >= config.ABANDONED_GAME_THRESHOLD)
                 or (current_game.isReplay and config.USE_CONFIG_TEST_REPLAY_FILE)):
-            
-            # wait before analyzing, because sometimes the replay file is not ready
-            # and it looks at the previous one
-            time.sleep(config.RESP_WAIT)
-
             # get analysis of ended games, or during testing of config test replay file
             logger.debug("analyzing, replay summary to AI: ")
             processMessageForOpenAI(self, replay_summary, "replay_analysis", logger, contextHistory)

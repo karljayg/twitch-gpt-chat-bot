@@ -139,6 +139,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
     def monitor_game(self):
         previous_game = None
+        heartbeat_counter = 0
+        heartbeat_interval = config.HEARTBEAT_MYSQL  # Number of iterations before sending a heartbeat for MySQL
 
         while not self.shutdown_flag:
             try:
@@ -160,8 +162,23 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
                 previous_game = current_game
                 time.sleep(config.MONITOR_GAME_SLEEP_SECONDS)
-                # heartbeat indicator
-                print(".", end="", flush=True)
+
+                # Increment the heartbeat counter
+                heartbeat_counter += 1
+
+                # Check if it's time to send a heartbeat
+                if heartbeat_counter >= heartbeat_interval:
+                    try:
+                        self.db.keep_connection_alive()
+                        heartbeat_counter = 0  # Reset the counter after sending the heartbeat
+                        # heartbeat indicator
+                        print("+", end="", flush=True)                        
+                    except Exception as e:
+                        self.logger.error(f"Error during database heartbeat call: {e}")                       
+                else:
+                    # heartbeat indicator
+                    print(".", end="", flush=True)
+
             except Exception as e:
                 pass
 

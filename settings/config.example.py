@@ -47,6 +47,7 @@ DB_HOST = "localhost"
 DB_USER = ""
 DB_PASSWORD = ""
 DB_NAME = "mathison"
+HEARTBEAT_MYSQL = 20 # iterations, usually GAME_DURATION_SECONDS / MONITOR_GAME_SLEEP_SECONDS * this number
 
 """
 |   SC2 Settings
