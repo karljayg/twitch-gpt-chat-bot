@@ -107,7 +107,7 @@ def game_started(self, current_game, contextHistory, logger):
                                 msg += f"omit {config.STREAMER_NICKNAME}'s build order. \n"                                
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
                             else:
-                                msg = f"restate this with all details: This is the first time {config.STREAMER_NICKNAME} played {player_name} in this {streamer_picked_race} vs {player_race} matchup."
+                                msg = f"restate this with all details: This is the first time {config.STREAMER_NICKNAME} played {player_name} in this {streamer_picked_race} vs {player_current_race} matchup."
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
 
                             msg = f"The CSV is listed as player1, player2, player 1 wins, player 1 losses. Respond with only 10 words with player1's name, and player1's total wins and total losses from the {player_record} \n"
@@ -115,7 +115,7 @@ def game_started(self, current_game, contextHistory, logger):
 
                         else:
                             msg = "Restate this without missing any details: \n "
-                            msg += f"I think this is the first time {config.STREAMER_NICKNAME} is playing {player_name}, at least the {current_game.get_player_race(player_name)} of {player_name}"
+                            msg += f"I think this is the first time {config.STREAMER_NICKNAME} is playing {player_name}, at least the {player_current_race} of {player_name}"
                             logger.debug(msg)
                             #self.processMessageForOpenAI(msg, "in_game")
                             processMessageForOpenAI(self, msg, "in_game", logger, contextHistory)

@@ -121,7 +121,7 @@ def process_pubmsg(self, event, logger, contextHistory):
         if history_list == []:
             msg = (f"restate all of the info here: there are no game records in history for {player_name}")
         else:
-            msg = (f"restate all of the info here: total win/loss record of {player_name} we know the results of so far {trimmed_msg}")
+            msg = (f"restate all of the info here and do not exclude anything: total win/loss record of {player_name} we know the results of so far {trimmed_msg}")
         #msgToChannel(self, msg, logger)
         processMessageForOpenAI(self, msg, self.conversation_mode, logger, contextHistory)
         return
