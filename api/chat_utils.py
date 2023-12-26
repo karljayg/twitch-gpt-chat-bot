@@ -65,8 +65,17 @@ def msgToChannel(self, message, logger, text2speech=False):
         # use text to speech capability to speak the response if enabled
         # try catch
         try:
-            logger.debug(f"Speaking")          
+            logger.debug(f"Speaking")
             truncated_message_str = remove_emotes_from_message(truncated_message_str)          
+            truncated_message_str = "add commas, period and other appropriate punctuation: " + truncated_message_str
+
+            completion = send_prompt_to_openai(truncated_message_str)
+            if completion.choices[0].message is not None:
+                logger.debug(
+                    "completion.choices[0].message.content: " + completion.choices[0].message.content)
+            response = completion.choices[0].message.content
+            truncated_message_str =  response
+
             speak_text(truncated_message_str, mode=1)
         except Exception as e:
             logger.debug(f"Error: {e}") 
@@ -223,6 +232,21 @@ def process_pubmsg(self, event, logger, contextHistory):
         }
         msgToChannel(self, switcher.get(response), logger)
 
+def send_prompt_to_openai(msg):
+    """
+    Send a given message as a prompt to OpenAI and return the response.
+
+    :param msg: The message to send to OpenAI as a prompt.
+    :return: The response from OpenAI.
+    """
+    completion = openai.ChatCompletion.create(
+        model=config.ENGINE,
+        messages=[
+            {"role": "user", "content": msg}
+        ]
+    )
+    return completion
+
 # This function will process the message for Open API
 # This will connect to OpenAI and send the inquiry/message for AI to response
 # Then calls the msgToChannel to send the response back to channel
@@ -331,12 +355,8 @@ def processMessageForOpenAI(self, msg, conversation_mode, logger, contextHistory
     logger.debug("sent to OpenAI: %s", msg)
 
     #msgToChannel(self, "chanchan", logger)
-    completion = openai.ChatCompletion.create(
-        model=config.ENGINE,
-        messages=[
-            {"role": "user", "content": msg}
-        ]
-    )
+
+    completion = send_prompt_to_openai(msg)
 
     try:
         if completion.choices[0].message is not None:
@@ -366,6 +386,9 @@ def processMessageForOpenAI(self, msg, conversation_mode, logger, contextHistory
             response = response.replace("Player: , ", "")
 
             logger.debug("cleaned up message from OpenAI:")
+            # replace with ? all non ascii characters that throw an error in logger
+            response = tokensArray.replace_non_ascii(response, replacement='?')
+
             logger.debug(response)
 
             if len(response) >= 400:

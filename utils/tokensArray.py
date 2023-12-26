@@ -162,6 +162,9 @@ def apply_stop_words_filter(words):
     new_text = " ".join(words)
     return new_text, removed_words
 
+def replace_non_ascii(s, replacement='?'):
+    return "".join(c if ord(c) < 128 else replacement for c in s)
+
 def truncate_to_byte_limit(input_string, byte_limit):
     encoded_string = input_string.encode('utf-8')
     current_byte_total = len(encoded_string)

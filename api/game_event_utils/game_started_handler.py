@@ -77,7 +77,7 @@ def game_started(self, current_game, contextHistory, logger):
                             else:
                                 how_long_ago = f"{days_ago} days ago"
 
-                            logger.debug(f"checking DB for last game where player vs {config.STREAMER_NICKNAME} was in same race matchup: {player_current_race} vs {streamer_current_race} ")
+                            logger.debug(f"checking DB for last game where player versus {config.STREAMER_NICKNAME} was in same race matchup: {player_current_race} versus {streamer_current_race} ")
                             first_30_build_steps = self.db.extract_opponent_build_order(player_name, player_current_race, streamer_current_race)
                                                         
                             player_record = "past results:\n" + '\n'.join(self.db.get_player_records(player_name))
@@ -107,7 +107,7 @@ def game_started(self, current_game, contextHistory, logger):
                                 msg += f"omit {config.STREAMER_NICKNAME}'s build order. \n"                                
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
                             else:
-                                msg = f"restate this with all details: This is the first time {config.STREAMER_NICKNAME} played {player_name} in this {streamer_picked_race} vs {player_current_race} matchup."
+                                msg = f"restate this with all details: This is the first time {config.STREAMER_NICKNAME} played {player_name} in this {streamer_picked_race} versus {player_current_race} matchup."
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
 
                             msg = f"The CSV is listed as player1, player2, player 1 wins, player 1 losses. Respond with only 10 words with player1's name, and player1's total wins and total losses from the {player_record} \n"
