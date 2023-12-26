@@ -28,6 +28,15 @@ class GameInfo:
                 return self.RACE_MAPPING.get(race, 'Unknown')
         return 'Unknown'  # Return a default value indicating the race is unknown
 
+    # get opponent's race
+    def get_opponent_race(self, player_name):
+        lower_player_name = player_name.lower()
+        for player in self.players:
+            if player['name'].lower() != lower_player_name:
+                race = player['race'].lower()
+                return self.RACE_MAPPING.get(race, 'Unknown')
+        return 'Unknown'  # Return a default value indicating the race is unknown
+
     def get_status(self):
         if all(player['result'] == 'Undecided' for player in self.players):
             return "REPLAY_STARTED" if self.isReplay else "MATCH_STARTED"

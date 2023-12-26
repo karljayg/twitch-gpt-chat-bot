@@ -125,21 +125,29 @@ class Database:
         self.connection.close()
 
     def check_player_exists(self, player_name, player_race):
-
         self.cursor.reset()
         try:
-            # Define the query
+            # Define the query with JOIN to include player names
             query = """
-                SELECT * 
-                FROM Replays 
-                WHERE (Player1_Id = (SELECT Id FROM Players WHERE SC2_UserId = %s) AND Player1_Race = %s) 
-                OR (Player2_Id = (SELECT Id FROM Players WHERE SC2_UserId = %s) AND Player2_Race = %s)
-                ORDER BY Date_Played DESC;
+                SELECT 
+                    r.*, 
+                    p1.SC2_UserId AS Player1_Name, 
+                    p2.SC2_UserId AS Player2_Name
+                FROM 
+                    Replays r
+                    JOIN Players p1 ON r.Player1_Id = p1.Id
+                    JOIN Players p2 ON r.Player2_Id = p2.Id
+                WHERE 
+                    (p1.SC2_UserId = %s AND r.Player1_Race = %s) 
+                    OR 
+                    (p2.SC2_UserId = %s AND r.Player2_Race = %s)
+                ORDER BY 
+                    r.Date_Played DESC
+                LIMIT 1;
             """
 
             # Execute the query
-            self.cursor.execute(
-                query, (player_name, player_race, player_name, player_race))
+            self.cursor.execute(query, (player_name, player_race, player_name, player_race))
 
             # Fetch the result
             result = self.cursor.fetchone()
@@ -149,7 +157,7 @@ class Database:
                 self.logger.debug(f"Player exists: {result}")
                 return result
             else:
-                self.logger.debug(f"Player does not exist in our DB")
+                self.logger.debug("Player does not exist in our DB")
                 return None
         except Exception as e:
             self.logger.error(f"Error checking if player exists: {e}")
@@ -354,20 +362,20 @@ class Database:
             error_message = str(e) + "\n" + traceback.format_exc()
             self.logger.error(f"Error inserting replay info: {error_message}")
 
-    def extract_opponent_build_order(self, opponent_name):
-
-        self.logger.debug(f"searching in DB for {opponent_name}")
-        # SQL to get the latest game of the opponent from the Replays table
+    def extract_opponent_build_order(self, opponent_name, opp_race, streamer_picked_race):
+        self.logger.debug(f"searching in DB for {opponent_name} with race {opp_race} against {streamer_picked_race}")
+        # SQL to get the latest game of the opponent from the Replays table with race conditions
         sql = """
         SELECT r.Replay_Summary
         FROM Replays r
         JOIN Players p1 ON r.Player1_Id = p1.Id
         JOIN Players p2 ON r.Player2_Id = p2.Id
-        WHERE p1.SC2_UserId = %s OR p2.SC2_UserId = %s
+        WHERE ((p1.SC2_UserId = %s AND r.Player2_PickRace = %s) OR (p2.SC2_UserId = %s AND r.Player1_PickRace = %s)) 
+        AND ((p1.SC2_UserId = %s AND r.Player1_Race = %s) OR (p2.SC2_UserId = %s AND r.Player2_Race = %s))
         ORDER BY r.Date_Played DESC
         LIMIT 1
         """
-        self.cursor.execute(sql, (opponent_name, opponent_name))
+        self.cursor.execute(sql, (opponent_name, streamer_picked_race, opponent_name, streamer_picked_race, opponent_name, opp_race, opponent_name, opp_race))
         row = self.cursor.fetchone()
 
         if row and row['Replay_Summary']:  # Updated this line
@@ -463,8 +471,10 @@ if (config.TEST_MODE):
 
     # get opponent_name from command line
     opponent_name = input("Enter opponent name: ")
+    opp_race = input("Enter opponent race: ")
+    streamer_picked_race = input("Enter streamer race: ")        
 
-    result = db.extract_opponent_build_order(opponent_name)
+    result = db.extract_opponent_build_order(opponent_name, opp_race, streamer_picked_race)
     if result:
         # print(", ".join(result).replace(",", "\n", 1))  # CSV in one line
         print(result)
