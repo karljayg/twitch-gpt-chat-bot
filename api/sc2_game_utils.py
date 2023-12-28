@@ -1,6 +1,8 @@
 import json
 import requests
+import utils.tokensArray as tokensArray
 from utils.file_utils import find_latest_file
+from utils.file_utils import find_recent_file_within_time
 import spawningtool.parser
 from .game_event_utils import game_started_handler
 from .game_event_utils import game_replay_handler
@@ -66,12 +68,27 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
         current_game.get_player_names(result_filter='Defeat'))
     
     if current_game.get_status() in ("MATCH_ENDED", "REPLAY_ENDED"):
-        result = find_latest_file(config.REPLAYS_FOLDER, config.REPLAYS_FILE_EXTENSION, logger)
+
+        if self.first_run:
+            logger.debug("this is the first run")
+            self.first_run = False
+            if config.IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN:
+                logger.debug(
+                    "per config, ignoring previous game results on first run so no need to find latest replay file")
+                return # exit function, do not proceed
+        else:
+            logger.debug("this is not first run")
+
+        # proceed
+        retries = 1
+        minutes = 2
+        result = find_recent_file_within_time(config.REPLAYS_FOLDER, config.REPLAYS_FILE_EXTENSION, 2, 0, logger)
+        #result = find_latest_file(config.REPLAYS_FOLDER, config.REPLAYS_FILE_EXTENSION, logger)
         
         # there are times when current replay file is not ready and it still finds the prev. one despite the SLEEP TIMEOUT of 7 secs
         # so we are going to do this also to prevent the bot from commenting on the same replay file as the last one
         if self.last_replay_file == result:
-            logger.debug("last replay file is same as current, skipping: \n" + result)
+            logger.debug(f"last replay file is same as current {self.last_replay_file}, skipping: \n" + result)
             return
 
         if result:
@@ -145,12 +162,17 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
             build_orders = {player_key: player_data['buildOrder'] for player_key, player_data in
                             replay_data['players'].items()}
 
+            # Initialize variable for opponent's name
+            opponent_name = None
+
             # Separate players based on SC2_PLAYER_ACCOUNTS, start with opponent first
             player_order = []
             for player_key, player_data in replay_data['players'].items():
                 if player_data['name'] in config.SC2_PLAYER_ACCOUNTS:
                     player_order.append(player_key)
                 else:
+                    # This is the opponent
+                    opponent_name = player_data['name']
                     # Put opponent at the start
                     player_order.insert(0, player_key)
 
@@ -232,6 +254,10 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
                 or (current_game.isReplay and config.USE_CONFIG_TEST_REPLAY_FILE)):
             # get analysis of ended games, or during testing of config test replay file
             logger.debug("analyzing, replay summary to AI: ")
+            not_alias = tokensArray.find_master_name(opponent_name)
+            if not_alias is not None:
+                replay_summary = replay_summary.replace(opponent_name, not_alias)
+
             processMessageForOpenAI(self, replay_summary, "replay_analysis", logger, contextHistory)
             # clear after analyzing and making a comment
             replay_summary = ""

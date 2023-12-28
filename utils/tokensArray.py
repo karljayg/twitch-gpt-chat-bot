@@ -3,6 +3,7 @@ import requests
 import spacy  # language small model of spacy
 import nltk  # token libraries
 from settings import config
+from settings.aliases import ALIASES
 import nltk
 import tiktoken
 
@@ -187,3 +188,9 @@ def num_tokens_from_string(string: str, encoding_name: str) -> int:
         num_tokens = len(nltk.word_tokenize(str))
 
     return num_tokens
+
+def find_master_name(alias):
+    for master_name, alias_list in ALIASES.values():  # Loop over the values of the ALIASES dictionary
+        if alias in alias_list:
+            return master_name
+    return None

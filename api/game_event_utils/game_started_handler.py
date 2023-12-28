@@ -3,6 +3,7 @@ import pytz
 from ..chat_utils import processMessageForOpenAI
 
 from settings import config
+import utils.tokensArray as tokensArray
 
 
 
@@ -77,14 +78,45 @@ def game_started(self, current_game, contextHistory, logger):
                             else:
                                 how_long_ago = f"{days_ago} days ago"
 
-                            logger.debug(f"checking DB for last game where player versus {config.STREAMER_NICKNAME} was in same race matchup: {player_current_race} versus {streamer_current_race} ")
-                            first_30_build_steps = self.db.extract_opponent_build_order(player_name, player_current_race, streamer_current_race)
-                                                        
+                            logger.debug(f"checking DB for last game where player versus {config.STREAMER_NICKNAME} was in same matchup of {player_current_race} versus {streamer_current_race} ")
+
+                            # do this before alias substitutions, since we are only altering speaking/chat, not when searching for actual player name in DB records
                             player_record = "past results:\n" + '\n'.join(self.db.get_player_records(player_name))
 
+                            first_30_build_steps = self.db.extract_opponent_build_order(player_name, player_current_race, streamer_current_race)
+
+                            # for speaking/chat purposes, do the substitutions
+                            not_alias = tokensArray.find_master_name(player_name)
+                            if not_alias is not None:
+                                logger.debug(f"found alias: {not_alias} for {player_name}")
+
+                                # Replace in Replay_Summary if it is a string
+                                if result.get('Replay_Summary') is not None:
+                                    logger.debug("Attempting to replace in Replay_Summary")
+                                    if isinstance(result['Replay_Summary'], str):
+                                        result['Replay_Summary'] = result['Replay_Summary'].replace(player_name, not_alias)
+
+                                # Replace in player_record if it is a string
+                                if player_record is not None:
+                                    logger.debug(f"Attempting to replace in player_record: {player_record}")
+                                    if isinstance(player_record, str):
+                                        player_record = player_record.replace(player_name, not_alias)
+                                        logger.debug(f"new player_record: {player_record}")
+
+                                # Replace in first_30_build_steps if it is a list
+                                if first_30_build_steps is not None:
+                                    logger.debug("Attempting to replace in first_30_build_steps")
+                                    if isinstance(first_30_build_steps, list):
+                                        first_30_build_steps = [item.replace(player_name, not_alias) for item in first_30_build_steps if isinstance(item, str)]
+
+                                player_name = not_alias
+                            else:
+                                logger.debug(f"no alias found for {player_name}")
+
+                              
                             msg = "Do these 2: \n"
-                            msg += f"Mention all details here: {config.STREAMER_NICKNAME} as {streamer_picked_race} played the {player_current_race} player " 
-                            msg += f"named {player_name} {how_long_ago} in {{Map name}},"
+                            msg += f"Mention all details here, do not exclude any info: {config.STREAMER_NICKNAME} as {streamer_picked_race} played the {player_current_race} player " 
+                            msg += f"{player_name} {how_long_ago} in {{Map name}},"
                             msg += f" a {{Win/Loss for {config.STREAMER_NICKNAME}}} in {{game duration}}. \n"
                             msg += f"As a StarCraft 2 expert, comment on last game summary. Be concise with only 2 sentences total of 25 words or less. \n"
                             msg += "-----\n"

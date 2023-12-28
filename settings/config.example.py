@@ -54,6 +54,8 @@ HEARTBEAT_MYSQL = 20 # iterations, usually GAME_DURATION_SECONDS / MONITOR_GAME_
 """
 # StarCraft II settings
 SC2_PLAYER_ACCOUNTS = ['myname']
+SC2_BARCODE_ACCOUNTS = ['II','III','IIII','IIIII','IIIIII','IIIIIII','IlIlIl','IlIlIlIl','IlIlIlIlIl','IlIlIlIlIlIl','IlIlIlIlIlIlIl','IlIlIlIlIlIlIlIl']
+SC2_COMPUTER_ACCOUNTS = ['A.I. 1 (Elite)','A.I. 1 (Very Easy)','A.I. 1 (Easy)','A.I. 1 (Medium)','A.I. 1 (Hard)','A.I. 1 (Harder)','A.I. 1 (Very Hard)']
 REPLAYS_FOLDER = r"C:\Users\WHATEVER\OneDrive\Documents\StarCraft II\Accounts"
 REPLAYS_FILE_EXTENSION = "SC2Replay"
 
