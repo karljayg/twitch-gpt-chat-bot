@@ -30,7 +30,9 @@ def game_started(self, current_game, contextHistory, logger):
                         logger.debug(f"checking DB for {player_name} as {player_current_race} versus {config.STREAMER_NICKNAME} as any race, even tho {config.STREAMER_NICKNAME} is {streamer_current_race} in this current game")
 
                         # look for player with same name and race as this current game in the database
-                        result = self.db.check_player_exists(player_name, player_current_race)
+                        logger.debug(f"checking if {player_name} is in the DB independent of race because Random is not considered due to bug in replay parser")
+                        # result = self.db.check_player_and_race_exists(player_name, player_current_race)
+                        result = self.db.check_player_exists(player_name)
                         logger.debug(f"Result for player check: {result}")
 
                         if result is not None:
@@ -139,7 +141,10 @@ def game_started(self, current_game, contextHistory, logger):
                                 msg += f"omit {config.STREAMER_NICKNAME}'s build order. \n"                                
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
                             else:
-                                msg = f"restate this with all details: This is the first time {config.STREAMER_NICKNAME} played {player_name} in this {streamer_picked_race} versus {player_current_race} matchup."
+                                if player_current_race == "Random":
+                                    msg = f"restate this:  good luck playing {player_name} in this {streamer_picked_race} versus {player_current_race} matchup.  Random is tricky."                                    
+                                else:
+                                    msg = f"restate this with all details: This is the first time {config.STREAMER_NICKNAME} played {player_name} in this {streamer_picked_race} versus {player_current_race} matchup."
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
 
                             msg = f"The CSV is listed as player1, player2, player 1 wins, player 1 losses. Respond with only 10 words with player1's name, and player1's total wins and total losses from the {player_record} \n"

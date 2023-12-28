@@ -138,7 +138,7 @@ class Database:
         self.cursor.close()
         self.connection.close()
 
-    def check_player_exists(self, player_name, player_race):
+    def check_player_and_race_exists(self, player_name, player_race):
         self.cursor.reset()
         try:
             # Define the query with JOIN to include player names
@@ -162,6 +162,45 @@ class Database:
 
             # Execute the query
             self.cursor.execute(query, (player_name, player_race, player_name, player_race))
+
+            # Fetch the result
+            result = self.cursor.fetchone()
+
+            # Return the replay summary if found, else None
+            if result:
+                self.logger.debug(f"Player exists: {result}")
+                return result
+            else:
+                self.logger.debug("Player does not exist in our DB")
+                return None
+        except Exception as e:
+            self.logger.error(f"Error checking if player exists: {e}")
+            return None
+
+    def check_player_exists(self, player_name):
+        self.cursor.reset()
+        try:
+            # Define the query with JOIN to include player names
+            query = """
+                SELECT 
+                    r.*, 
+                    p1.SC2_UserId AS Player1_Name, 
+                    p2.SC2_UserId AS Player2_Name
+                FROM 
+                    Replays r
+                    JOIN Players p1 ON r.Player1_Id = p1.Id
+                    JOIN Players p2 ON r.Player2_Id = p2.Id
+                WHERE 
+                    p1.SC2_UserId = %s 
+                    OR 
+                    p2.SC2_UserId = %s
+                ORDER BY 
+                    r.Date_Played DESC
+                LIMIT 1;
+            """
+
+            # Execute the query
+            self.cursor.execute(query, (player_name, player_name))
 
             # Fetch the result
             result = self.cursor.fetchone()
