@@ -1,3 +1,4 @@
+from datetime import datetime
 from collections import defaultdict
 import os
 import logging
@@ -13,7 +14,25 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from settings import config
 from models.mathison_db import Database
 from datetime import datetime
+# Date range input
+start_date, end_date = input('Enter the date range (YYYY-MM-DD to YYYY-MM-DD): ').split(' to ')
+start_date = datetime.strptime(start_date.strip(), '%Y-%m-%d')
+end_date = datetime.strptime(end_date.strip(), '%Y-%m-%d')
+print(f'Date Range: {start_date} to {end_date}')
 
+# Debug mode input
+debug_mode = input('Run in debug mode? (yes/no): ').strip().lower() == 'yes'
+if debug_mode:
+    print('Debug mode activated.')
+
+folder_path = input(r'Enter the path to start looking from, ex: C:\Users\MYNAME\Documents\StarCraft II\Accounts: ')
+
+# print out all the input given so far
+print(f"Folder path: {folder_path}\n")    
+print(f"Start date: {start_date}\n")  
+print(f"End date: {end_date}\n")
+print(f"Debug mode: {debug_mode}\n")
+input("Press Enter to begin")
 
 class ReplayLoader:
 
@@ -24,8 +43,7 @@ class ReplayLoader:
         files_processed = 0
 
         # date range to process
-        start_date = datetime.strptime('2023-12-13', '%Y-%m-%d')
-        end_date = datetime.strptime('2024-12-15', '%Y-%m-%d')
+        # Removed hardcoded dates as user input is now used
 
         for root, dirs, files in os.walk(folder_path):
 
@@ -34,7 +52,7 @@ class ReplayLoader:
                 self.logger.debug(f"Checking subfolder: {folder_location}")
                 # Convert both paths to use forward slashes for the replacement
                 folder_location_forward = folder_location.replace("\\", "/")
-                replays_folder_forward = config.REPLAYS_FOLDER.replace(
+                replays_folder_forward = folder_path.replace(
                     "\\", "/")
 
                 cleaned_path = folder_location_forward.replace(
@@ -43,7 +61,7 @@ class ReplayLoader:
 
             #testing DB calls here, delete this later
             #self.logger.debug("here ya go:\n" + '\n'.join(self.db.get_player_records('DAYGAMER')))
-            #input("Press Enter to continue...")
+            #if debug_mode: input("Press Enter to continue...")
 
             for filename in files:
                 if filename.endswith(".SC2Replay"):
@@ -56,7 +74,8 @@ class ReplayLoader:
                         formatted_timestamp = self.db.convertUnixToDatetime(file_mod_time)
                         logging.debug(
                             f"{files_count}/{files_processed} - Found this file: {filename} \n dated: {formatted_timestamp}")
-                        input("Press Enter to continue...")
+                        # debug mode here, make it stop on each insert attempt
+                        if debug_mode: input("Press Enter to continue...")
                         files_count += 1
                         if self.processReplayFile(file_location):
                             files_processed += 1
@@ -191,7 +210,7 @@ class ReplayLoader:
         file_handler.setFormatter(formatter)
         self.logger.addHandler(file_handler)
         self.db = Database()
-        self.find_replay_files(config.REPLAYS_FOLDER)
+        self.find_replay_files(folder_path)
 
 
 if __name__ == "__main__":
