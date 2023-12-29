@@ -300,6 +300,61 @@ class Database:
             formatted_results.append(game_info)
 
         return formatted_results
+    
+    def get_head_to_head_matchup(self, player1, player2):
+        try:
+            query = """
+            SELECT 
+                LEAST(p1.SC2_UserId, p2.SC2_UserId) AS Player1,
+                GREATEST(p1.SC2_UserId, p2.SC2_UserId) AS Player2,
+                LEAST(r.Player1_Race, r.Player2_Race) AS Player1_Race,
+                GREATEST(r.Player1_Race, r.Player2_Race) AS Player2_Race,
+                SUM(
+                    CASE 
+                        WHEN (p1.SC2_UserId = %s AND r.Player1_Result = 'Win') OR 
+                            (p2.SC2_UserId = %s AND r.Player2_Result = 'Win') THEN 1 
+                        ELSE 0 
+                    END
+                ) AS Player1_Wins,
+                SUM(
+                    CASE 
+                        WHEN (p1.SC2_UserId = %s AND r.Player1_Result = 'Win') OR 
+                            (p2.SC2_UserId = %s AND r.Player2_Result = 'Win') THEN 1 
+                        ELSE 0 
+                    END
+                ) AS Player2_Wins
+            FROM 
+                Replays r
+            JOIN 
+                Players p1 ON r.Player1_Id = p1.Id
+            JOIN 
+                Players p2 ON r.Player2_Id = p2.Id
+            WHERE 
+                (p1.SC2_UserId = %s AND p2.SC2_UserId = %s) OR 
+                (p1.SC2_UserId = %s AND p2.SC2_UserId = %s)
+            GROUP BY 
+                LEAST(p1.SC2_UserId, p2.SC2_UserId), 
+                GREATEST(p1.SC2_UserId, p2.SC2_UserId),
+                LEAST(r.Player1_Race, r.Player2_Race), 
+                GREATEST(r.Player1_Race, r.Player2_Race);
+            """
+
+            # Execute the query
+            self.cursor.execute(query, (player1, player1, player2, player2, player1, player2, player2, player1))
+            results = self.cursor.fetchall()
+            print(f"***********Raw query results: {results}")            
+
+            # Formatting results
+            formatted_results = []
+            for row in results:
+                matchup_info = f"{row['Player1']} ({row['Player1_Race']}) vs {row['Player2']} ({row['Player2_Race']}), {row['Player1_Wins']} wins - {row['Player2_Wins']} wins"
+                formatted_results.append(matchup_info)
+
+            return formatted_results
+
+        except Exception as e:
+            print(f"Error: {e}")
+            return None
 
     def convertUnixToDatetime(self, timestamp, timezone='US/Eastern'):
         # Convert the Unix timestamp to US Eastern time

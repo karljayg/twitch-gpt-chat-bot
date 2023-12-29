@@ -9,7 +9,7 @@ from utils.emote_utils import get_random_emote
 from utils.emote_utils import remove_emotes_from_message
 import utils.wiki_utils as wiki_utils
 import utils.tokensArray as tokensArray
-import datetime
+import string
 from models.mathison_db import Database
 from .text2speech import speak_text 
 
@@ -36,8 +36,17 @@ def message_on_welcome(self, logger):
     greeting_message = f'{prefix} {get_random_emote()}'
     msgToChannel(self, greeting_message, logger)
 
+def clean_text_for_chat(msg):
+    # Combine carriage return and line feed replacement with filtering non-printable characters
+    msg = ''.join(filter(lambda x: x in set(string.printable), msg.replace('\r', '').replace('\n', '')))
+    return msg
+
 # This function sends and logs the messages sent to twitch chat channel
 def msgToChannel(self, message, logger, text2speech=False):
+
+    # Clean up the message
+    message = clean_text_for_chat(message)
+
     # Calculate the size of the message in bytes
     message_bytes = message.encode()
     message_size = len(message_bytes)
@@ -64,6 +73,8 @@ def msgToChannel(self, message, logger, text2speech=False):
     if text2speech:
         # use text to speech capability to speak the response if enabled
         # try catch
+        if not config.TEXT_TO_SPEECH:
+            return
         try:
             logger.debug(f"Speaking")
             truncated_message_str = remove_emotes_from_message(truncated_message_str)          
@@ -140,11 +151,17 @@ def process_pubmsg(self, event, logger, contextHistory):
         for i in range(0, len(lst), max_chunk_size):
             yield lst[i:i + max_chunk_size]
 
-    if 'games in past hours' in msg.lower():
+    # Check if the message contains "games in" and "hours"
+    if 'games in' in msg.lower() and 'hours' in msg.lower():
         logger.debug("Received command to fetch games in the last X hours")
 
-        # Extract the number of hours from the message
-        hours = int(msg.split(' ')[-1])  # Assumes the last word in msg is the number of hours
+        # Use regex to extract the number of hours from the message
+        match = re.search(r'games in (the )?last (\d+) hours', msg.lower())
+        if match:
+            hours = int(match.group(2))  # Extract the number of hours
+        else:
+            hours = 4  # Default value if no number is found
+
         if hours > 72:
             hours = 72  # Max number of hours allowed is 72
 
@@ -173,6 +190,86 @@ def process_pubmsg(self, event, logger, contextHistory):
             # Send the chunk message
             msgToChannel(self, trimmed_msg, logger)
             # processMessageForOpenAI(self, msg, self.conversation_mode, logger, contextHistory)
+
+    # Function to process the 'head to head' command
+    if 'head to head' in msg.lower():
+        contextHistory.clear()
+        logger.debug(f"Received 'head to head' command: \n{msg}")
+
+        # Use regular expression to extract player names
+        match = re.search(r"head to head (\w+) (\w+)", msg.lower())
+        if match:
+            player1_name, player2_name = match.groups()
+
+            # Retrieve head-to-head records
+            head_to_head_list = self.db.get_head_to_head_matchup(player1_name, player2_name)
+            logger.debug(f"Type of head_to_head_list: {type(head_to_head_list)}")
+            logger.debug(f"Head to head answer: \n{str(head_to_head_list)}")
+
+            # Check if there are any results
+            if head_to_head_list:
+                # Since the records are already formatted, join them into a single string
+                result_string = ", ".join(head_to_head_list)
+
+                trimmed_msg = tokensArray.truncate_to_byte_limit(result_string, config.TWITCH_CHAT_BYTE_LIMIT)
+                msg = f'''
+                    Review this example:
+
+                        when given 2 player, DarkMenace vs KJ the records are:
+
+                            ['DarkMenace (Terran) vs KJ (Zerg), 29 wins - 7 wins', 'DarkMenace (Protoss) vs KJ (Zerg), 9 wins - 12 wins', 'DarkMenace (Zerg) vs KJ (Zerg), 3 wins - 2 wins', 'DarkMenace (Protoss) vs KJ (Terran), 6 wins - 1 wins', 'DarkMenace (Terran) vs KJ (Terran), 1 wins - 0 wins', 'DarkMenace (Protoss) vs KJ (Protoss), 2 wins - 2 wins']
+
+                        From the above, say it exactly like this format:
+
+                            overall: 50-24, each matchup: TvZ 29-7, PvZ 9-12, ZvZ 3-2, PvT 6-1, TvT 1-0, PvP, 2-2.  Summary: <10 word comment about the matchup>
+
+                    Now do the same but only using this data:
+
+                        {player1_name} vs {player2_name}: {result_string}.
+
+                    Then add a 10 word comment about the matchup, after.
+                '''
+                
+            else:
+                msg = f"Restate all of the info here: There are no head-to-head game records between {player1_name} and {player2_name} ."
+
+            # Send the message for processing
+            # processMessageForOpenAI(self, msg, self.conversation_mode, logger, contextHistory)
+            
+            # no mathison flavoring, just raw send to prompt
+            completion = send_prompt_to_openai(msg)
+            if completion.choices[0].message is not None:
+                logger.debug(
+                    "completion.choices[0].message.content: " + completion.choices[0].message.content)
+            response = completion.choices[0].message.content
+
+            if len(response) >= 400:
+                logger.debug(
+                    f"Chunking response since it's {len(response)} characters long")
+
+                # Split the response into chunks of 400 characters without splitting words
+                chunks = []
+                temp_chunk = ''
+                for word in response.split():
+                    if len(temp_chunk + ' ' + word) <= 400:
+                        temp_chunk += ' ' + word if temp_chunk != '' else word
+                    else:
+                        chunks.append(temp_chunk)
+                        temp_chunk = word
+                if temp_chunk:
+                    chunks.append(temp_chunk)
+
+                # Send response chunks to chat
+                for chunk in chunks:
+                    msgToChannel(self, chunk, logger)
+
+            else:            
+                msgToChannel(self, response, logger)
+           
+        else:
+            logger.debug("Invalid 'head to head' command format or player names not found.")
+            # Optionally send an error message to the channel or log it.
+        return
 
     # ignore certain users
     logger.debug("checking user: " + sender + " against ignore list")
@@ -339,6 +436,12 @@ def processMessageForOpenAI(self, msg, conversation_mode, logger, contextHistory
         perspective = random.choice(selected_perspectives)
 
         if (conversation_mode == "normal"):
+            # if contextHistory has > 15 tuples, clear it
+            if len(contextHistory) > 15:
+                logger.debug(f"contextHistory has more than 15 tuples, clearing it")  
+                contextHistory.clear()
+            else:
+                pass
             # Add custom SC2 viewer perspective
             msg = (f"As a {mood} acquaintance of {config.STREAMER_NICKNAME}, {perspective}, "
                     + msg)
