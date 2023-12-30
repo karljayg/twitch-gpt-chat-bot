@@ -121,7 +121,77 @@ def process_pubmsg(self, event, logger, contextHistory):
         trimmed_msg = "restate all the info, do not ommit any details: " + trimmed_msg
         processMessageForOpenAI(self, trimmed_msg, self.conversation_mode, logger, contextHistory)
         return
-    
+
+    # search replays DB
+    if 'career' in msg.lower():
+        contextHistory.clear()
+        logger.debug("received career record command: \n" + msg)
+        player_name = msg.split(" ", 1)[1]
+        career_record = self.db.get_player_overall_records(player_name)
+        logger.debug("career overall record answer: \n" + career_record)          
+        career2_record = self.db.get_player_race_matchup_records(player_name)        
+        logger.debug("career matchups record answer: \n" + career_record)    
+        career_record = career_record + " " + career2_record      
+
+        # Check if there are any results
+        if career_record:
+
+            trimmed_msg = tokensArray.truncate_to_byte_limit(career_record, config.TWITCH_CHAT_BYTE_LIMIT)
+            msg = f'''
+                Review this example:
+
+                    when given a player, DarkMenace the career records are:
+
+                        Overall matchup records for darkmenace: 425 wins - 394 losses Race matchup records for darkmenace: Protoss vs Protoss: 15 wins - 51 lossesProtoss vs Terran: 11 wins - 8 lossesProtoss vs Zerg: 1 wins - 1 lossesTerran vs Protoss: 8 wins - 35 lossesTerran vs Terran: 3 wins - 1 lossesTerran vs Zerg: 4 wins - 3 lossesZerg vs Protoss: 170 wins - 137 lossesZerg vs Terran: 138 wins - 100 lossesZerg vs Zerg: 75 wins - 58 losses
+
+                    From the above, say it exactly like this format:
+
+                        overall: 425-394, each matchup: PvP: 15-51 PvT: 11-8 PvZ: 1-1 TvP: 8-35 TvT: 3-1 TvZ: 4-3 ZvP: 170-137 ZvT: 138-100 ZvZ: 75-58
+
+                Now do the same but only using this data:
+
+                    {player_name} : {trimmed_msg}.
+
+                Then add a 10 word comment about the matchup, after.
+            '''
+            
+        else:
+            msg = f"Restate all of the info here: There is no career games that I know for {player_name} ."
+
+        # Send the message for processing
+        # processMessageForOpenAI(self, msg, self.conversation_mode, logger, contextHistory)
+        
+        # no mathison flavoring, just raw send to prompt
+        completion = send_prompt_to_openai(msg)
+        if completion.choices[0].message is not None:
+            logger.debug(
+                "completion.choices[0].message.content: " + completion.choices[0].message.content)
+        response = completion.choices[0].message.content
+
+        if len(response) >= 400:
+            logger.debug(
+                f"Chunking response since it's {len(response)} characters long")
+
+            # Split the response into chunks of 400 characters without splitting words
+            chunks = []
+            temp_chunk = ''
+            for word in response.split():
+                if len(temp_chunk + ' ' + word) <= 400:
+                    temp_chunk += ' ' + word if temp_chunk != '' else word
+                else:
+                    chunks.append(temp_chunk)
+                    temp_chunk = word
+            if temp_chunk:
+                chunks.append(temp_chunk)
+
+            # Send response chunks to chat
+            for chunk in chunks:
+                msgToChannel(self, chunk, logger)
+
+        else:            
+            msgToChannel(self, response, logger)
+        return
+
     # search replays DB
     if 'history' in msg.lower():
         contextHistory.clear()

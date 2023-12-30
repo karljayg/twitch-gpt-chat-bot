@@ -532,6 +532,95 @@ class Database:
         else:
             return None
 
+    def get_player_overall_records(self, player_name):
+        try:
+
+            query = """
+            SELECT 
+                p.SC2_UserId AS Player,
+                SUM(CASE WHEN (r.Player1_Id = p.Id AND r.Player1_Result = 'Win') OR (r.Player2_Id = p.Id AND r.Player2_Result = 'Win') THEN 1 ELSE 0 END) AS Wins,
+                SUM(CASE WHEN (r.Player1_Id = p.Id AND r.Player1_Result = 'Lose') OR (r.Player2_Id = p.Id AND r.Player2_Result = 'Lose') THEN 1 ELSE 0 END) AS Losses
+            FROM 
+                Replays r
+            JOIN 
+                Players p ON r.Player1_Id = p.Id OR r.Player2_Id = p.Id
+            WHERE 
+                p.SC2_UserId = %s
+            GROUP BY 
+                p.SC2_UserId;
+            """
+
+            self.cursor.execute(query, (player_name,))
+
+            results = self.cursor.fetchall()
+
+            self.logger.debug(f"Overall records for {player_name}:\n" + str(results))    
+
+            output_string = f"Overall matchup records for {player_name}: \n"
+            for row in results:
+                output_string += f"{row['Wins']} wins - {row['Losses']} losses\n"
+
+            return output_string
+
+        except Error as e:
+            print(f"Error: {e}")
+            return None
+
+    def get_player_race_matchup_records(self, player_name):
+        try:
+
+            query = """
+            SELECT 
+                %s AS Player,
+                Player_Race,
+                Opponent_Race,
+                SUM(Wins) AS Total_Wins,
+                SUM(Losses) AS Total_Losses
+            FROM
+                (
+                    SELECT 
+                        r.Player1_Race AS Player_Race,
+                        r.Player2_Race AS Opponent_Race,
+                        SUM(CASE WHEN (r.Player1_Id = (SELECT Id FROM Players WHERE SC2_UserId = %s) AND r.Player1_Result = 'Win') THEN 1 ELSE 0 END) AS Wins,
+                        SUM(CASE WHEN (r.Player1_Id = (SELECT Id FROM Players WHERE SC2_UserId = %s) AND r.Player1_Result = 'Lose') THEN 1 ELSE 0 END) AS Losses
+                    FROM 
+                        Replays r
+                    WHERE 
+                        EXISTS (SELECT 1 FROM Players WHERE SC2_UserId = %s AND Id = r.Player1_Id)
+                    GROUP BY 
+                        Player_Race, Opponent_Race
+                    UNION ALL
+                    SELECT 
+                        r.Player2_Race AS Player_Race,
+                        r.Player1_Race AS Opponent_Race,
+                        SUM(CASE WHEN (r.Player2_Id = (SELECT Id FROM Players WHERE SC2_UserId = %s) AND r.Player2_Result = 'Win') THEN 1 ELSE 0 END) AS Wins,
+                        SUM(CASE WHEN (r.Player2_Id = (SELECT Id FROM Players WHERE SC2_UserId = %s) AND r.Player2_Result = 'Lose') THEN 1 ELSE 0 END) AS Losses
+                    FROM 
+                        Replays r
+                    WHERE 
+                        EXISTS (SELECT 1 FROM Players WHERE SC2_UserId = %s AND Id = r.Player2_Id)
+                    GROUP BY 
+                        Player_Race, Opponent_Race
+                ) AS CombinedResults
+            GROUP BY 
+                Player_Race, Opponent_Race
+            ORDER BY 
+                Player_Race, Opponent_Race;
+            """
+
+            self.cursor.execute(query, (player_name, player_name, player_name, player_name, player_name, player_name, player_name))
+            results = self.cursor.fetchall()
+
+            output_string = f"Race matchup records for {player_name}: \n"
+            for row in results:
+                output_string += f"{row['Player_Race']} vs {row['Opponent_Race']}: {row['Total_Wins']} wins - {row['Total_Losses']} losses\n"
+
+            return output_string
+
+        except Error as e:
+            print(f"Error: {e}")
+            return None
+
     def test_database(self):
 
         db = Database()
