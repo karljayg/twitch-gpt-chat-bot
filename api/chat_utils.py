@@ -106,6 +106,13 @@ def process_pubmsg(self, event, logger, contextHistory):
     # tags = {kvpair["key"]: kvpair["value"] for kvpair in event.tags}
     # user = {"name": tags["display-name"], "id": tags["user-id"]}
 
+    if 'commands' in msg.lower():
+        response = f"{config.BOT_COMMANDS}"
+        response = clean_text_for_chat(response)
+        trimmed_msg = tokensArray.truncate_to_byte_limit(response, config.TWITCH_CHAT_BYTE_LIMIT)        
+        msgToChannel(self, trimmed_msg, logger)
+        return
+
     # Send response to direct msg or keyword which includes Mathison being mentioned
     if 'open sesame' in msg.lower() or any(sub.lower() == msg.lower() for sub in config.OPEN_SESAME_SUBSTITUTES):
         logger.debug("received open sesame: " + str(msg.lower()))

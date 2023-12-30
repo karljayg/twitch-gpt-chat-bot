@@ -4,6 +4,14 @@ AUTHOR = "KJ Garcia"
 AUTHOR_EMAIL = "kj@psistorm.com"
 #  @karljayg on twitter/insta
 #  more info: https://docs.google.com/document/d/1C8MM_BqbOYL9W0N0qu0T1g2DS7Uj_a6Vebd6LJLX4yU/edit?usp=sharing
+BOT_COMMANDS = """
+ wiki <question>,
+ career <player>,
+ history <player>,
+ head to head <player1> <player2>,
+ games in <hrs> hours - limit 72,
+ open sesame - ignored users will be responded to
+"""
 
 """
 |   Twitch Settings
