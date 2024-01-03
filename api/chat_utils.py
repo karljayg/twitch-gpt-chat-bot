@@ -384,8 +384,8 @@ def process_pubmsg(self, event, logger, contextHistory):
             return
 
         if 'bracket' in msg.lower() or '!b' in msg.lower() or 'FSL' in msg.upper() or 'fsl' in msg.lower():
-            response = f"here is some info {config.BRACKET}"
-            msgToChannel(self, response, logger)
+            msg = f"Restate this including the full URL: This is the tournament info {config.BRACKET}"
+            processMessageForOpenAI(self, msg, self.conversation_mode, logger, contextHistory)
             return
 
         # will only respond to a certain percentage of messages per config
