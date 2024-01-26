@@ -11,7 +11,8 @@ import utils.wiki_utils as wiki_utils
 import utils.tokensArray as tokensArray
 import string
 from models.mathison_db import Database
-from .text2speech import speak_text 
+from .text2speech import speak_text
+from .aws_llamamodel import sendMessagetoLlamaModel
 
 # This function logs that the bot is starting with also logs some configurations of th bot
 # This also sends random emoticon to twitch chat room
@@ -81,10 +82,15 @@ def msgToChannel(self, message, logger, text2speech=False):
             truncated_message_str = "add commas, period and other appropriate punctuation: " + truncated_message_str
 
             completion = send_prompt_to_openai(truncated_message_str)
-            if completion.choices[0].message is not None:
-                logger.debug(
-                    "completion.choices[0].message.content: " + completion.choices[0].message.content)
-            response = completion.choices[0].message.content
+            # if completion.choices[0].message is not None:
+            #     logger.debug(
+            #         "completion.choices[0].message.content: " + completion.choices[0].message.content)
+            # response = completion.choices[0].message.content
+
+            if completion is not None:
+                logger.debug("completion " + str(completion))
+            response = str(completion)
+
             truncated_message_str =  response
 
             speak_text(truncated_message_str, mode=1)
@@ -170,10 +176,14 @@ def process_pubmsg(self, event, logger, contextHistory):
         
         # no mathison flavoring, just raw send to prompt
         completion = send_prompt_to_openai(msg)
-        if completion.choices[0].message is not None:
-            logger.debug(
-                "completion.choices[0].message.content: " + completion.choices[0].message.content)
-        response = completion.choices[0].message.content
+        # if completion.choices[0].message is not None:
+        #     logger.debug(
+        #         "completion.choices[0].message.content: " + completion.choices[0].message.content)
+        # response = completion.choices[0].message.content
+
+        if completion is not None:
+            logger.debug("completion: " + str(completion))
+        response = str(completion)
 
         if len(response) >= 400:
             logger.debug(
@@ -315,10 +325,14 @@ def process_pubmsg(self, event, logger, contextHistory):
             
             # no mathison flavoring, just raw send to prompt
             completion = send_prompt_to_openai(msg)
-            if completion.choices[0].message is not None:
-                logger.debug(
-                    "completion.choices[0].message.content: " + completion.choices[0].message.content)
-            response = completion.choices[0].message.content
+            # if completion.choices[0].message is not None:
+            #     logger.debug(
+            #         "completion.choices[0].message.content: " + completion.choices[0].message.content)
+            # response = completion.choices[0].message.content
+
+            if completion is not None:
+                logger.debug("completion: " + str(completion))
+            response = str(completion)
 
             if len(response) >= 400:
                 logger.debug(
@@ -413,12 +427,15 @@ def send_prompt_to_openai(msg):
     :param msg: The message to send to OpenAI as a prompt.
     :return: The response from OpenAI.
     """
-    completion = openai.ChatCompletion.create(
-        model=config.ENGINE,
-        messages=[
-            {"role": "user", "content": msg}
-        ]
-    )
+    # completion = openai.ChatCompletion.create(
+    #     model=config.ENGINE,
+    #     messages=[
+    #         {"role": "user", "content": msg}
+    #     ]
+    # )
+
+    completion = sendMessagetoLlamaModel(msg)
+
     return completion
 
 # This function will process the message for Open API
@@ -534,15 +551,19 @@ def processMessageForOpenAI(self, msg, conversation_mode, logger, contextHistory
 
     logger.debug("sent to OpenAI: %s", msg)
 
-    #msgToChannel(self, "chanchan", logger)
+    #msgToChannel(self, "The message was not sent to AI because I have no valid token", logger)
 
-    completion = send_prompt_to_openai(msg)
+    completion = send_prompt_to_openai(msg) #THIS MUST BE LOOPING
 
     try:
-        if completion.choices[0].message is not None:
-            logger.debug(
-                "completion.choices[0].message.content: " + completion.choices[0].message.content)
-            response = completion.choices[0].message.content
+        # if completion.choices[0].message is not None:
+        #     logger.debug(
+        #         "completion.choices[0].message.content: " + completion.choices[0].message.content)
+        #     response = completion.choices[0].message.content
+        
+        if completion is not None:
+            logger.debug("completion: " + str(completion))
+            response = str(completion)
 
             # add emote
             if random.choice([True, False]):
