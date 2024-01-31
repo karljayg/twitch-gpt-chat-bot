@@ -17,7 +17,7 @@ Additional documentation: https://docs.google.com/document/d/1C8MM_BqbOYL9W0N0qu
 ### Prerequisites
 
 Before you can use this bot, you will need to have:
-   1. Python Version 3.11.4
+   1. Python Version 3.11.4. You can download and install it [here](https://www.python.org/downloads/release/python-3114/)
    2. pip version 23.2.1
    3. Twitch Account
 	   a. To create twitch account go to https://www.twitch.tv/ and sign up.
@@ -26,8 +26,6 @@ Before you can use this bot, you will need to have:
       a. Create OpenAI Account using https://openai.com/
       b. Navigate to your profile then choose View API Keys
       c. Create API Key
-
-
 
 ### Installing
 
@@ -41,27 +39,39 @@ Before you can use this bot, you will need to have:
    - Navigate to directory
       cd /path/to/repository
    - Install virtualenv (If not yet installed)
-      pip install virtualenv
+
+      `pip install virtualenv`
+      
    - Create new virtual environment (example name: venv)
-      virtualenv venv
+
+      `python -m venv venv`
+      
+      Ensure your Python version is 3.11.4. You can specify the Python version if multiple versions are installed on your machine, for example:
+
+      `"C:\Users\maris\AppData\Local\Programs\Python\Python311\python.exe" -m venv venv`
    - Activate the virtual environment
-      source venv/Scripts/activate
+
+      For windows:
+         `venv\Scripts\activate`
+
+      For bash:
+         `source venv/bin/activate`
+   
    Once activated, the terminal prompt should change to show name of the virtual environment.
+   - Install pip version 23.2.1
+
+      `python -m pip install pip==23.2.1`
+
+      You can also specify the correct version of your Python, for example:
+      
+      `"C:\Users\maris\Desktop\Lanex\7. Mathison\twitch-gpt-chat-bot\venv\Scripts\python.exe" -m pip install pip==23.2.1`
 
 3. Install the required Python packages by running:
    ```
-   pip install -r requirements.txt
+      pip install -U spacy
+      python -m spacy download en_core_web_lg
+      pip install irc openai spawningtool tiktoken nltk langchain wikipedia mysql-connector-python pygame pyttsx3
    ```
-      or manually:
-   ```
-   pip install irc openai logging requests re asyncio random irc.bot spacy nltk en_core_web_sm logging urllib3
-   python -m spacy download en_core_web_sm
-   ```
-   If there are errors encountered related to wheel binding try installing this package first before the others:
-   ```
-   pip install en-core-web-sm@https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.0.0/en_core_web_sm-3.0.0-py3-none-any.whl
-```
-
 
 4. After installing all the required packages, create `config.py` file under settings folder
    Copy the contents of `config.example.py` then change the following configurations
