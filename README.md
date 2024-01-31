@@ -115,6 +115,11 @@ In your Twitch channel chat, type "open sesame" followed by your message to gene
 
    - https://www.youtube.com/watch?v=8rynRTOr4mE -  state management
 
+# please note that some of the libraries may become outdated after a while, like langchain referencing deprecated models.  Simply run:
+
+```
+pip install --upgrade langchain
+```
 
 ### project package/module file structuring
 twitch-gpt-chat-bot

@@ -42,8 +42,8 @@ OPENAI_API_KEY = "sk-"
 OPENAI_DISABLED = False
 ENGINE = "gpt-3.5-turbo"
 TEMPERATURE = 0.99
-MAX_TOKENS = 2000  # actual max for chatgpt 3.5 turbo is 4096
-CONVERSATION_MAX_TOKENS = 100  # max just for the conversation
+MAX_TOKENS = 3200  # actual max for chatgpt 3.5 turbo is 4096, minus overhead
+CONVERSATION_MAX_TOKENS = 3000  # max just for the conversation
 OUTPUT_PFX = ""
 TOKENIZER = "tiktoken"  # tiktoken or nltk supported
 TOKENIZER_ENCODING = "cl100k_base"  # cl100k_base
@@ -108,6 +108,8 @@ STOP_WORDS_FLAG = "adios amigo"
 RESP_FREQUENCY = 1.0  # TODO: unused
 RESP_WAIT = 5  # wait in seconds to respond TODO: review if this works
 MAX_RESPONSIVENESS = 0.5  # TODO: unused
+TEXT_TO_SPEECH = True 
+
 
 """
 |   Logging Settings
