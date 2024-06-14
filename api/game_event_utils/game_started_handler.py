@@ -85,7 +85,15 @@ def game_started(self, current_game, contextHistory, logger):
                             # do this before alias substitutions, since we are only altering speaking/chat, not when searching for actual player name in DB records
                             player_record = "past results:\n" + '\n'.join(self.db.get_player_records(player_name))
 
+                            # get the first 30 build steps of the opponent with same race matchup
                             first_30_build_steps = self.db.extract_opponent_build_order(player_name, player_current_race, streamer_current_race)
+
+                            # if streamer is Random, then the last replay retrieved from previous query is the one to use
+                            # use the last replay retrieved from previous query for Random, no need to requery coz the race doesn't matter since SC2 does not save 'Random' race in replay
+                            # just the actual resulting race, to Random ->   Z, T, or P only in replay
+                            if(streamer_current_race == "Random"):
+                                if first_30_build_steps is None:
+                                    first_30_build_steps = result
 
                             # for speaking/chat purposes, do the substitutions
                             not_alias = tokensArray.find_master_name(player_name)
@@ -117,10 +125,13 @@ def game_started(self, current_game, contextHistory, logger):
 
                               
                             msg = "Do these 2: \n"
-                            msg += f"Mention all details here, do not exclude any info: {config.STREAMER_NICKNAME} as {streamer_picked_race} played the {player_current_race} player " 
+                            if streamer_picked_race == "Random":
+                                msg += f"Mention all details here, do not exclude any info: Even tho {config.STREAMER_NICKNAME} is Random, the last time he was {streamer_picked_race} played the {player_current_race} player " 
+                            else:
+                                msg += f"Mention all details here, do not exclude any info: {config.STREAMER_NICKNAME} as {streamer_picked_race} played the {player_current_race} player "                                 
                             msg += f"{player_name} {how_long_ago} in {{Map name}},"
                             msg += f" a {{Win/Loss for {config.STREAMER_NICKNAME}}} in {{game duration}}. \n"
-                            msg += f"As a StarCraft 2 expert, comment on last game summary. Be concise with only 2 sentences total of 25 words or less. \n"
+                            msg += "As a StarCraft 2 expert, comment on last game summary. Be concise with only 2 sentences total of 25 words or less. \n"
                             msg += "-----\n"
                             msg += f" \n {result['Replay_Summary']} \n"
                             processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
@@ -128,20 +139,20 @@ def game_started(self, current_game, contextHistory, logger):
                             # if there is a previous game with same race matchup
                             if first_30_build_steps is not None:
                                 msg = f"The opponent {player_name}'s build order: {first_30_build_steps} \n"
-                                msg += f"Do both but keep it short 25 words or less: \n"                                
-                                msg += f"2. Look for any of these special buildings or units from the opponent's build order: roach warren, baneling nest, spire, nydus, hydra den, starport, forge, fusion core, ghost, factory, twilight, dark shrine, stargate, robotics \n"
-                                msg += f"3. Mention any special buildings that exist in the build order for the opponent for same race matchup \n"
-                                msg += f"but if there are no special buildings, mention that the opponent seemed to have a normal build order' \n"
+                                msg += "Keep it short 25 words or less: \n"                                
+                                msg += "Mention if you see any of these in the opponent's build order: "
+                                msg += "roach warren, baneling nest, spire, nydus, hydra den, starport, forge, fusion core, ghost, factory, twilight, dark shrine, stargate, robotics \n"
+                                msg += "roach, baneling, muta, lurker, dark templar, immortal, void ray, oracle, charge, cyclone, liberator, banshee, battlecruiser, mine\n"
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
 
-                                msg = f"Keep it concise in 400 characters or less: \n"
+                                msg = "Keep it concise in 400 characters or less: \n"
                                 msg += "print the first 20 steps of the opponent's build order and group consecutive items together. Fox example, Probe 10 - Probe 11 - Probe 12 should be Probe (11-13). \n"
                                 msg += "-----\n"
                                 msg += f"{player_name}'s build order versus {config.STREAMER_NICKNAME}'s {streamer_picked_race}: {first_30_build_steps} \n"
                                 msg += f"omit {config.STREAMER_NICKNAME}'s build order. \n"                                
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
                             else:
-                                if player_current_race == "Random":
+                                if streamer_picked_race == "Random":
                                     msg = f"restate this:  good luck playing {player_name} in this {streamer_picked_race} versus {player_current_race} matchup.  Random is tricky."                                    
                                 else:
                                     msg = f"restate this with all details: This is the first time {config.STREAMER_NICKNAME} played {player_name} in this {streamer_picked_race} versus {player_current_race} matchup."
