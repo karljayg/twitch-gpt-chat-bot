@@ -139,14 +139,14 @@ def game_started(self, current_game, contextHistory, logger):
                             # if there is a previous game with same race matchup
                             if first_30_build_steps is not None:
                                 msg = f"The opponent {player_name}'s build order: {first_30_build_steps} \n"
-                                msg += "Keep it short 25 words or less: \n"                                
-                                msg += "Mention if you see any of these in the opponent's build order: "
+                                msg += "Keep it short 25 words or less: \n"
+                                msg += "Mention any of these found in the opponent's build order:"
                                 msg += "roach warren, baneling nest, spire, nydus, hydra den, starport, forge, fusion core, ghost, factory, twilight, dark shrine, stargate, robotics \n"
                                 msg += "roach, baneling, muta, lurker, dark templar, immortal, void ray, oracle, charge, cyclone, liberator, banshee, battlecruiser, mine\n"
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
 
                                 msg = "Keep it concise in 400 characters or less: \n"
-                                msg += "print the first 20 steps of the opponent's build order and group consecutive items together. Fox example, Probe 10 - Probe 11 - Probe 12 should be Probe (11-13). \n"
+                                msg += "print the first 20 steps of the opponent's build order and group consecutive items together. For example, Probe 10 - Probe 11 - Probe 12 should be Probe (11-13). \n"
                                 msg += "-----\n"
                                 msg += f"{player_name}'s build order versus {config.STREAMER_NICKNAME}'s {streamer_picked_race}: {first_30_build_steps} \n"
                                 msg += f"omit {config.STREAMER_NICKNAME}'s build order. \n"                                

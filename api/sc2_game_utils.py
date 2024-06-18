@@ -36,6 +36,10 @@ def check_SC2_game_status(logger):
             return GameInfo({"status": "ERROR"})
 
 def handle_SC2_game_results(self, previous_game, current_game, contextHistory, logger):
+
+    consecutive_errors = 0
+    max_consecutive_errors = 5
+
     # do not proceed if no change
     if previous_game and current_game.get_status() == previous_game.get_status():
         # when there is no change, no need to log so it does not repeat constantly
@@ -80,11 +84,7 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
             logger.debug("this is not first run")
 
         # proceed
-        retries = 1
-        minutes = 2
         result = find_recent_file_within_time(config.REPLAYS_FOLDER, config.REPLAYS_FILE_EXTENSION, 2, 0, logger)
-        #result = find_latest_file(config.REPLAYS_FOLDER, config.REPLAYS_FILE_EXTENSION, logger)
-        
         # there are times when current replay file is not ready and it still finds the prev. one despite the SLEEP TIMEOUT of 7 secs
         # so we are going to do this also to prevent the bot from commenting on the same replay file as the last one
         if self.last_replay_file == result:
@@ -94,19 +94,20 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
         if result:
             logger.debug(f"The path to the latest file is: {result}")
             if config.USE_CONFIG_TEST_REPLAY_FILE:
-                # use the config test file instead of latest found dynamically
                 result = config.REPLAY_TEST_FILE
 
-            # clear context history since replay analysis takes most of the tokens allowed
-            # print(', '.join(map(str, contextHistory)))
             contextHistory.clear()
 
             # capture error so it does not run another processSC2game
             try:
                 replay_data = spawningtool.parser.parse_replay(result)
+                consecutive_errors = 0  # Reset error counter on success
             except Exception as e:
-                logger.error(
-                    f"An error occurred while trying to parse the replay: {e}")
+                consecutive_errors += 1
+                logger.error(f"An error occurred while trying to parse the replay: {e}")
+                if consecutive_errors >= max_consecutive_errors:
+                    logger.error("Maximum number of consecutive errors reached. Stopping the loop.")
+                    return
 
             # Save the replay JSON to a file
             game_ended_handler.save_file(replay_data, 'json', logger)
