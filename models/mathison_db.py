@@ -25,6 +25,7 @@ class Database:
         # Logging setup
         logging.basicConfig(level=logging.DEBUG)
         self.logger = logging.getLogger("db_logger")
+        self.logger.setLevel(logging.DEBUG)            
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s')
         log_file_name = f"logs/db_{timestamp}.log"
@@ -342,7 +343,8 @@ class Database:
             # Execute the query
             self.cursor.execute(query, (player1, player1, player2, player2, player1, player2, player2, player1))
             results = self.cursor.fetchall()
-            print(f"***********Raw query results: {results}")            
+            print(f"***********Raw query results: {results}")  
+            self.logger.debug(f"Raw query results: {results}")
 
             # Formatting results
             formatted_results = []
