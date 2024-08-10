@@ -1,21 +1,32 @@
 import asyncio
-
-from api.twitch_bot import TwitchBot
-
+from api.twitch_bot import TwitchBot, logger
 
 async def tasks_to_do():
     try:
-        # Create an instance of the bot and start it
         bot = TwitchBot()
         await bot.start()
-    except SystemExit as e:
-        # Handle the SystemExit exception if needed, or pass to suppress it
-        pass
-
+    except Exception as e:
+        logger.exception(f"An unexpected error occurred: {e}")
+        # Optionally, you might want to restart the bot after a delay
+        # await asyncio.sleep(60)
+        # return await tasks_to_do()  # Restart the task
 
 async def main():
-    tasks = [asyncio.create_task(tasks_to_do())]
-    for task in tasks:
-        await task  # Await the task here to handle exceptions
+    while True:
+        try:
+            task = asyncio.create_task(tasks_to_do())
+            await task
+        except asyncio.CancelledError:
+            logger.info("Task was cancelled. Shutting down.")
+            break
+        except Exception as e:
+            logger.exception(f"An error occurred in the main loop: {e}")
+            await asyncio.sleep(60)  # Wait for 60 seconds before restarting
 
-asyncio.run(main())
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Keyboard interrupt received. Shutting down.")
+    except Exception as e:
+        logger.exception(f"Fatal error in main script: {e}")

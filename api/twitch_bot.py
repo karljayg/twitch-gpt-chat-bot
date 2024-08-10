@@ -12,6 +12,10 @@ import math
 import spawningtool.parser
 import tiktoken
 import pytz
+import api.text2speech as ts
+import speech_recognition as sr
+import api.chat_utils as chat_utils
+
 from datetime import datetime
 from collections import defaultdict
 
@@ -80,6 +84,11 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         monitor_thread.daemon = True
         monitor_thread.start()
 
+        # Start the speech listener thread
+        speech_thread = threading.Thread(target=self.listen_for_speech)
+        speech_thread.daemon = True
+        speech_thread.start()        
+
         # Generate the current datetime timestamp in the format YYYYMMDD-HHMMSS
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         # Append the timestamp to the log file name
@@ -136,6 +145,85 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         self.die("Shutdown requested.")
         sys.exit(0)
 
+    def listen_for_speech(self):
+        recognizer = sr.Recognizer()
+        mic = sr.Microphone()
+        msg = str("")
+
+        with mic as source:
+            recognizer.adjust_for_ambient_noise(source)
+            while not self.shutdown_flag:
+                try:
+                    # Listen for the cue word "hey madison"
+                    #logger.debug("Listening for 'hey madison' cue...")
+                    print("o", end="", flush=True)
+                    audio = recognizer.listen(source, phrase_time_limit=2)  # Limit listening to 2 seconds
+
+                    command = recognizer.recognize_google(audio).lower()
+                    logger.debug(f"'{command}'")
+
+                    # Iterate through the SPEECH2TEXT_OPTIONS in config
+                    for keywords, responses in config.SPEECH2TEXT_OPTIONS:
+                        # logger.debug(f"Inspecting keywords: {keywords}, responses: {responses}")
+                        if any(word in command for word in keywords):
+                            logger.debug(f"Command recognized: '{keywords[0]}' or similar")
+
+                            # Ensure that the response is captured correctly as a full string
+                            msg = str(responses[0]) if isinstance(responses, list) and len(responses) > 0 else str(responses)
+
+                            # Log the keyword and message to debug
+                            # logger.debug(f"keyword and msg are: {keywords[0]}, {msg}")
+
+                            self.play_SC2_sound(keywords[0])  # Use the first keyword as the sound identifier
+                            chat_utils.processMessageForOpenAI(self, msg, "helpful", logger, contextHistory)
+
+                            break
+
+                    if "adios" in command:
+                        logger.debug("Exit command recognized. Stopping the bot.")
+                        self.shutdown_flag = True
+                        break
+                    elif "hey madison" in command:
+                        #logger.debug("Cue recognized: 'hey madison'. Waiting for command...")
+                        ts.speak_text("yes?")
+                        
+                        # Listen for the follow-up command
+                        try:
+                            audio = recognizer.listen(source, phrase_time_limit=2)
+                            follow_up_command = recognizer.recognize_google(audio).lower()
+                            logger.debug(f"Follow-up command: '{follow_up_command}'")
+
+                            if "smile" in follow_up_command:
+                                logger.debug("Command recognized: 'smile'")
+                                # Add your handling code here
+                                ts.speak_text("I'm smiling!")
+                            else:
+                                logger.debug(f"Unhandled follow-up command: '{follow_up_command}'")
+                                ts.speak_text("I didn't understand that.")
+
+                        except sr.UnknownValueError:
+                            logger.debug("Could not understand the follow-up command.")
+                            ts.speak_text("I didn't catch that.")
+                        except sr.RequestError as e:
+                            logger.error(f"Request error from speech recognition service: {e}")
+                            time.sleep(2)
+                        except Exception as e:
+                            #logger.error(f"Error during speech recognition: {e}")
+                            print("e", end="", flush=True)
+                            time.sleep(2)
+                    
+                    else:
+                        print("?", end="", flush=True)
+                        
+                except sr.UnknownValueError:
+                    print("x", end="", flush=True)
+                except sr.RequestError as e:
+                    logger.error(f"Request error from speech recognition service: {e}")
+                    time.sleep(2)  # Prevent rapid retries
+                except Exception as e:
+                    #logger.error(f"Error during speech recognition: {e}")
+                    print("e", end="", flush=True)
+                    time.sleep(2)  # Prevent rapid retries
 
     def monitor_game(self):
         previous_game = None

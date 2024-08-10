@@ -37,8 +37,9 @@ def check_SC2_game_status(logger):
 
 def handle_SC2_game_results(self, previous_game, current_game, contextHistory, logger):
 
-    consecutive_errors = 0
-    max_consecutive_errors = 5
+    global consecutive_parse_failures
+    consecutive_parse_failures = 0
+    max_consecutive_parse_failures = 5
 
     # do not proceed if no change
     if previous_game and current_game.get_status() == previous_game.get_status():
@@ -101,12 +102,12 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
             # capture error so it does not run another processSC2game
             try:
                 replay_data = spawningtool.parser.parse_replay(result)
-                consecutive_errors = 0  # Reset error counter on success
+                consecutive_parse_failures = 0  # Reset failure counter on success
             except Exception as e:
-                consecutive_errors += 1
+                consecutive_parse_failures += 1
                 logger.error(f"An error occurred while trying to parse the replay: {e}")
-                if consecutive_errors >= max_consecutive_errors:
-                    logger.error("Maximum number of consecutive errors reached. Stopping the loop.")
+                if consecutive_parse_failures >= max_consecutive_parse_failures:
+                    logger.error("Maximum number of consecutive parsing failures reached. Stopping the loop.")
                     return
 
             # Save the replay JSON to a file
