@@ -1,5 +1,16 @@
+import sys
 import asyncio
 from api.twitch_bot import TwitchBot, logger
+from settings import config
+
+# Check for command-line arguments to override config values
+if len(sys.argv) > 1:
+    for arg in sys.argv[1:]:
+        if "PLAYER_INTROS_ENABLED=" in arg:
+            # Extract the value and convert it to a boolean
+            value = arg.split("=")[1].lower()
+            config.PLAYER_INTROS_ENABLED = value == "true"
+            print(f"PLAYER_INTROS_ENABLED set to: {config.PLAYER_INTROS_ENABLED}")
 
 async def tasks_to_do():
     try:
