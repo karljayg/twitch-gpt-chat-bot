@@ -25,14 +25,24 @@ debug_mode = input('Run in debug mode? (yes/no): ').strip().lower() == 'yes'
 if debug_mode:
     print('Debug mode activated.')
 
-folder_path = input(r'Enter the path to start looking from, ex: C:\Users\MYNAME\Documents\StarCraft II\Accounts: ')
+# Prompt for folder path or username-based substitution
+folder_input = input(r"Enter the full path (e.g., C:\Users\MYNAME\Documents\StarCraft II\Accounts) "
+                     "OR enter your Windows username (with optional subfolder, e.g., jsmith\OneDrive): ")
 
-# print out all the input given so far
+# Determine if the input is a full path based on the presence of a drive letter (e.g., "C:")
+if ":" in folder_input and "\\" in folder_input:
+    folder_path = folder_input
+else:
+    # If no drive letter is detected, treat input as username/subfolder and use the default structure
+    folder_path = fr"C:\Users\{folder_input}\Documents\StarCraft II\Accounts"
+
+# Print out the gathered inputs
 print(f"Folder path: {folder_path}\n")    
 print(f"Start date: {start_date}\n")  
 print(f"End date: {end_date}\n")
 print(f"Debug mode: {debug_mode}\n")
 input("Press Enter to begin")
+
 
 class ReplayLoader:
 
