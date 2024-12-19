@@ -22,6 +22,10 @@ def message_on_welcome(self, logger):
     bot_mode += "TEST_MODE: " + str(config.TEST_MODE) + "\n"
     bot_mode += "TEST_MODE_SC2_CLIENT_JSON: " + \
         str(config.TEST_MODE_SC2_CLIENT_JSON) + "\n"
+    bot_mode += "PLAYER_INTROS_ENABLED: " + \
+        str(config.PLAYER_INTROS_ENABLED) + "\n"
+    bot_mode += "USE_WHISPER: " + \
+        str(config.USE_WHISPER) + "\n"    
     bot_mode += "ANALYZE_REPLAYS_FOR_TEST: " + \
         str(config.USE_CONFIG_TEST_REPLAY_FILE) + "\n"
     bot_mode += "IGNORE_REPLAYS: " + \

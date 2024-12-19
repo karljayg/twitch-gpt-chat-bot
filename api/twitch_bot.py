@@ -15,6 +15,11 @@ import pytz
 import api.text2speech as ts
 import speech_recognition as sr
 import api.chat_utils as chat_utils
+import tempfile  # For creating temporary files
+import sounddevice as sd  # For audio recording
+import scipy.io.wavfile as wavfile  # For saving audio as WAV
+import os  # For file operations (e.g., removing temporary files)
+import numpy as np  # For numerical operations
 
 from datetime import datetime
 from collections import defaultdict
@@ -85,7 +90,10 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         monitor_thread.start()
 
         # Start the speech listener thread
-        speech_thread = threading.Thread(target=self.listen_for_speech)
+        if config.USE_WHISPER is True:
+            speech_thread = threading.Thread(target=self.listen_for_speech_whisperAI)
+        else:
+            speech_thread = threading.Thread(target=self.listen_for_speech)
         speech_thread.daemon = True
         speech_thread.start()        
 
@@ -144,6 +152,92 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             "================================================SHUTTING DOWN BOT========================================")
         self.die("Shutdown requested.")
         sys.exit(0)
+
+    def listen_for_speech_whisperAI(self):
+        def is_audio_silent(audio_data, threshold=0.01):
+            """Check if the audio data is silent based on RMS value."""
+            rms = np.sqrt(np.mean(audio_data**2))
+            return rms < threshold
+
+        def filter_to_english(text):
+            """Filter transcription to only include ASCII/English characters."""
+            return ''.join(c for c in text if ord(c) < 128)
+
+        msg = str("")
+        buffer = ""  # To aggregate results from smaller chunks
+
+        while not self.shutdown_flag:
+            try:
+                chunk_duration = 3  # Initial recording duration in seconds
+                fs = 16000  # Sample rate
+
+                while True:
+                    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
+                        temp_filename = tmp_file.name
+
+                    print("o", end="", flush=True)
+                    audio_data = sd.rec(int(chunk_duration * fs), samplerate=fs, channels=1, dtype='int16')
+                    sd.wait()  # Wait until recording is finished
+
+                    # Check if speech starts within the recorded chunk
+                    if not is_audio_silent(audio_data):
+                        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as extended_tmp_file:
+                            extended_filename = extended_tmp_file.name
+                            extended_audio_data = sd.rec(int(chunk_duration * fs), samplerate=fs, channels=1, dtype='int16')
+                            sd.wait()
+                            extended_audio_data = np.concatenate((audio_data, extended_audio_data), axis=0)
+
+                            # Write the concatenated audio to a file
+                            wavfile.write(extended_filename, fs, extended_audio_data)
+
+                        # Use Whisper API for transcription
+                        with open(extended_filename, "rb") as audio_file:
+                            response = openai.Audio.transcribe("whisper-1", audio_file)
+                            partial_command = response.get("text", "").strip().lower()
+
+                        os.remove(extended_filename)  # Clean up temporary file
+
+                        # Filter transcription to only ASCII/English characters
+                        partial_command = filter_to_english(partial_command)
+
+                        # Skip empty or meaningless transcriptions
+                        if not partial_command or partial_command in {".", ". ."}:
+                            os.remove(temp_filename)  # Clean up temporary file
+                            continue
+
+                        # Append to buffer and handle natural pauses
+                        buffer += f" {partial_command}".strip()
+
+                        # Check if the buffer contains complete sentences
+                        if buffer.endswith(('.', '!', '?')):
+                            command = buffer.strip()
+                            buffer = ""  # Clear the buffer for the next input
+                            if command not in {".", ". ."}:
+                                logger.debug(f"Full transcription: '{command}'")
+
+                            # Process the full command
+                            for keywords, responses in config.SPEECH2TEXT_OPTIONS:
+                                if any(word in command for word in keywords):
+                                    logger.debug(f"Command recognized: '{keywords[0]}' or similar")
+                                    msg = str(responses[0]) if isinstance(responses, list) and len(responses) > 0 else str(responses)
+                                    self.play_SC2_sound(keywords[0])
+                                    chat_utils.processMessageForOpenAI(self, msg, "helpful", logger, contextHistory)
+                                    break
+
+                            if "adios" in command:
+                                logger.debug("Exit command recognized. Stopping the bot.")
+                                self.shutdown_flag = True
+                                break
+                            elif "hey madison" in command:
+                                ts.speak_text("yes?")
+                                # Handle follow-up commands here if needed
+                        os.remove(temp_filename)  # Clean up temporary file
+                    else:
+                        os.remove(temp_filename)  # Clean up temporary file
+                        continue
+            except Exception as e:
+                logger.error(f"Error during speech recognition: {e}")
+                time.sleep(2)
 
     def listen_for_speech(self):
         recognizer = sr.Recognizer()
