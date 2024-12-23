@@ -38,6 +38,8 @@ from .game_event_utils import game_replay_handler
 from .game_event_utils import game_ended_handler
 from .chat_utils import message_on_welcome, process_pubmsg
 from .sc2_game_utils import handle_SC2_game_results
+# Ensure database initialization
+from models.mathison_db import Database
 
 # The contextHistory array is a list of tuples, where each tuple contains two elements: the message string and its
 # corresponding token size. This allows us to keep track of both the message content and its size in the array. When
@@ -227,10 +229,61 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                             if "adios" in command:
                                 logger.debug("Exit command recognized. Stopping the bot.")
                                 self.shutdown_flag = True
+                                self.die("Shutdown requested.")  # Ensure bot terminates
                                 break
-                            elif "hey madison" in command:
+
+                            elif "madison" in command or "mathison" in command or "matheson" in command or "madsen" in command or "madson" in command:
                                 ts.speak_text("yes?")
-                                # Handle follow-up commands here if needed
+                                try:
+                                    # Listen for the follow-up command
+                                    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as followup_tmp_file:
+                                        followup_filename = followup_tmp_file.name
+
+                                    audio_data = sd.rec(int(chunk_duration * fs), samplerate=fs, channels=1, dtype='int16')
+                                    sd.wait()
+                                    wavfile.write(followup_filename, fs, audio_data)
+
+                                    with open(followup_filename, "rb") as followup_audio_file:
+                                        followup_response = openai.Audio.transcribe("whisper-1", followup_audio_file)
+                                        follow_up_command = followup_response.get("text", "").strip().lower()
+
+                                    os.remove(followup_filename)  # Clean up temporary file
+
+                                    if "smile" in follow_up_command:
+                                        logger.debug("Command recognized: 'smile'")
+                                        ts.speak_text("I'm smiling!")
+                                    elif "player comments" in follow_up_command:
+                                        logger.debug("Command recognized: 'player comments'")
+                                        ts.speak_text("Tell us about that last player you just played")
+
+                                        # Capture the player's comment
+                                        try:
+                                            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as comment_tmp_file:
+                                                comment_filename = comment_tmp_file.name
+
+                                            audio_data = sd.rec(int(chunk_duration * fs), samplerate=fs, channels=1, dtype='int16')
+                                            sd.wait()
+                                            wavfile.write(comment_filename, fs, audio_data)
+
+                                            with open(comment_filename, "rb") as comment_audio_file:
+                                                comment_response = openai.Audio.transcribe("whisper-1", comment_audio_file)
+                                                player_comment = comment_response.get("text", "").strip()
+
+                                            os.remove(comment_filename)  # Clean up temporary file
+
+                                            if player_comment:
+                                                logger.debug(f"Captured player comment: '{player_comment}'")
+                                                if self.db.update_player_comments_in_last_replay(player_comment):
+                                                    ts.speak_text("Your comment has been added.")
+                                                else:
+                                                    ts.speak_text("No recent replays found to update.")
+                                            else:
+                                                ts.speak_text("No comment captured. Please try again.")
+                                        except Exception as e:
+                                            logger.error(f"Error updating player comment in database: {e}")
+                                            ts.speak_text("Failed to add your comment due to a system error.")
+                                except Exception as e:
+                                    logger.error(f"Error during follow-up command recognition: {e}")
                         os.remove(temp_filename)  # Clean up temporary file
                     else:
                         os.remove(temp_filename)  # Clean up temporary file

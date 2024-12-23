@@ -139,6 +139,32 @@ class Database:
         self.cursor.close()
         self.connection.close()
 
+    def update_player_comments_in_last_replay(self, comment):
+        self.cursor.reset()  # Ensure the cursor is in a clean state
+        try:
+            # Fetch the latest UnixTimestamp
+            self.logger.debug("Fetching the latest UnixTimestamp.")
+            self.cursor.execute("SELECT MAX(UnixTimestamp) AS latest_timestamp FROM Replays")
+            result = self.cursor.fetchone()
+            latest_timestamp = result['latest_timestamp'] if result else None
+
+            if not latest_timestamp:
+                self.logger.error("No records found in the Replays table.")
+                raise ValueError("No recent replays found to update.")
+
+            # Update the record with the latest UnixTimestamp
+            sql = "UPDATE Replays SET Player_Comments = %s WHERE UnixTimestamp = %s"
+            self.logger.debug(f"Executing SQL: {sql} with parameters: {comment}, {latest_timestamp}")
+            self.cursor.execute(sql, (comment, latest_timestamp))
+            self.connection.commit()
+
+            self.logger.debug(f"Successfully updated Player_Comments for UnixTimestamp: {latest_timestamp}")
+            return True
+        except Exception as e:
+            self.connection.rollback()
+            self.logger.error(f"SQL Error: {e}")
+            raise
+
     def check_player_and_race_exists(self, player_name, player_race):
         self.cursor.reset()
         try:

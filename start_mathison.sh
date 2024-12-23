@@ -1,0 +1,1 @@
+python app.py PLAYER_INTROS_ENABLED=$1
