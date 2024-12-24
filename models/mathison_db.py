@@ -648,6 +648,58 @@ class Database:
         except Error as e:
             print(f"Error: {e}")
             return None
+        
+    def get_player_comments(self, player_name, player_race):
+        """
+        Fetch all games against the specified player and race that have Player_Comments.
+        Returns an array of dictionaries with player comments, map, date played, and game duration.
+        If no results are found or an error occurs, an empty list is returned.
+        """
+        self.cursor.reset()
+        try:
+            # SQL query to retrieve relevant games
+            query = """
+            SELECT 
+                r.Player_Comments,
+                r.Map,
+                r.Date_Played,
+                r.GameDuration
+            FROM 
+                Replays r
+            JOIN 
+                Players p1 ON r.Player1_Id = p1.Id
+                JOIN Players p2 ON r.Player2_Id = p2.Id
+            WHERE 
+                ((p1.SC2_UserId = %s AND r.Player1_Race = %s) OR
+                (p2.SC2_UserId = %s AND r.Player2_Race = %s))
+                AND r.Player_Comments IS NOT NULL
+                AND r.GameDuration > '00:02:00'
+            ORDER BY 
+                r.Date_Played DESC;
+            """
+            # Execute the query with parameters
+            self.cursor.execute(query, (player_name, player_race, player_name, player_race))
+            results = self.cursor.fetchall()
+
+            if not results:
+                self.logger.debug(f"No games with comments found for player '{player_name}' and race '{player_race}'.")
+                return []
+
+            # Prepare the result as an array of dictionaries
+            formatted_results = []
+            for row in results:
+                formatted_results.append({
+                    "player_comments": row["Player_Comments"],
+                    "map": row["Map"],
+                    "date_played": row["Date_Played"].strftime("%Y-%m-%d %H:%M:%S"),
+                    "game_duration": row["GameDuration"]
+                })
+
+            self.logger.debug(f"Retrieved {len(formatted_results)} games with comments for player '{player_name}'.")
+            return formatted_results
+        except Exception as e:
+            self.logger.error(f"Error fetching player comments for player '{player_name}': {e}")
+            return []
 
     def test_database(self):
 

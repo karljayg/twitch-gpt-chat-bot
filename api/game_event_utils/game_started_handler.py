@@ -97,6 +97,10 @@ def game_started(self, current_game, contextHistory, logger):
 
                             # for speaking/chat purposes, do the substitutions
                             not_alias = tokensArray.find_master_name(player_name)
+                            
+                            # in case there is an alias, keep the current name for search
+                            current_player_name = player_name
+
                             if not_alias is not None:
                                 logger.debug(f"found alias: {not_alias} for {player_name}")
 
@@ -118,17 +122,47 @@ def game_started(self, current_game, contextHistory, logger):
                                     logger.debug("Attempting to replace in first_30_build_steps")
                                     if isinstance(first_30_build_steps, list):
                                         first_30_build_steps = [item.replace(player_name, not_alias) for item in first_30_build_steps if isinstance(item, str)]
-
                                 player_name = not_alias
                             else:
                                 logger.debug(f"no alias found for {player_name}")
 
                             if result['Player_Comments'] is not None:
-                                msg = f"Restate this: '{how_long_ago} when {config.STREAMER_NICKNAME} played the opponent {player_name}: {result['Player_Comments']}'.\n"
+                                msg = f"Restate this: 'The last game {how_long_ago} when {config.STREAMER_NICKNAME} played the opponent {player_name}: {result['Player_Comments']}'.\n"
                                 msg += "\n After restating, append these characters exactly as is: ' player comments warning'. \n"
                                 
                                 # Send the prompt to OpenAI
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
+
+                            # Fetch comments for the player on actual current name, not alias
+                            player_comments = self.db.get_player_comments(current_player_name, player_current_race)
+
+                            # Check if there are comments
+                            if not player_comments:
+                                logger.debug(f"No games with comments found for player '{current_player_name}' and race '{player_current_race}'. Skipping OpenAI processing.")
+                            else:
+                                # Build the message string for OpenAI
+                                msg = "1. Summarize the comments for the opponent building a profile based on previous matchups in 350 characters total. \n"
+                                msg += "Below are each comments, each containing: \n"
+                                msg += "player_comments: The comment about the player. \n"
+                                msg += "map: The map on which the game was played. \n"
+                                msg += "date_played: The date when the game was played (formatted). \n"
+                                msg += "game_duration: The duration of the game. \n"
+                                msg += "2. At the end of the summary statement from #1, add these words 'player comments warning'. \n"
+                                msg += "-----\n"
+
+                                # Add player comments to the message
+                                for comment in player_comments:
+                                    msg += (
+                                        f"player_comments: {comment['player_comments']}, "
+                                        f"map: {comment['map']}, "
+                                        f"date_played: {comment['date_played']}, "
+                                        f"game_duration: {comment['game_duration']}\n"
+                                    )
+
+                                msg += "-----\n"
+
+                                # Send the message to OpenAI
+                                processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)                     
                               
                             msg = "Do these 2: \n"
                             if streamer_picked_race == "Random":

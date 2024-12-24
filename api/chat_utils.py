@@ -73,7 +73,8 @@ def msgToChannel(self, message, logger, text2speech=False):
     logger.debug(truncated_message_str)
     logger.debug(
         "---------------------------------------------------------")
-    
+
+    logger.debug(f"TEXT2SPEECH settings: Config: {config.TEXT_TO_SPEECH}, text2speech: {text2speech}")
     # Check if the keywords are present to override the settings
     override_speech = False
     if "player comments warning" in truncated_message_str:
