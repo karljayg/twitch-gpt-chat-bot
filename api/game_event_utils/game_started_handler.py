@@ -124,7 +124,10 @@ def game_started(self, current_game, contextHistory, logger):
                                 logger.debug(f"no alias found for {player_name}")
 
                             if result['Player_Comments'] is not None:
-                                msg = f"Restate this player feedback from {how_long_ago} when {config.STREAMER_NICKNAME} played the opponent {player_name}: {result['Player_Comments']} \n"
+                                msg = f"Restate this: '{how_long_ago} when {config.STREAMER_NICKNAME} played the opponent {player_name}: {result['Player_Comments']}'.\n"
+                                msg += "\n After restating, append these characters exactly as is: ' player comments warning'. \n"
+                                
+                                # Send the prompt to OpenAI
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
                               
                             msg = "Do these 2: \n"

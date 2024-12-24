@@ -74,28 +74,39 @@ def msgToChannel(self, message, logger, text2speech=False):
     logger.debug(
         "---------------------------------------------------------")
     
-    if text2speech:
-        # use text to speech capability to speak the response if enabled
-        # try catch
-        if not config.TEXT_TO_SPEECH:
-            return
+    # Check if the keywords are present to override the settings
+    override_speech = False
+    if "player comments warning" in truncated_message_str:
+        logger.debug("'player comments warning' detected, temporarily enabling text-to-speech.")
+        override_speech = True  # Override for this instance
+        # Replace "player comments warning" in a case-insensitive manner
+        truncated_message_str = re.sub(r"player comments warning", "", truncated_message_str, flags=re.IGNORECASE).strip()
+
+    # Determine whether to proceed with text-to-speech
+    if override_speech or (config.TEXT_TO_SPEECH and text2speech):
         try:
-            logger.debug(f"Speaking")
-            truncated_message_str = remove_emotes_from_message(truncated_message_str)          
+            logger.debug("Preparing to speak the message.")
+
+            # Process the message to remove emotes and add punctuation
+            truncated_message_str = remove_emotes_from_message(truncated_message_str)
             truncated_message_str = "add commas, period and other appropriate punctuation: " + truncated_message_str
 
+            # Generate the response using OpenAI
             completion = send_prompt_to_openai(truncated_message_str)
             if completion.choices[0].message is not None:
-                logger.debug(
-                    "completion.choices[0].message.content: " + completion.choices[0].message.content)
-            response = completion.choices[0].message.content
-            truncated_message_str =  response
+                logger.debug("completion.choices[0].message.content: " + completion.choices[0].message.content)
+                response = completion.choices[0].message.content
+                truncated_message_str = response
 
+            # Speak the processed message
             speak_text(truncated_message_str, mode=1)
         except Exception as e:
-            logger.debug(f"Error: {e}") 
+            logger.error(f"Error in text-to-speech: {e}")
         finally:
-            logger.debug(f"Spoken")
+            logger.debug("Speech processing complete.")
+    else:
+        logger.debug("Text-to-speech is disabled. Skipping speech processing.")
+
         
 # This function processes the message receive in twitch chat channel
 # This will determine if the bot will reply base on dice roll

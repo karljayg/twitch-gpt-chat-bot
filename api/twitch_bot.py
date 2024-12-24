@@ -20,6 +20,7 @@ import sounddevice as sd  # For audio recording
 import scipy.io.wavfile as wavfile  # For saving audio as WAV
 import os  # For file operations (e.g., removing temporary files)
 import numpy as np  # For numerical operations
+import re
 
 from datetime import datetime
 from collections import defaultdict
@@ -217,6 +218,48 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                             if command not in {".", ". ."}:
                                 logger.debug(f"Full transcription: '{command}'")
 
+                            # Process the "comments" command directly
+                            if "player comments" in command:
+                                logger.debug("Command recognized: 'player comments'")
+                                ts.speak_text("Did you want to give your own comments about that player and last game?")
+
+                                # Capture the player's comment
+                                try:
+                                    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as comment_tmp_file:
+                                        comment_filename = comment_tmp_file.name
+
+                                    audio_data = sd.rec(int(chunk_duration * fs), samplerate=fs, channels=1, dtype='int16')
+                                    sd.wait()
+                                    wavfile.write(comment_filename, fs, audio_data)
+
+                                    with open(comment_filename, "rb") as comment_audio_file:
+                                        comment_response = openai.Audio.transcribe("whisper-1", comment_audio_file)
+                                        player_comment = comment_response.get("text", "").strip()
+
+                                    os.remove(comment_filename)  # Clean up temporary file
+
+                                    # Define specific invalid phrases
+                                    invalid_phrases = [
+                                        r"\bno thanks\b",
+                                        r"\bno thank you\b",
+                                        r"\bnope thanks\b"
+                                    ]
+
+                                    if player_comment and not any(re.search(pattern, player_comment.lower()) for pattern in invalid_phrases):
+                                        logger.debug(f"Captured player comment: '{player_comment}'")
+                                        if self.db.update_player_comments_in_last_replay(player_comment):
+                                            ts.speak_text("Your comment has been added.")
+                                        else:
+                                            ts.speak_text("No recent replays found to update.")
+                                    else:
+                                        logger.debug(f"Ignored invalid or declined comment: '{player_comment}'")
+                                        ts.speak_text("Comment not added.")
+
+                                except Exception as e:
+                                    logger.error(f"Error updating player comment in database: {e}")
+                                    ts.speak_text("Failed to add your comment due to a system error.")
+                                continue
+
                             # Process the full command
                             for keywords, responses in config.SPEECH2TEXT_OPTIONS:
                                 if any(word in command for word in keywords):
@@ -224,6 +267,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                                     msg = str(responses[0]) if isinstance(responses, list) and len(responses) > 0 else str(responses)
                                     self.play_SC2_sound(keywords[0])
                                     chat_utils.processMessageForOpenAI(self, msg, "helpful", logger, contextHistory)
+                                    contextHistory.clear()
                                     break
 
                             if "adios" in command:
@@ -232,58 +276,6 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                                 self.die("Shutdown requested.")  # Ensure bot terminates
                                 break
 
-                            elif "madison" in command or "mathison" in command or "matheson" in command or "madsen" in command or "madson" in command:
-                                ts.speak_text("yes?")
-                                try:
-                                    # Listen for the follow-up command
-                                    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as followup_tmp_file:
-                                        followup_filename = followup_tmp_file.name
-
-                                    audio_data = sd.rec(int(chunk_duration * fs), samplerate=fs, channels=1, dtype='int16')
-                                    sd.wait()
-                                    wavfile.write(followup_filename, fs, audio_data)
-
-                                    with open(followup_filename, "rb") as followup_audio_file:
-                                        followup_response = openai.Audio.transcribe("whisper-1", followup_audio_file)
-                                        follow_up_command = followup_response.get("text", "").strip().lower()
-
-                                    os.remove(followup_filename)  # Clean up temporary file
-
-                                    if "smile" in follow_up_command:
-                                        logger.debug("Command recognized: 'smile'")
-                                        ts.speak_text("I'm smiling!")
-                                    elif "player comments" in follow_up_command:
-                                        logger.debug("Command recognized: 'player comments'")
-                                        ts.speak_text("Tell us about that last player you just played")
-
-                                        # Capture the player's comment
-                                        try:
-                                            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as comment_tmp_file:
-                                                comment_filename = comment_tmp_file.name
-
-                                            audio_data = sd.rec(int(chunk_duration * fs), samplerate=fs, channels=1, dtype='int16')
-                                            sd.wait()
-                                            wavfile.write(comment_filename, fs, audio_data)
-
-                                            with open(comment_filename, "rb") as comment_audio_file:
-                                                comment_response = openai.Audio.transcribe("whisper-1", comment_audio_file)
-                                                player_comment = comment_response.get("text", "").strip()
-
-                                            os.remove(comment_filename)  # Clean up temporary file
-
-                                            if player_comment:
-                                                logger.debug(f"Captured player comment: '{player_comment}'")
-                                                if self.db.update_player_comments_in_last_replay(player_comment):
-                                                    ts.speak_text("Your comment has been added.")
-                                                else:
-                                                    ts.speak_text("No recent replays found to update.")
-                                            else:
-                                                ts.speak_text("No comment captured. Please try again.")
-                                        except Exception as e:
-                                            logger.error(f"Error updating player comment in database: {e}")
-                                            ts.speak_text("Failed to add your comment due to a system error.")
-                                except Exception as e:
-                                    logger.error(f"Error during follow-up command recognition: {e}")
                         os.remove(temp_filename)  # Clean up temporary file
                     else:
                         os.remove(temp_filename)  # Clean up temporary file
