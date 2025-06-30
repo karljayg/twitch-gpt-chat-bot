@@ -1,157 +1,274 @@
-# Twitch OpenAI IRC Bot
+# 🧠 psi_mathison – Twitch + Discord GPT Chatbot for SC2
 
-The "psi_mathison" bot, designed to enhance the experience of watching StarCraft II (SC2) streams, utilizes a combination of technologies, including the Twitch chat interface, OpenAI's GPT models, and the SC2 client for real-time integration. Through monitoring the game states, the bot dynamically interacts with the Twitch chat associated with the stream, responding to user queries, commenting on gameplay, and adding customized engagement through Mood and Perspective settings. 
+Enhance your StarCraft II Twitch (and Discord) streams with AI-powered commentary, voice interaction, and replay intelligence. `psi_mathison` leverages OpenAI, Langchain, and custom SC2 logic to provide a smart, immersive experience for viewers.
 
-It incorporates various features such as control over message sending, extensive logging, game state monitoring, and more. By providing analytical insights, humor, or other emotive responses, "psi_mathison" brings a unique and lively dimension to the SC2 viewing experience.
+▶️ **Watch it in action:** [FSL Broadcast Example](https://www.youtube.com/watch?v=gyRU2YE14uU)  
+📧 **Contact:** [Twitter](https://twitter.com/karljayg) | Email: kj (at) psistorm.com  
+📄 **Docs:** [Full Documentation (Google Doc)](https://docs.google.com/document/d/1C8MM_BqbOYL9W0N0qu0T1g2DS7Uj_a6Vebd6LJLX4yU/edit?usp=sharing)
 
-If you have any questions reach out to me at:
+---
 
-https://twitter.com/karljayg  Same tag on instagram, or email me at kj (at) psistorm.com
+## ✨ Features
 
-See its use in one of our recent broadcasts: https://www.youtube.com/watch?v=gyRU2YE14uU
+### 💬 Chat Integration (Twitch & Discord)
+- Monitors and replies in Twitch chat and Discord
+- Shared logic but separated threads for both platforms
+- GPT-powered context-aware chat
+- Responds to Follows, Raids, Subs, Donations
 
-Additional documentation: https://docs.google.com/document/d/1C8MM_BqbOYL9W0N0qu0T1g2DS7Uj_a6Vebd6LJLX4yU/edit?usp=sharing
+### 🎮 SC2 Game Integration
+- Live monitoring of match state (start, end, players, results)
+- Logs build orders, units lost, and duration
+- Summarizes replays and game history
 
-## Getting Started
+### 🗣 Voice Interaction
+- Whisper (Speech-to-Text) input triggers
+- Text-to-Speech for short bot messages
+- Customizable in-game sound cues (start, win, abandon)
+
+### 🤖 AI-Enhanced Responses
+- ChatGPT with Mood + Perspective settings
+- Persistent memory per player (WIP)
+- Langchain and Liquipedia integration planned
+
+### 📊 Replay Intelligence
+- Historical player tracking
+- Summaries by opponent, race, and alias
+- Matchup-specific notes and outcomes
+
+---
+
+## 🚀 Getting Started
 
 ### Prerequisites
+- Python 3.11.4
+- pip 23.2.1
+- Twitch OAuth: [Generate Token](https://twitchapps.com/tmi/)
+- OpenAI API Key: [openai.com](https://openai.com/)
 
-Before you can use this bot, you will need to have:
-   1. Python Version 3.11.4
-   2. pip version 23.2.1
-   3. Twitch Account
-	   a. To create twitch account go to https://www.twitch.tv/ and sign up.
-	   b. Then obtain OAuth token / Twitch Chat Auth go to https://twitchapps.com/tmi/
-   4. OpenAI Key	
-      a. Create OpenAI Account using https://openai.com/
-      b. Navigate to your profile then choose View API Keys
-      c. Create API Key
+### Installation
 
-
-
-### Installing
-
-1. Clone this repository to your local machine
-   - git clone https://github.com/karljayg/twitch-gpt-chat-bot.git
-   - cd /path/to/repository
-   - git branch -a
-   - git checkout branch_name
-
-2. Create Environment
-   - Navigate to directory
-      cd /path/to/repository
-   - Install virtualenv (If not yet installed)
-      pip install virtualenv
-   - Create new virtual environment (example name: venv)
-      virtualenv venv
-   - Activate the virtual environment
-      source venv/Scripts/activate
-   Once activated, the terminal prompt should change to show name of the virtual environment.
-
-3. Install the required Python packages by running:
-   ```
-   pip install -r requirements.txt
-   ```
-      or manually:
-   ```
-   pip install irc openai logging requests re asyncio random irc.bot spacy nltk en_core_web_sm logging urllib3
-   python -m spacy download en_core_web_sm
-   ```
-   If there are errors encountered related to wheel binding try installing this package first before the others:
-   ```
-   pip install en-core-web-sm@https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.0.0/en_core_web_sm-3.0.0-py3-none-any.whl
+```bash
+git clone https://github.com/karljayg/twitch-gpt-chat-bot.git
+cd twitch-gpt-chat-bot
+pip install virtualenv
+virtualenv venv
+source venv/Scripts/activate  # or `source venv/bin/activate` for macOS/Linux
+pip install -r requirements.txt
 ```
 
-
-4. After installing all the required packages, create `config.py` file under settings folder
-   Copy the contents of `config.example.py` then change the following configurations
-   And edit the settings below:
-
-   - Twitch Settings
-      `TOKEN = "twitch token"`
-   - OpenAI Settings
-      `OPENAI_API_KEY = "sk-open AI Key"`
-   - DB Settings
-      `DB_USER = "root"`
-      `DB_PASSWORD = ""`
-   - SC2 Settings - Change the directory to  StarScraft Account folder
-      `REPLAYS_FOLDER = "C:\path\to\StarCraft II\Accounts"`
-   - If SCII is running, set
-      `TEST_MODE = True`
-      else
-      `TEST_MODE = False`
-
-5. Create SC2_sounds.json
-   Just copy the contents of SC2_sound.example.json
-
-6. Create the database
-   Initilize DB migration
-
-   ```
-   cd setup
-   ```
-   ```
-   python setup.py
-   ```
-
-7. To start the bot, run in your terminal:
-
+If needed, install this first:
+```bash
+pip install en-core-web-sm@https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.0.0/en_core_web_sm-3.0.0-py3-none-any.whl
 ```
+
+---
+
+## ⚙️ Configuration
+
+1. Copy `settings/config.example.py` to `config.py` and fill in:
+   - `TOKEN`, `OPENAI_API_KEY`, `DB_USER`, `DB_PASSWORD`, `REPLAYS_FOLDER`, `TEST_MODE`
+
+2. Copy `SC2_sounds.example.json` to `SC2_sounds.json`
+
+3. Initialize the database:
+```bash
+cd setup
+python setup.py
+```
+
+4. Start the bot:
+```bash
 python app.py
 ```
 
-In your Twitch channel chat, type "open sesame" followed by your message to generate a response from the OpenAI API.
+**Tip:** In Twitch chat, use `"open sesame <message>"` to get a reply.
 
+---
 
-## License
+## 🧠 Key Concepts
 
+- **Mood Settings:** Cheerful, Sarcastic, Analytical, etc.
+- **Perspective Modes:** Commentator, Fan, Analyst
+- **Context-Aware Mode:** Adjusts replies based on game status
 
-# chan notes(to be removed once done):
-   - https://www.youtube.com/watch?v=25P5apB4XWM - 
+---
 
-   - https://www.youtube.com/watch?v=e9yMYdnSlUA - organized python codes
-      
-   - https://www.youtube.com/watch?v=rp1QR3eGI1k - refactoring tips
-
-   - https://www.youtube.com/watch?v=8rynRTOr4mE -  state management
-
-# please note that some of the libraries may become outdated after a while, like langchain referencing deprecated models.  Simply run:
+## 🗂 Project Structure
 
 ```
+twitch-gpt-chat-bot/
+├── api/
+├── logs/
+├── models/
+├── settings/
+├── setup/
+├── sound/
+├── temp/
+├── test/
+├── utils/
+├── app.py
+├── requirements.txt
+├── README.md
+├── LICENSE.md
+```
+
+---
+
+## 🧪 Known Issues / TODOs
+
+- Improve Random race detection in replays
+- Persistent memory across chat sessions (WIP)
+- Liquipedia/Subreddit filtering required
+- Token budgeting (future feature)
+
+---
+
+## 📄 License
+
+MIT License. See `LICENSE.md`.
+
+---
+
+## 🛠 Maintenance
+
+To update deprecated models (e.g., Langchain):
+```bash
 pip install --upgrade langchain
 ```
+---
 
-### project package/module file structuring
-twitch-gpt-chat-bot
-    ┣ api
-    ┃   ┣ aligulac.py
-    ┃   ┗ twitch_bot.py
-    ┣ logs
-    ┣ models
-    ┃   ┣ game_info.py
-    ┃   ┣ log_once_within_interval_filter.py
-    ┃   ┗ mathison_db.py
-    ┣ settings
-    ┃   ┣ config.example.py
-    ┃   ┣ config.py
-    ┃   ┣ SC2_sounds.example.json
-    ┃   ┗ SC2_sounds.json
-    ┣ setup
-    ┃   ┗ setup.sql
-    ┣ sound
-    ┣ temp
-    ┣ test
-    ┃   ┗ replays
-    ┃   ┗ SC2_game_result_test.json
-    ┣ utils
-    ┃   ┣ file_utils.py
-    ┃   ┣ load_replays.py
-    ┃   ┣ sc2replaystats.py
-    ┃   ┣ tokensArray.py
-    ┃   ┗ wiki_utils.py
-    ┣ .gitignore
-    ┣ app.py
-    ┣ LICENSE.md
-    ┣ README.md
-    ┣ requirements.txt
-    
+## 📦 Additional Setup and Configuration Details
+
+### Manual Package Installation (alternative to requirements.txt)
+
+If `pip install -r requirements.txt` fails, you may manually install dependencies:
+```bash
+pip install irc openai logging requests re asyncio random irc.bot spacy nltk en_core_web_sm logging urllib3
+python -m spacy download en_core_web_sm
+```
+
+If errors occur related to wheel binding:
+```bash
+pip install en-core-web-sm@https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.0.0/en_core_web_sm-3.0.0-py3-none-any.whl
+```
+
+### Replay Directory
+
+Set your SC2 replay folder in `config.py`:
+```python
+REPLAYS_FOLDER = "C:\path\to\StarCraft II\Accounts"
+```
+
+Set `TEST_MODE = True` if SC2 is running; else set it to `False`.
+
+---
+
+## 🧾 Extra Notes
+
+- See organized Python techniques:
+  - [Refactoring Tips](https://www.youtube.com/watch?v=rp1QR3eGI1k)
+  - [State Management](https://www.youtube.com/watch?v=8rynRTOr4mE)
+  - [Code Organization](https://www.youtube.com/watch?v=e9yMYdnSlUA)
+
+---
+
+## 📁 Full File Structure
+
+```
+twitch-gpt-chat-bot/
+├── api/
+│   ├── aligulac.py
+│   ├── chat_utils.py
+│   ├── discord_bot.py
+│   ├── game_event_utils.py
+│   ├── sc2_game_utils.py
+│   ├── sgreplay_pb2.py
+│   ├── stormgate.py
+│   ├── text2speech.py
+│   └── twitch_bot.py
+├── logs/
+├── models/
+│   ├── game_info.py
+│   ├── log_once_within_interval_filter.py
+│   └── mathison_db.py
+├── settings/
+│   ├── aliases.py
+│   ├── config.example.py
+│   ├── config.py
+│   ├── SC2_sounds.example.json
+│   └── SC2_sounds.json
+├── setup/
+│   ├── init_schema_down.sql
+│   ├── init_schema_up.sql
+│   ├── setup.py
+│   └── setup.sql
+├── sounds/
+├── temp/
+├── test/
+│   ├── replays/
+│   └── SC2_game_result_test.json
+├── utils/
+│   ├── emote_utils.py
+│   ├── file_utils.py
+│   ├── load_replays.py
+│   ├── sc2replaystats.py
+│   └── sound_player_utils.py
+├── app.py
+├── LICENSE.md
+├── README.md
+├── requirements.txt
+```
+
+---
+
+## 🛠 Additional Notes from Original README
+
+### 📌 Twitch & OpenAI Setup (Expanded)
+
+1. **Twitch Account Setup**
+   - Visit [https://www.twitch.tv/](https://www.twitch.tv/) and create an account.
+   - Generate an OAuth token for Twitch Chat Authentication: [https://twitchapps.com/tmi/](https://twitchapps.com/tmi/)
+
+2. **OpenAI API Setup**
+   - Sign up at [https://openai.com/](https://openai.com/)
+   - Go to your profile > "View API Keys" > Create a new key.
+
+### 🔄 Git Branch Setup
+
+After cloning the repo, optionally view and check out a specific branch:
+
+```bash
+git branch -a
+git checkout branch_name
+```
+
+### 🧪 Twitch Chat Trigger
+
+To engage the bot via Twitch, type in chat:
+```
+open sesame <your message>
+```
+This triggers a reply from the OpenAI-powered assistant.
+
+---
+
+## 🧠 Development Notes
+
+Helpful developer reference videos:
+
+- [Organized Python Code](https://www.youtube.com/watch?v=e9yMYdnSlUA)
+- [Refactoring Tips](https://www.youtube.com/watch?v=rp1QR3eGI1k)
+- [State Management](https://www.youtube.com/watch?v=8rynRTOr4mE)
+- [Code Patterns in Practice](https://www.youtube.com/watch?v=25P5apB4XWM)
+
+---
+
+## 📁 Other File Mentions
+
+The following was also included in the prior structure and may still be relevant:
+
+```
+├── .gitignore
+```
+
