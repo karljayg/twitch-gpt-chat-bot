@@ -50,28 +50,33 @@ def find_latest_file(folder, file_extension, logger):
             f"An error occurred while searching for the latest file: {e}")
         return None
     
-def find_recent_file_within_time(folder, file_extension, minutes, retries, logger):
+def find_recent_file_within_time(folder, file_extension, minutes, retries, logger, last_processed_file=None):
+    """
+    Find the most recent file within a time period or newer than the last processed file.
+    """
     attempt = 0
     while attempt <= retries:
         try:
+            # Find the latest file
             latest_file = find_latest_file(folder, file_extension, logger)
             if latest_file:
-                file_datetime = datetime.fromtimestamp(os.path.getmtime(latest_file))
-                if datetime.now() - file_datetime <= timedelta(minutes=minutes):
-                    logger.debug(f"Found a new latest file within the last {minutes} minute(s): {latest_file}")
+                file_timestamp = os.path.getmtime(latest_file)
+                is_recent = datetime.now() - datetime.fromtimestamp(file_timestamp) <= timedelta(minutes=minutes)
+                is_newer_than_last = last_processed_file is None or file_timestamp > os.path.getmtime(last_processed_file)
+
+                if is_recent or is_newer_than_last:
+                    logger.debug(f"New file found: {latest_file}")
                     return latest_file
-                else:
-                    logger.debug(f"File found is not within the last {minutes} minute(s).")
-            else:
-                logger.debug(f"No files found.")
+
+            logger.debug(f"No new file found in folder '{folder}'.")
         except Exception as e:
-            logger.error(f"An error occurred: {e}")
+            logger.error(f"Error while searching for files: {e}")
             return None
 
         if attempt < retries:
-            logger.debug(f"Retrying... (Attempt {attempt + 1}/{retries})")
-            time.sleep(minutes * 60)  # Wait for the specified time before retrying
+            logger.debug(f"Retrying in {minutes} minute(s)... (Attempt {attempt + 1}/{retries})")
+            time.sleep(minutes * 60)
         attempt += 1
 
-    logger.debug(f"No new files with extension '{file_extension}' were found within the last {minutes} minute(s) after {retries} retries.")
+    logger.debug("No new files found after retries.")
     return None

@@ -38,15 +38,15 @@ def message_on_welcome(self, logger):
 
     prefix = ""  # if any
     greeting_message = f'{prefix} {get_random_emote()}'
-    msgToChannel(self, greeting_message, logger)
+    msgToChannel(self, greeting_message, logger, send_to_discord=True)
 
 def clean_text_for_chat(msg):
     # Combine carriage return and line feed replacement with filtering non-printable characters
     msg = ''.join(filter(lambda x: x in set(string.printable), msg.replace('\r', '').replace('\n', '')))
     return msg
 
-# This function sends and logs the messages sent to twitch chat channel
-def msgToChannel(self, message, logger, text2speech=False):
+# This function sends and logs the messages sent to twitch chat channel and optionally Discord
+def msgToChannel(self, message, logger, text2speech=False, send_to_discord=False):
 
     # Clean up the message
     message = clean_text_for_chat(message)
@@ -67,7 +67,38 @@ def msgToChannel(self, message, logger, text2speech=False):
     # Convert the truncated message back to a string
     truncated_message_str = truncated_message_bytes.decode()
 
-    self.connection.privmsg(self.channel, truncated_message_str)
+    # Send to Twitch if this is a Twitch bot
+    if hasattr(self, 'connection') and hasattr(self.connection, 'privmsg'):
+        self.connection.privmsg(self.channel, truncated_message_str)
+    
+    # Send to Discord only if explicitly requested
+    if send_to_discord:
+        logger.debug("Checking Discord integration...")
+        try:
+            import sys
+            import os
+            sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            from api.discord_bot import queue_message_for_discord
+            
+            discord_enabled = hasattr(config, 'DISCORD_ENABLED') and getattr(config, 'DISCORD_ENABLED', False)
+            logger.debug(f"Discord enabled: {discord_enabled}")
+            
+            if discord_enabled:
+                logger.info(f"Sending message to Discord: {truncated_message_str[:100]}...")
+                # Simply queue the message for Discord
+                queue_message_for_discord(truncated_message_str)
+                logger.debug("Message queued for Discord successfully")
+            else:
+                logger.debug("Discord is disabled, skipping Discord send")
+                
+        except ImportError as e:
+            logger.debug(f"Discord bot not available (ImportError): {e}")
+        except Exception as e:
+            logger.error(f"Discord integration error: {e}")
+            logger.exception("Discord integration exception:")
+    else:
+        logger.debug("send_to_discord=False, skipping Discord send")
+    
     logger.debug(
         "---------------------MSG TO CHANNEL----------------------")
     logger.debug(truncated_message_str)
@@ -437,24 +468,27 @@ def send_prompt_to_openai(msg):
     )
     return completion
 
-# This function will process the message for Open API
-# This will connect to OpenAI and send the inquiry/message for AI to response
-# Then calls the msgToChannel to send the response back to channel
-# This also logs the what message was sent to OpenAI and the response
-def processMessageForOpenAI(self, msg, conversation_mode, logger, contextHistory):
+def process_ai_message(user_message, conversation_mode="normal", contextHistory=None, platform="twitch", logger=None):
+    """
+    Platform-agnostic AI message processing.
+    Returns the AI response without platform-specific handling.
+    """
+    if contextHistory is None:
+        contextHistory = []
+    
+    if logger is None:
+        import logging
+        logger = logging.getLogger(__name__)
 
     # let's give these requests some breathing room
     time.sleep(config.MONITOR_GAME_SLEEP_SECONDS)
 
     # remove open sesame
-    msg = msg.replace('open sesame', '')
+    msg = user_message.replace('open sesame', '')
     logger.debug(
         "----------------------------------------NEW MESSAGE FOR OPENAI-----------------------------------------")
-    # logger.debug(msg)
     logger.debug(
         'msg omitted in log, to see it, look in: "sent to OpenAI"')
-    # remove open sesame
-    msg = msg.replace('open sesame', '')
 
     # remove quotes
     msg = msg.replace('"', '')
@@ -463,28 +497,13 @@ def processMessageForOpenAI(self, msg, conversation_mode, logger, contextHistory
     # add line break to ensure separation
     msg = msg + "\n"
 
-    # TODO: redo this logic
-    # if bool(config.STOP_WORDS_FLAG):
-    #    msg, removedWords = tokensArray.apply_stop_words_filter(msg)
-    #    logger.debug("removed stop words: %s" , removedWords)
-
     # check tokensize
     total_tokens = tokensArray.num_tokens_from_string(
         msg, config.TOKENIZER_ENCODING)
     msg_length = len(msg)
     logger.debug(f"string length: {msg_length}, {total_tokens} tokens")
 
-    # This approach calculates the token_ratio as the desired token limit divided by the actual total tokens.
-    # Then, it trims the message length based on this ratio, ensuring that the message fits within the desired token limit.
-    # Additionally, the code adjusts the desired token limit by subtracting the buffer size before calculating the token ratio.
-    # This ensures that the trimming process takes the buffer into account and helps prevent the message from
-    # exceeding the desired token limit by an additional (BUFFER) of 200 tokens.
-
-    # check tokensize
-    total_tokens = tokensArray.num_tokens_from_string(
-        msg, config.TOKENIZER_ENCODING)
-    msg_length = len(msg)
-    logger.debug(f"string length: {msg_length}, {total_tokens} tokens")
+    # Trim message if too long
     if int(total_tokens) > config.CONVERSATION_MAX_TOKENS:
         divided_by = math.ceil(len(msg) // config.CONVERSATION_MAX_TOKENS)
         logger.debug(
@@ -510,12 +529,13 @@ def processMessageForOpenAI(self, msg, conversation_mode, logger, contextHistory
         # no mood / perspective
         pass
     else:
-
         # add complete array as msg to OpenAI
         msg = msg + \
             tokensArray.get_printed_array("reversed", contextHistory)
+        
         # Choose a random mood and perspective from the selected options
-        mood = random.choice(self.selected_moods)
+        selected_moods = [config.MOOD_OPTIONS[i] for i in config.BOT_MOODS]
+        mood = random.choice(selected_moods)
 
         if conversation_mode == "replay_analysis":
             # say cutoff is 4, then select indices 0-3
@@ -547,10 +567,7 @@ def processMessageForOpenAI(self, msg, conversation_mode, logger, contextHistory
                         + msg)
 
     logger.debug("CONVERSATION MODE: " + conversation_mode)
-
     logger.debug("sent to OpenAI: %s", msg)
-
-    #msgToChannel(self, "chanchan", logger)
 
     completion = send_prompt_to_openai(msg)
 
@@ -584,60 +601,67 @@ def processMessageForOpenAI(self, msg, conversation_mode, logger, contextHistory
             logger.debug("cleaned up message from OpenAI:")
             # replace with ? all non ascii characters that throw an error in logger
             response = tokensArray.replace_non_ascii(response, replacement='?')
-
             logger.debug(response)
 
-            if len(response) >= 400:
-                logger.debug(
-                    f"Chunking response since it's {len(response)} characters long")
+            # Remove all occurrences of "AI: "
+            response = re.sub(r'\bAI: ', '', response)
+            
+            # Add AI response to conversation context
+            tokensArray.add_new_msg(
+                contextHistory, 'AI: ' + response + "\n", logger)
 
-                # Split the response into chunks of 400 characters without splitting words
-                chunks = []
-                temp_chunk = ''
-                for word in response.split():
-                    if len(temp_chunk + ' ' + word) <= 400:
-                        temp_chunk += ' ' + word if temp_chunk != '' else word
-                    else:
-                        chunks.append(temp_chunk)
-                        temp_chunk = word
-                if temp_chunk:
-                    chunks.append(temp_chunk)
-
-                # Send response chunks to chat
-                for chunk in chunks:
-                    # Remove all occurrences of "AI: "
-                    chunk = re.sub(r'\bAI: ', '', chunk)
-                    msgToChannel(self, chunk, logger)
-
-                    # Add AI response to conversation context
-                    tokensArray.add_new_msg(
-                        contextHistory, 'AI: ' + chunk + "\n", logger)
-
-                    # Log relevant details
-                    logger.debug(f'Sending openAI response chunk: {chunk}')
-                    logger.debug(
-                        f'Conversation in context so far: {tokensArray.get_printed_array("reversed", contextHistory)}')
-            else:
-                response = re.sub(r'\bAI: ', '', response)
-                # if response is less than 150 characters
-                if len(response) <= 150:
-                    # really short messages get to be spoken
-                    msgToChannel(self, response, logger, text2speech=True)
-                else:
-                    msgToChannel(self, response, logger)                                        
-
-                # Add AI response to conversation context
-                tokensArray.add_new_msg(
-                    contextHistory, 'AI: ' + response + "\n", logger)
-
-                # Log relevant details
-                logger.debug(f'AI msg to chat: {response}')
-                logger.debug(
-                    f'Conversation in context so far: {tokensArray.get_printed_array("reversed", contextHistory)}')
+            logger.debug(f'AI response generated: {response}')
+            logger.debug(
+                f'Conversation in context so far: {tokensArray.get_printed_array("reversed", contextHistory)}')
+            
+            return response
 
         else:
             response = 'oops, I have no response to that'
-            msgToChannel(self, response, logger)
-            logger.debug('Failed to send response: %s', response)
-    except SystemExit as e:
-        logger.error('Failed to send response: %s', e)
+            logger.debug('Failed to generate response: %s', response)
+            return response
+            
+    except Exception as e:
+        logger.error('Failed to generate response: %s', e)
+        return 'oops, I have no response to that'
+
+def processMessageForOpenAI(self, msg, conversation_mode, logger, contextHistory):
+    """
+    Legacy function for Twitch bot compatibility.
+    Now uses the platform-agnostic process_ai_message function.
+    """
+    
+    # Use the new platform-agnostic function
+    response = process_ai_message(msg, conversation_mode, contextHistory, "twitch", logger)
+    
+    if len(response) >= 400:
+        logger.debug(
+            f"Chunking response since it's {len(response)} characters long")
+
+        # Split the response into chunks of 400 characters without splitting words
+        chunks = []
+        temp_chunk = ''
+        for word in response.split():
+            if len(temp_chunk + ' ' + word) <= 400:
+                temp_chunk += ' ' + word if temp_chunk != '' else word
+            else:
+                chunks.append(temp_chunk)
+                temp_chunk = word
+        if temp_chunk:
+            chunks.append(temp_chunk)
+
+        # Send response chunks to chat
+        for chunk in chunks:
+            msgToChannel(self, chunk, logger)
+            # Log relevant details
+            logger.debug(f'Sending openAI response chunk: {chunk}')
+    else:
+        # if response is less than 150 characters
+        if len(response) <= 150:
+            # really short messages get to be spoken
+            msgToChannel(self, response, logger, text2speech=True)
+        else:
+            msgToChannel(self, response, logger)                                        
+
+        # Log relevant details
+        logger.debug(f'AI msg to chat: {response}')

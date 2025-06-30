@@ -554,8 +554,8 @@ class Database:
             reformatted_list = [line.replace("'", "").replace(
                 '"', '') for line in reformatted_list]
 
-            # Extract the first 10 lines (or as many as exist)
-            return reformatted_list[1:30]
+            # Extract the first few lines
+            return reformatted_list[1:config.BUILD_ORDER_COUNT_TO_ANALYZE]
 
         else:
             return None

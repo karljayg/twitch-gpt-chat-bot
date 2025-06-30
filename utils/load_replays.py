@@ -26,11 +26,17 @@ if debug_mode:
     print('Debug mode activated.')
 
 # Prompt for folder path or username-based substitution
-folder_input = input(r"Enter the full path (e.g., C:\Users\MYNAME\Documents\StarCraft II\Accounts) "
-                     "OR enter your Windows username (with optional subfolder, e.g., jsmith\OneDrive): ")
+default_path = r"C:\Users\karl_\OneDrive\Documents\StarCraft II\Accounts"
+folder_input = input(f"Enter the full path (e.g., {default_path}) "
+                     f"OR enter your Windows username (with optional subfolder, e.g., jsmith\\OneDrive) "
+                     f"OR press Enter to use default ({default_path}): ").strip()
 
+# Use default path if nothing entered
+if not folder_input:
+    folder_path = default_path
+    print(f"Using default path: {folder_path}")
 # Determine if the input is a full path based on the presence of a drive letter (e.g., "C:")
-if ":" in folder_input and "\\" in folder_input:
+elif ":" in folder_input and "\\" in folder_input:
     folder_path = folder_input
 else:
     # If no drive letter is detected, treat input as username/subfolder and use the default structure
@@ -174,7 +180,7 @@ class ReplayLoader:
             build_orders = {player_key: player_data['buildOrder'] for player_key, player_data in
                             replay_data['players'].items()}
             for player_key, build_order in build_orders.items():
-                player_info = f"{replay_data['players'][player_key]['name']}'s Build Order (first 20 steps):"
+                player_info = f"{replay_data['players'][player_key]['name']}'s Build Order (first set of steps):"
                 replay_summary += player_info + '\n'
                 for order in build_order[:int(build_order_count)]:
                     time = order['time']

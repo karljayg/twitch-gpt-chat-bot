@@ -35,6 +35,14 @@ HEADERS = {"Client-ID": CLIENT_ID,
 TWITCH_CHAT_BYTE_LIMIT = 450 #512 but to account for overhead
 
 """
+|   Discord Settings
+"""
+# Discord Bot settings
+DISCORD_TOKEN = ""  # Your Discord bot token
+DISCORD_CHANNEL_ID = None  # Channel ID (integer) where the bot should operate
+DISCORD_ENABLED = True  # Set to False to disable Discord bot
+
+"""
 |   OpenAI Settings
 """
 # OpenAI API credentials

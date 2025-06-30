@@ -85,15 +85,15 @@ def game_started(self, current_game, contextHistory, logger):
                             # do this before alias substitutions, since we are only altering speaking/chat, not when searching for actual player name in DB records
                             player_record = "past results:\n" + '\n'.join(self.db.get_player_records(player_name))
 
-                            # get the first 30 build steps of the opponent with same race matchup
-                            first_30_build_steps = self.db.extract_opponent_build_order(player_name, player_current_race, streamer_current_race)
+                            # get the defined amount of build steps of the opponent with same race matchup from config.BUILD_ORDER_COUNT_TO_ANALYZE
+                            first_few_build_steps = self.db.extract_opponent_build_order(player_name, player_current_race, streamer_current_race)
 
                             # if streamer is Random, then the last replay retrieved from previous query is the one to use
                             # use the last replay retrieved from previous query for Random, no need to requery coz the race doesn't matter since SC2 does not save 'Random' race in replay
                             # just the actual resulting race, to Random ->   Z, T, or P only in replay
                             if(streamer_current_race == "Random"):
-                                if first_30_build_steps is None:
-                                    first_30_build_steps = result
+                                if first_few_build_steps is None:
+                                    first_few_build_steps = result
 
                             # for speaking/chat purposes, do the substitutions
                             not_alias = tokensArray.find_master_name(player_name)
@@ -117,11 +117,11 @@ def game_started(self, current_game, contextHistory, logger):
                                         player_record = player_record.replace(player_name, not_alias)
                                         logger.debug(f"new player_record: {player_record}")
 
-                                # Replace in first_30_build_steps if it is a list
-                                if first_30_build_steps is not None:
-                                    logger.debug("Attempting to replace in first_30_build_steps")
-                                    if isinstance(first_30_build_steps, list):
-                                        first_30_build_steps = [item.replace(player_name, not_alias) for item in first_30_build_steps if isinstance(item, str)]
+                                # Replace in first_few_build_steps if it is a list
+                                if first_few_build_steps is not None:
+                                    logger.debug("Attempting to replace in first_few_build_steps")
+                                    if isinstance(first_few_build_steps, list):
+                                        first_few_build_steps = [item.replace(player_name, not_alias) for item in first_few_build_steps if isinstance(item, str)]
                                 player_name = not_alias
                             else:
                                 logger.debug(f"no alias found for {player_name}")
@@ -177,8 +177,8 @@ def game_started(self, current_game, contextHistory, logger):
                             processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
 
                             # if there is a previous game with same race matchup
-                            if first_30_build_steps is not None:
-                                msg = f"The opponent {player_name}'s build order: {first_30_build_steps} \n"
+                            if first_few_build_steps is not None:
+                                msg = f"The opponent {player_name}'s build order: {first_few_build_steps} \n"
                                 msg += "Keep it short 25 words or less: \n"
                                 msg += "Mention any of these found in the opponent's build order:"
                                 msg += "roach warren, baneling nest, spire, nydus, hydra den, starport, forge, fusion core, ghost, factory, twilight, dark shrine, stargate, robotics \n"
@@ -186,9 +186,9 @@ def game_started(self, current_game, contextHistory, logger):
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
 
                                 msg = "Keep it concise in 400 characters or less: \n"
-                                msg += "print the first 20 steps of the opponent's build order and group consecutive items together. For example, Probe 10 - Probe 11 - Probe 12 should be Probe (11-13). \n"
+                                msg += f"print the first {config.BUILD_ORDER_COUNT_TO_ANALYZE} steps of the opponent's build order and group consecutive items together. For example, Probe 10 - Probe 11 - Probe 12 should be Probe (11-13). \n"
                                 msg += "-----\n"
-                                msg += f"{player_name}'s build order versus {config.STREAMER_NICKNAME}'s {streamer_picked_race}: {first_30_build_steps} \n"
+                                msg += f"{player_name}'s build order versus {config.STREAMER_NICKNAME}'s {streamer_picked_race}: {first_few_build_steps} \n"
                                 msg += f"omit {config.STREAMER_NICKNAME}'s build order. \n"                                
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
                             else:
