@@ -4,6 +4,7 @@ import logging
 import asyncio
 import queue
 import threading
+from datetime import datetime, timedelta
 from settings import config
 from api.chat_utils import clean_text_for_chat
 import utils.tokensArray as tokensArray
@@ -16,18 +17,26 @@ message_queue = queue.Queue()
 class DiscordBot(commands.Bot):
     def __init__(self, twitch_bot_ref=None):
         intents = discord.Intents.default()
-        # Enable message content intent to read Discord messages
+        # Enable message content intent to read Discord messages (required for message content access)
         intents.message_content = True
         
         super().__init__(command_prefix='!', intents=intents)
         
+        # Reference to Twitch bot for shared functionality
         self.twitch_bot = twitch_bot_ref
         self.channel_id = None
         
-        # We'll use the same context history as the Twitch bot
+        # Share context history with Twitch bot for consistent AI responses
         self.contextHistory = []
         if twitch_bot_ref:
             self.contextHistory = twitch_bot_ref.contextHistory if hasattr(twitch_bot_ref, 'contextHistory') else []
+        
+        # Track messages for last word feature - stores message metadata for reply detection
+        self.message_tracker = {}  # {message_id: {'timestamp': datetime, 'has_replies': bool, 'content': str, 'author': str}}
+        self.last_processed_message_time = None  # Track the timestamp of the last message we replied to (prevents re-processing)
+        
+        # Background task for last word feature (will be started after on_ready)
+        self.last_word_task = None
 
     async def on_ready(self):
         """Called when the bot is ready."""
@@ -39,14 +48,14 @@ class DiscordBot(commands.Bot):
         twitch_logger.info(f'Bot ID: {self.user.id}')
         twitch_logger.info(f'Connected to {len(self.guilds)} guilds')
         
-        # Set the channel to monitor
+        # Set the channel to monitor based on config
         if config.DISCORD_CHANNEL_ID:
             self.channel_id = config.DISCORD_CHANNEL_ID
             twitch_logger.info(f'Looking for channel ID: {self.channel_id}')
             channel = self.get_channel(self.channel_id)
             if channel:
                 twitch_logger.info(f'Found Discord channel: {channel.name} in guild: {channel.guild.name}')
-                # Send the same random emoji greeting as Twitch bot
+                # Send the same random emoji greeting as Twitch bot to announce presence
                 from utils.emote_utils import get_random_emote
                 greeting_message = get_random_emote()
                 try:
@@ -55,10 +64,16 @@ class DiscordBot(commands.Bot):
                 except Exception as e:
                     twitch_logger.error(f'Failed to send greeting message: {e}')
                 
-                # Start the message processing task
+                # Start the message processing task (handles queued messages from Twitch bot)
                 twitch_logger.info('Starting message queue processor...')
                 self.loop.create_task(self.process_message_queue())
+                
+                # Start the last word checker task if enabled (ensures bot gets last word in conversations)
+                if getattr(config, 'DISCORD_LAST_WORD_ENABLED', True):
+                    twitch_logger.info('Starting last word checker...')
+                    self.last_word_task = self.loop.create_task(self.last_word_checker_loop())
             else:
+                # Debug info: list all available channels if target not found
                 twitch_logger.error(f'Could not find Discord channel with ID: {self.channel_id}')
                 twitch_logger.info('Available channels:')
                 for guild in self.guilds:
@@ -68,9 +83,173 @@ class DiscordBot(commands.Bot):
         else:
             twitch_logger.error("No Discord channel ID configured")
 
+    async def last_word_checker_loop(self):
+        """Configurable loop to check for messages that haven't been replied to and need the bot's 'last word'.
+        
+        This feature ensures the bot gets the last word in conversations that have gone silent.
+        It only responds to the most recent unreplied message to avoid spam.
+        Timing is fully configurable via DISCORD_LAST_WORD_CHECK_FREQUENCY_HOURS and DISCORD_LAST_WORD_TIMEOUT_HOURS.
+        """
+        await self.wait_until_ready()  # Wait until bot is ready
+        
+        while not self.is_closed():
+            try:
+                await self.last_word_checker()
+                
+                # Use configurable check frequency (how often to scan for unreplied messages)
+                check_frequency_hours = getattr(config, 'DISCORD_LAST_WORD_CHECK_FREQUENCY_HOURS', 1)
+                check_frequency_seconds = check_frequency_hours * 3600
+                await asyncio.sleep(check_frequency_seconds)
+                
+            except Exception as e:
+                try:
+                    from api.twitch_bot import logger as twitch_logger
+                    twitch_logger.error(f"Error in last word checker loop: {e}")
+                    # Wait a bit before retrying on error to avoid spam on persistent issues
+                    await asyncio.sleep(300)  # 5 minutes
+                except:
+                    logger.error(f"Error in last word checker loop: {e}")
+                    await asyncio.sleep(300)
+
+    async def last_word_checker(self):
+        """Check for messages that haven't been replied to and need the bot's 'last word'."""
+        if not getattr(config, 'DISCORD_LAST_WORD_ENABLED', True):
+            return
+            
+        try:
+            from api.twitch_bot import logger as twitch_logger
+            
+            timeout_hours = getattr(config, 'DISCORD_LAST_WORD_TIMEOUT_HOURS', 3)
+            check_frequency_hours = getattr(config, 'DISCORD_LAST_WORD_CHECK_FREQUENCY_HOURS', 1)
+            
+            twitch_logger.debug(f"Last word checker running - timeout: {timeout_hours}h, frequency: {check_frequency_hours}h")
+            
+            cutoff_time = datetime.now() - timedelta(hours=timeout_hours)
+            
+            # Find unreplied messages that are old enough AND newer than our last processed message
+            # This prevents re-processing the same messages and ensures we only get new unreplied messages
+            candidate_messages = []
+            messages_to_remove = []
+            
+            for message_id, data in self.message_tracker.items():
+                # Clean up very old messages (older than timeout threshold)
+                if data['timestamp'] < cutoff_time:
+                    messages_to_remove.append(message_id)
+                    
+                    # Check if this is an unreplied user message that we haven't processed yet
+                    # Conditions: no replies, not from bot, not already replied to by bot, newer than last processed
+                    if (not data['has_replies'] and 
+                        not data.get('bot_replied', False) and 
+                        data.get('author') != 'BOT' and
+                        (self.last_processed_message_time is None or data['timestamp'] > self.last_processed_message_time)):
+                        candidate_messages.append((message_id, data))
+            
+            # Clean up old messages to prevent memory bloat
+            for message_id in messages_to_remove:
+                del self.message_tracker[message_id]
+            
+            # Reply to the MOST RECENT unreplied message only (prevents spam from old message backlog)
+            if candidate_messages and self.channel_id:
+                # Sort by timestamp to get the most recent message (most relevant to current conversation)
+                candidate_messages.sort(key=lambda x: x[1]['timestamp'], reverse=True)
+                message_id, data = candidate_messages[0]  # Take the most recent
+                
+                channel = self.get_channel(self.channel_id)
+                if channel:
+                    try:
+                        original_message = await channel.fetch_message(message_id)
+                        twitch_logger.info(f"Last word checker found {len(candidate_messages)} unreplied messages, responding to the most recent from {data['author']}...")
+                        await self.process_last_word_message(original_message, twitch_logger)
+                        
+                        # Update our last processed time to prevent re-processing
+                        self.last_processed_message_time = data['timestamp']
+                        
+                        # Mark as replied to avoid double responses
+                        if message_id in self.message_tracker:
+                            self.message_tracker[message_id]['bot_replied'] = True
+                            
+                    except Exception as e:
+                        twitch_logger.error(f"Error processing last word for message {message_id}: {e}")
+            elif not candidate_messages:
+                twitch_logger.debug("Last word checker found no new unreplied messages to process")
+                            
+        except Exception as e:
+            try:
+                from api.twitch_bot import logger as twitch_logger
+                twitch_logger.error(f"Error in last word checker: {e}")
+            except:
+                logger.error(f"Error in last word checker: {e}")
+
+    async def process_last_word_message(self, message, logger):
+        """Process a message for the last word feature."""
+        logger.info(f"Processing last word for message from {message.author}: {message.content}")
+        
+        # Generate AI response
+        try:
+            from api.chat_utils import process_ai_message
+            import utils.tokensArray as tokensArray
+            
+            # Use separate context for last word (to avoid interfering with main conversation)
+            last_word_context = []
+            
+            # Generate AI response 
+            def generate_ai_response():
+                return process_ai_message(
+                    user_message=message.content,
+                    conversation_mode="normal", 
+                    contextHistory=last_word_context,
+                    platform="discord",
+                    logger=logger
+                )
+            
+            # Run AI processing in executor to avoid blocking
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(None, generate_ai_response)
+            
+            if response:
+                # Clean and truncate for Discord (2000 char limit)
+                from api.chat_utils import clean_text_for_chat
+                cleaned_response = clean_text_for_chat(response)
+                truncated_response = tokensArray.truncate_to_byte_limit(cleaned_response, 1900)
+                
+                logger.info(f"Sending last word AI reply to Discord: {truncated_response[:100]}...")
+                # Use actual Discord reply instead of regular message
+                sent_message = await message.reply(truncated_response)
+                logger.info("Successfully sent last word AI reply to Discord")
+                
+                # Track bot's response message for reply detection (only if last word feature is enabled)
+                if getattr(config, 'DISCORD_LAST_WORD_ENABLED', True):
+                    self.message_tracker[sent_message.id] = {
+                        'timestamp': datetime.now(),
+                        'has_replies': False,
+                        'content': truncated_response,
+                        'author': 'BOT',
+                        'bot_replied': True  # Mark as already replied since it's from the bot
+                    }
+            else:
+                logger.warning("No AI response generated for last word message")
+                
+        except Exception as e:
+            logger.error(f"Error in last word AI processing: {e}")
+            logger.exception("Last word AI processing exception:")
+    
+    async def close(self):
+        """Clean shutdown of the bot."""
+        try:
+            # Cancel the last word checker task if it exists to prevent hanging tasks
+            if self.last_word_task and not self.last_word_task.done():
+                self.last_word_task.cancel()
+        except Exception as e:
+            logger.error(f"Error during bot shutdown: {e}")
+        await super().close()
+
     async def process_message_queue(self):
-        """Process messages from the queue and send them to Discord."""
-        # Use the same logger as the Twitch bot
+        """Process messages from the queue and send them to Discord.
+        
+        This runs continuously and processes messages that other parts of the bot
+        (like the Twitch bot) want to send to Discord via the queue.
+        """
+        # Use the same logger as the Twitch bot to keep logs in same file
         from api.twitch_bot import logger as twitch_logger
         
         twitch_logger.info("Discord message queue processor started")
@@ -92,12 +271,12 @@ class DiscordBot(commands.Bot):
                         twitch_logger.error(f"Failed to send message #{message_count} to Discord: {send_error}")
                         twitch_logger.info(f"Discord send stats - Success: {message_count - failed_count}, Failed: {failed_count}")
                 
-                # Wait a bit before checking again
+                # Wait a bit before checking again (prevents busy waiting)
                 await asyncio.sleep(0.1)
             except Exception as e:
                 twitch_logger.error(f"Error processing message queue: {e}")
                 twitch_logger.exception("Message queue processing exception:")
-                await asyncio.sleep(1)
+                await asyncio.sleep(1)  # Wait longer on error
 
     async def on_message(self, message):
         """Handle Discord messages."""
@@ -105,8 +284,26 @@ class DiscordBot(commands.Bot):
             # Use the same logger as the Twitch bot to ensure logs go to the same file
             from api.twitch_bot import logger as twitch_logger
             
-            # Don't respond to own messages
+            # Don't respond to own messages but track them for reply detection (only if last word feature is enabled)
             if message.author == self.user:
+                # Track bot's own messages and mark previous messages as having replies
+                if getattr(config, 'DISCORD_LAST_WORD_ENABLED', True):
+                    # Mark all previous unreplied messages as having replies (bot activity counts as replies)
+                    # This prevents the last word feature from triggering when the bot is actively participating
+                    current_time = datetime.now()
+                    for msg_id, data in self.message_tracker.items():
+                        if not data['has_replies'] and data['timestamp'] < current_time:
+                            data['has_replies'] = True
+                            twitch_logger.debug(f"Marked message from {data['author']} as having replies due to bot response")
+                    
+                    # Track this bot message for future reply detection
+                    self.message_tracker[message.id] = {
+                        'timestamp': current_time,
+                        'has_replies': False,
+                        'content': message.content,
+                        'author': 'BOT',
+                        'bot_replied': True  # Mark as already replied since it's from the bot
+                    }
                 return
                 
             # Only respond in the configured channel
@@ -115,31 +312,87 @@ class DiscordBot(commands.Bot):
                 
             twitch_logger.info(f"Received Discord message from {message.author}: {message.content}")
             
+            # Track message for last word feature (if enabled) - only track user messages, not bot messages
+            if getattr(config, 'DISCORD_LAST_WORD_ENABLED', True):
+                # Mark all previous unreplied messages as having replies (since someone just posted)
+                # This simulates real Discord behavior where people reply by posting new messages, not using formal replies
+                current_time = datetime.now()
+                for msg_id, data in self.message_tracker.items():
+                    if not data['has_replies'] and data['timestamp'] < current_time:
+                        data['has_replies'] = True
+                        twitch_logger.debug(f"Marked message from {data['author']} as having replies due to new message")
+                
+                # Add this new message to tracking for future last word processing
+                self.message_tracker[message.id] = {
+                    'timestamp': current_time,
+                    'has_replies': False,
+                    'content': message.content,
+                    'author': message.author.name,
+                    'bot_replied': False
+                }
+            
+            # Check if this is a formal reply to one of our messages (using Discord's reply feature)
+            is_reply_to_bot = False
+            if message.reference and getattr(config, 'DISCORD_RESPOND_TO_REPLIES', True):
+                try:
+                    replied_message = await message.channel.fetch_message(message.reference.message_id)
+                    if replied_message.author == self.user:
+                        is_reply_to_bot = True
+                        twitch_logger.info(f"Message is a formal reply to bot - will respond")
+                    
+                    # Mark the specifically replied message as having replies (this happens in addition to the general logic above)
+                    # This handles the less common case where people actually use Discord's reply button
+                    if message.reference.message_id in self.message_tracker:
+                        self.message_tracker[message.reference.message_id]['has_replies'] = True
+                        twitch_logger.debug(f"Marked specifically replied message as having replies")
+                except Exception as e:
+                    twitch_logger.debug(f"Could not fetch replied message: {e}")
+            
+            # Check if bot is mentioned
+            is_bot_mentioned = False
+            if getattr(config, 'DISCORD_RESPOND_TO_MENTIONS', True):
+                if self.user in message.mentions:
+                    is_bot_mentioned = True
+                    twitch_logger.info(f"Bot mentioned in message - will respond")
+            
             # Check for special commands FIRST - this prevents double responses
+            # Commands like "wiki", "career", "history" always get responses regardless of dice roll
             msg_lower = message.content.lower()
             if self.should_always_respond(msg_lower):
                 twitch_logger.info(f"Processing Discord command: {message.content}")
                 await self.process_discord_command(message, twitch_logger)
                 return  # Exit early - don't go through dice roll system
             
-            # For regular messages (non-commands), use dice roll system like Twitch
-            import random
-            roll = random.random()
-            response_threshold = getattr(config, 'RESPONSE_THRESHOLD', 0.7)
+            # Determine if we should respond
+            should_respond = False
             
-            twitch_logger.debug(f"Discord dice roll: {roll:.2f} vs threshold: {response_threshold}")
-            
-            if roll < response_threshold:
-                twitch_logger.info(f"Processing Discord message for AI response: {message.content}")
-                await self.process_discord_ai_message(message, twitch_logger)
+            # Always respond to mentions and replies (if enabled)
+            if is_bot_mentioned or is_reply_to_bot:
+                should_respond = True
+                twitch_logger.info(f"Responding due to mention/reply - mentioned: {is_bot_mentioned}, reply: {is_reply_to_bot}")
             else:
-                twitch_logger.debug(f"Discord dice roll failed - will not respond to: {message.content}")
+                # For regular messages (non-commands), use dice roll system with Discord-specific probability
+                # Discord gets lower probability than Twitch because Discord channels are typically more active
+                import random
+                roll = random.random()
+                discord_threshold = getattr(config, 'DISCORD_DICE_RESPONSE_PROBABILITY', 0.35)
+                
+                twitch_logger.debug(f"Discord dice roll: {roll:.2f} vs threshold: {discord_threshold}")
+                
+                if roll < discord_threshold:
+                    should_respond = True
+                    twitch_logger.info(f"Discord dice roll passed - will respond")
+                else:
+                    twitch_logger.debug(f"Discord dice roll failed - will not respond to: {message.content}")
+            
+            if should_respond:
+                await self.process_discord_ai_message(message, twitch_logger)
                 
         except Exception as e:
             twitch_logger.error(f"Error processing Discord message: {e}")
             twitch_logger.exception("Discord message processing exception:")
             
-        # Process commands
+        # Process commands (Discord.py built-in command processing)
         await self.process_commands(message)
     
     def should_always_respond(self, msg_lower):
@@ -339,8 +592,18 @@ class DiscordBot(commands.Bot):
                 truncated_response = tokensArray.truncate_to_byte_limit(cleaned_response, 1900)
                 
                 logger.info(f"Sending AI response to Discord: {truncated_response[:100]}...")
-                await message.channel.send(truncated_response)
+                sent_message = await message.channel.send(truncated_response)
                 logger.info("Successfully sent AI response to Discord")
+                
+                # Track bot's response message for reply detection (only if last word feature is enabled)
+                if getattr(config, 'DISCORD_LAST_WORD_ENABLED', True):
+                    self.message_tracker[sent_message.id] = {
+                        'timestamp': datetime.now(),
+                        'has_replies': False,
+                        'content': truncated_response,
+                        'author': 'BOT',
+                        'bot_replied': True  # Mark as already replied since it's from the bot
+                    }
             else:
                 logger.warning("No AI response generated for Discord message")
                 
@@ -381,20 +644,29 @@ class DiscordBot(commands.Bot):
         else:
             twitch_logger.error(f"Discord channel not found: {self.channel_id}")
 
-# Global Discord bot instance
+# Global Discord bot instance - allows other modules to access the bot
 discord_bot_instance = None
 
 def get_discord_bot():
-    """Get the Discord bot instance."""
+    """Get the Discord bot instance.
+    
+    Returns the global Discord bot instance so other parts of the application
+    can interact with it (e.g., to check if it's ready, send messages, etc.).
+    """
     return discord_bot_instance
 
 def queue_message_for_discord(message_text):
-    """Queue a message to be sent to Discord."""
+    """Queue a message to be sent to Discord.
+    
+    This is the main interface used by other parts of the bot (like Twitch bot)
+    to send messages to Discord. Messages are queued and processed asynchronously.
+    """
     try:
-        # Use the same logger as the Twitch bot
+        # Use the same logger as the Twitch bot to keep logs in same file
         from api.twitch_bot import logger as twitch_logger
         
         # Simple connection check - only queue if Discord bot is ready
+        # This prevents messages from being lost if Discord is disconnected
         if discord_bot_instance and discord_bot_instance.is_ready():
             message_queue.put_nowait(message_text)
             twitch_logger.info(f"Queued message for Discord (queue size: {message_queue.qsize()}): {message_text[:100]}...")

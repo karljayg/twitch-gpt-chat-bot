@@ -42,6 +42,14 @@ DISCORD_TOKEN = ""  # Your Discord bot token
 DISCORD_CHANNEL_ID = None  # Channel ID (integer) where the bot should operate
 DISCORD_ENABLED = True  # Set to False to disable Discord bot
 
+# Discord Behavior Settings
+DISCORD_RESPOND_TO_MENTIONS = True  # Reply when @psi_mathison is mentioned
+DISCORD_RESPOND_TO_REPLIES = True  # Reply when someone replies to bot's messages
+DISCORD_DICE_RESPONSE_PROBABILITY = 0.35  # Half of RESPONSE_PROBABILITY for dice roll responses
+DISCORD_LAST_WORD_ENABLED = True  # Reply to messages with no replies after timeout (improved: only replies to most recent)
+DISCORD_LAST_WORD_TIMEOUT_HOURS = 3  # Hours to wait before replying to unreplied messages
+DISCORD_LAST_WORD_CHECK_FREQUENCY_HOURS = 1  # How often to check for unreplied messages (recommended: 0.5-2 hours)
+
 """
 |   OpenAI Settings
 """

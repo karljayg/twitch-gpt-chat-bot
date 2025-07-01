@@ -48,48 +48,42 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
         # unlike below when there are changes, we always log
         # logger.debug(f"GAME STATES (1): {previous_game}, {current_game.get_status()}, {previous_game.get_status()} \n")
         return
+
+    previous_game = current_game
+    if previous_game:
+        logger.debug(f"GAME STATES (2): {previous_game}, {current_game.get_status()}, {previous_game.get_status()} \n")
     else:
-        # do this here also, to ensure it does not get processed again
-        previous_game = current_game
-        if previous_game:
-            logger.debug(f"GAME STATES (2): {previous_game}, {current_game.get_status()}, {previous_game.get_status()} \n")            
-            pass
-        else:
-            logger.debug(f"GAME STATES (3): {previous_game}, {current_game.get_status()}, {previous_game.get_status()} \n")
-            pass
-    
+        logger.debug(f"GAME STATES (3): {previous_game}, {current_game.get_status()}, {previous_game.get_status()} \n")
+
     response = ""
-    replay_summary = ""  # Initialize summary string
+    replay_summary = ""
 
     logger.debug("The game status is " + current_game.get_status())
-
-    # prevent the array brackets from being included
     game_player_names = ', '.join(current_game.get_player_names())
+    winning_players = ', '.join(current_game.get_player_names(result_filter='Victory'))
+    losing_players = ', '.join(current_game.get_player_names(result_filter='Defeat'))
 
-    winning_players = ', '.join(
-        current_game.get_player_names(result_filter='Victory'))
-    
-    losing_players = ', '.join(
-        current_game.get_player_names(result_filter='Defeat'))
-    
     if current_game.get_status() in ("MATCH_ENDED", "REPLAY_ENDED"):
-
         if self.first_run:
             logger.debug("this is the first run")
             self.first_run = False
             if config.IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN:
-                logger.debug(
-                    "per config, ignoring previous game results on first run so no need to find latest replay file")
-                return # exit function, do not proceed
+                logger.debug("per config, ignoring previous game results on first run so no need to find latest replay file")
+                return
         else:
             logger.debug("this is not first run")
 
-        # proceed
-        result = find_recent_file_within_time(config.REPLAYS_FOLDER, config.REPLAYS_FILE_EXTENSION, 2, 0, logger)
-        # there are times when current replay file is not ready and it still finds the prev. one despite the SLEEP TIMEOUT of 7 secs
-        # so we are going to do this also to prevent the bot from commenting on the same replay file as the last one
+        result = find_recent_file_within_time(
+            config.REPLAYS_FOLDER,
+            config.REPLAYS_FILE_EXTENSION,
+            2,
+            0,
+            logger,
+            self.last_replay_file
+        )
+
         if self.last_replay_file == result:
-            logger.debug(f"last replay file is same as current {self.last_replay_file}, skipping: \n" + result)
+            logger.debug(f"Skipping duplicate replay file: {result}")
             return
 
         if result:
@@ -102,7 +96,7 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
             # capture error so it does not run another processSC2game
             try:
                 replay_data = spawningtool.parser.parse_replay(result)
-                consecutive_parse_failures = 0  # Reset failure counter on success
+                consecutive_parse_failures = 0
             except Exception as e:
                 consecutive_parse_failures += 1
                 logger.error(f"An error occurred while trying to parse the replay: {e}")
@@ -139,11 +133,7 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
             else:
                 build_order_count = config.BUILD_ORDER_COUNT_TO_ANALYZE
 
-            #################################
-            # Units Lost
-            units_lost_summary = {player_key: player_data['unitsLost'] for player_key, player_data in
-                                    replay_data['players'].items()}
-            
+            units_lost_summary = {player_key: player_data['unitsLost'] for player_key, player_data in replay_data['players'].items()}
             for player_key, units_lost in units_lost_summary.items():
                 # ChatGPT gets confused if you use possessive 's vs by
                 player_info = f"Units Lost by {replay_data['players'][player_key]['name']}"
@@ -160,28 +150,19 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
                     replay_summary += "None \n"
                 replay_summary += '\n'
 
-            # Build Orders
-            build_orders = {player_key: player_data['buildOrder'] for player_key, player_data in
-                            replay_data['players'].items()}
-
-            # Initialize variable for opponent's name
+            build_orders = {player_key: player_data['buildOrder'] for player_key, player_data in replay_data['players'].items()}
             opponent_name = None
-
-            # Separate players based on SC2_PLAYER_ACCOUNTS, start with opponent first
             player_order = []
             for player_key, player_data in replay_data['players'].items():
                 if player_data['name'] in config.SC2_PLAYER_ACCOUNTS:
                     player_order.append(player_key)
                 else:
-                    # This is the opponent
                     opponent_name = player_data['name']
-                    # Put opponent at the start
                     player_order.insert(0, player_key)
 
-            # Loop through build orders using the modified order
             for player_key in player_order:
                 build_order = build_orders[player_key]
-                player_info = f"{replay_data['players'][player_key]['name']}'s Build Order (first 20 steps):"
+                player_info = f"{replay_data['players'][player_key]['name']}'s Build Order (first set of steps):"
                 replay_summary += player_info + '\n'
                 for order in build_order[:int(build_order_count)]:
                     time = order['time']
@@ -191,15 +172,11 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
                     replay_summary += order_info + '\n'
                 replay_summary += '\n'
 
-            # replace player names with streamer name
             for player_name in config.SC2_PLAYER_ACCOUNTS:
-                replay_summary = replay_summary.replace(
-                    player_name, config.STREAMER_NICKNAME)
+                replay_summary = replay_summary.replace(player_name, config.STREAMER_NICKNAME)
 
-            # Save the replay summary to a file
             game_ended_handler.save_file(replay_summary, 'summary', logger)
 
-            # Save to the database
             try:
                 if self.db.insert_replay_info(replay_summary):
                     logger.debug("replay summary saved to database")
@@ -211,19 +188,13 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
         else:
             logger.debug("No result found!")
 
-################
-
     if current_game.get_status() == "MATCH_STARTED":
-        # check to see if player exists in database
         game_player_names = game_started_handler.game_started(self, current_game, contextHistory, logger)
 
     elif current_game.get_status() == "MATCH_ENDED":
-        response = game_ended_handler.game_ended(self, game_player_names,winning_players,losing_players, logger)
+        response = game_ended_handler.game_ended(self, game_player_names, winning_players, losing_players, logger)
 
     elif current_game.get_status() == "REPLAY_STARTED":
-        # no game intros during replays
-        # self.play_SC2_sound("start")
-        # clear context history so that the bot doesn't mix up results from previous games
         contextHistory.clear()
         response = f"{config.STREAMER_NICKNAME} is watching a replay of a game. The players are {game_player_names}"
 
@@ -235,33 +206,21 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
             logger.debug("this is the first run")
             self.first_run = False
             if config.IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN:
-                logger.debug(
-                    "per config, ignoring previous game results on first run")
-                return # exit function, do not proceed to comment on the result, and analysis on game summary
-        else:
-            logger.debug("this is not first run")
+                logger.debug("per config, ignoring previous game results on first run")
+                return
 
-        # proceed
-        # processMessageForOpenAI(self, response, self.conversation_mode, logger, contextHistory)
-
-        # get analysis of game summary from the last real game's replay file that created, unless using config test replay file
         logger.debug("current game status: " + current_game.get_status() +
-                        " isReplay: " + str(current_game.isReplay) +
-                        " ANALYZE_REPLAYS_FOR_TEST: " + str(config.USE_CONFIG_TEST_REPLAY_FILE))
+                     " isReplay: " + str(current_game.isReplay) +
+                     " ANALYZE_REPLAYS_FOR_TEST: " + str(config.USE_CONFIG_TEST_REPLAY_FILE))
 
-        # we do not want to analyze when the game (live or replay) is not in an ended state
-        # or if the duration is short (abandoned game)
-        # unless we are testing with a replay file
         if ((current_game.get_status() not in ["MATCH_STARTED", "REPLAY_STARTED"] and self.total_seconds >= config.ABANDONED_GAME_THRESHOLD)
                 or (current_game.isReplay and config.USE_CONFIG_TEST_REPLAY_FILE)):
-            # get analysis of ended games, or during testing of config test replay file
             logger.debug("analyzing, replay summary to AI: ")
             not_alias = tokensArray.find_master_name(opponent_name)
             if not_alias is not None:
                 replay_summary = replay_summary.replace(opponent_name, not_alias)
 
             processMessageForOpenAI(self, replay_summary, "replay_analysis", logger, contextHistory)
-            # clear after analyzing and making a comment
             replay_summary = ""
         else:
             logger.debug("not analyzing replay")
