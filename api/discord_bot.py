@@ -66,7 +66,7 @@ class DiscordBot(commands.Bot):
                 
                 # Start the message processing task (handles queued messages from Twitch bot)
                 twitch_logger.info('Starting message queue processor...')
-                self.loop.create_task(self.process_message_queue())
+                self.message_queue_task = self.loop.create_task(self.process_message_queue())
                 
                 # Start the last word checker task if enabled (ensures bot gets last word in conversations)
                 if getattr(config, 'DISCORD_LAST_WORD_ENABLED', True):
@@ -92,24 +92,43 @@ class DiscordBot(commands.Bot):
         """
         await self.wait_until_ready()  # Wait until bot is ready
         
-        while not self.is_closed():
-            try:
-                await self.last_word_checker()
-                
-                # Use configurable check frequency (how often to scan for unreplied messages)
-                check_frequency_hours = getattr(config, 'DISCORD_LAST_WORD_CHECK_FREQUENCY_HOURS', 1)
-                check_frequency_seconds = check_frequency_hours * 3600
-                await asyncio.sleep(check_frequency_seconds)
-                
-            except Exception as e:
+        try:
+            while not self.is_closed():
                 try:
-                    from api.twitch_bot import logger as twitch_logger
-                    twitch_logger.error(f"Error in last word checker loop: {e}")
-                    # Wait a bit before retrying on error to avoid spam on persistent issues
-                    await asyncio.sleep(300)  # 5 minutes
-                except:
-                    logger.error(f"Error in last word checker loop: {e}")
-                    await asyncio.sleep(300)
+                    await self.last_word_checker()
+                    
+                    # Use configurable check frequency (how often to scan for unreplied messages)
+                    check_frequency_hours = getattr(config, 'DISCORD_LAST_WORD_CHECK_FREQUENCY_HOURS', 1)
+                    check_frequency_seconds = check_frequency_hours * 3600
+                    await asyncio.sleep(check_frequency_seconds)
+                    
+                except asyncio.CancelledError:
+                    # Task was cancelled (likely due to shutdown) - break gracefully
+                    try:
+                        from api.twitch_bot import logger as twitch_logger
+                        twitch_logger.info("Last word checker loop cancelled - shutting down gracefully")
+                    except:
+                        logger.info("Last word checker loop cancelled - shutting down gracefully")
+                    raise  # Re-raise to properly handle the cancellation
+                    
+                except Exception as e:
+                    try:
+                        from api.twitch_bot import logger as twitch_logger
+                        twitch_logger.error(f"Error in last word checker loop: {e}")
+                        # Wait a bit before retrying on error to avoid spam on persistent issues
+                        await asyncio.sleep(300)  # 5 minutes
+                    except:
+                        logger.error(f"Error in last word checker loop: {e}")
+                        await asyncio.sleep(300)
+                        
+        except asyncio.CancelledError:
+            # Final cancellation handling - ensure we exit cleanly
+            try:
+                from api.twitch_bot import logger as twitch_logger
+                twitch_logger.info("Last word checker loop task cancelled during shutdown")
+            except:
+                logger.info("Last word checker loop task cancelled during shutdown")
+            # Don't re-raise here - let the task end gracefully
 
     async def last_word_checker(self):
         """Check for messages that haven't been replied to and need the bot's 'last word'."""
@@ -236,11 +255,25 @@ class DiscordBot(commands.Bot):
     async def close(self):
         """Clean shutdown of the bot."""
         try:
+            from api.twitch_bot import logger as twitch_logger
+            twitch_logger.info("Discord bot shutting down - cancelling background tasks...")
+            
+            # Cancel the message queue processor task if it exists
+            if hasattr(self, 'message_queue_task') and self.message_queue_task and not self.message_queue_task.done():
+                self.message_queue_task.cancel()
+                twitch_logger.info("Cancelled message queue processor task")
+            
             # Cancel the last word checker task if it exists to prevent hanging tasks
-            if self.last_word_task and not self.last_word_task.done():
+            if hasattr(self, 'last_word_task') and self.last_word_task and not self.last_word_task.done():
                 self.last_word_task.cancel()
+                twitch_logger.info("Cancelled last word checker task")
+                
         except Exception as e:
-            logger.error(f"Error during bot shutdown: {e}")
+            try:
+                from api.twitch_bot import logger as twitch_logger
+                twitch_logger.error(f"Error during bot shutdown: {e}")
+            except:
+                logger.error(f"Error during bot shutdown: {e}")
         await super().close()
 
     async def process_message_queue(self):
@@ -255,28 +288,41 @@ class DiscordBot(commands.Bot):
         twitch_logger.info("Discord message queue processor started")
         message_count = 0
         failed_count = 0
-        while True:
-            try:
-                # Check for messages in the queue (non-blocking)
-                if not message_queue.empty():
-                    message_text = message_queue.get_nowait()
-                    message_count += 1
-                    twitch_logger.info(f"Processing Discord message #{message_count}: {message_text[:100]}...")
+        
+        try:
+            while True:
+                try:
+                    # Check for messages in the queue (non-blocking)
+                    if not message_queue.empty():
+                        message_text = message_queue.get_nowait()
+                        message_count += 1
+                        twitch_logger.info(f"Processing Discord message #{message_count}: {message_text[:100]}...")
+                        
+                        try:
+                            await self.send_message_to_discord(message_text)
+                            twitch_logger.info(f"Successfully sent message #{message_count} to Discord")
+                        except Exception as send_error:
+                            failed_count += 1
+                            twitch_logger.error(f"Failed to send message #{message_count} to Discord: {send_error}")
+                            twitch_logger.info(f"Discord send stats - Success: {message_count - failed_count}, Failed: {failed_count}")
                     
-                    try:
-                        await self.send_message_to_discord(message_text)
-                        twitch_logger.info(f"Successfully sent message #{message_count} to Discord")
-                    except Exception as send_error:
-                        failed_count += 1
-                        twitch_logger.error(f"Failed to send message #{message_count} to Discord: {send_error}")
-                        twitch_logger.info(f"Discord send stats - Success: {message_count - failed_count}, Failed: {failed_count}")
-                
-                # Wait a bit before checking again (prevents busy waiting)
-                await asyncio.sleep(0.1)
-            except Exception as e:
-                twitch_logger.error(f"Error processing message queue: {e}")
-                twitch_logger.exception("Message queue processing exception:")
-                await asyncio.sleep(1)  # Wait longer on error
+                    # Wait a bit before checking again (prevents busy waiting)
+                    await asyncio.sleep(0.1)
+                    
+                except asyncio.CancelledError:
+                    # Task was cancelled (likely due to shutdown) - break gracefully
+                    twitch_logger.info("Message queue processor cancelled - shutting down gracefully")
+                    raise  # Re-raise to properly handle the cancellation
+                    
+                except Exception as e:
+                    twitch_logger.error(f"Error processing message queue: {e}")
+                    twitch_logger.exception("Message queue processing exception:")
+                    await asyncio.sleep(1)  # Wait longer on error
+                    
+        except asyncio.CancelledError:
+            # Final cancellation handling - ensure we exit cleanly
+            twitch_logger.info(f"Message queue processor task cancelled during shutdown - processed {message_count} messages total")
+            # Don't re-raise here - let the task end gracefully
 
     async def on_message(self, message):
         """Handle Discord messages."""
