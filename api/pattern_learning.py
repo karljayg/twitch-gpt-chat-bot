@@ -313,9 +313,16 @@ class SC2PatternLearner:
     def _save_comment_to_db(self, game_data, comment):
         """Save comment to database for persistence"""
         try:
-            # This would integrate with your existing database
-            # For now, just log it
-            self.logger.info(f"Comment saved: {comment[:100]}...")
+            # Save comment to the REPLAYS.Player_Comments table
+            if hasattr(self.db, 'update_player_comments_in_last_replay'):
+                success = self.db.update_player_comments_in_last_replay(comment)
+                if success:
+                    self.logger.info(f"Comment saved to database: {comment[:100]}...")
+                else:
+                    self.logger.warning(f"Failed to save comment to database: {comment[:100]}...")
+            else:
+                self.logger.warning("Database method update_player_comments_in_last_replay not available")
+                self.logger.info(f"Comment logged only: {comment[:100]}...")
             
         except Exception as e:
             self.logger.error(f"Error saving comment to DB: {e}")
