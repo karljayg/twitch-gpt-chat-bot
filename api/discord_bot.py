@@ -403,10 +403,21 @@ class DiscordBot(commands.Bot):
             
             # Check for special commands FIRST - this prevents double responses
             # Commands like "wiki", "career", "history" always get responses regardless of dice roll
-            msg_lower = message.content.lower()
+            
+            # Clean message content by removing bot mentions for command detection
+            clean_content = message.content
+            if self.user in message.mentions:
+                # Remove the mention from the message content for command parsing
+                clean_content = message.content.replace(f'<@{self.user.id}>', '').replace(f'<@!{self.user.id}>', '').strip()
+            
+            msg_lower = clean_content.lower()
             if self.should_always_respond(msg_lower):
-                twitch_logger.info(f"Processing Discord command: {message.content}")
+                twitch_logger.info(f"Processing Discord command: {clean_content}")
+                # Create a modified message object for command processing with clean content
+                original_content = message.content
+                message.content = clean_content  # Temporarily modify for command processing
                 await self.process_discord_command(message, twitch_logger)
+                message.content = original_content  # Restore original content
                 return  # Exit early - don't go through dice roll system
             
             # Determine if we should respond
@@ -462,27 +473,56 @@ class DiscordBot(commands.Bot):
             
             # Handle wiki searches
             if 'wiki' in msg_lower:
-                wiki_query = message.content.replace('wiki', '').strip()
-                if wiki_query:
-                    await self.handle_wiki_search(message, wiki_query, logger)
+                # Extract search query more precisely
+                parts = message.content.split()
+                wiki_index = next((i for i, part in enumerate(parts) if 'wiki' in part.lower()), None)
+                
+                if wiki_index is not None and wiki_index + 1 < len(parts):
+                    # Get everything after "wiki" as the search query
+                    wiki_query = ' '.join(parts[wiki_index + 1:])
+                    wiki_query = wiki_query.strip('@').strip()  # Clean up mentions
+                    if wiki_query:
+                        await self.handle_wiki_search(message, wiki_query, logger)
+                    else:
+                        await message.channel.send("Usage: `wiki <topic>` - Search for StarCraft 2 information")
                 else:
                     await message.channel.send("Usage: `wiki <topic>` - Search for StarCraft 2 information")
                 return
                     
             # Handle career searches
             if 'career' in msg_lower:
-                career_query = message.content.replace('career', '').strip()
-                if career_query:
-                    await self.handle_career_search(message, career_query, logger)
+                # Extract player name more precisely
+                parts = message.content.lower().split()
+                career_index = next((i for i, part in enumerate(parts) if 'career' in part), None)
+                
+                if career_index is not None and career_index + 1 < len(parts):
+                    # Get the word immediately after "career"
+                    player_name = parts[career_index + 1]
+                    # Remove any @ mentions or special characters
+                    player_name = player_name.strip('@').strip()
+                    if player_name:
+                        await self.handle_career_search(message, player_name, logger)
+                    else:
+                        await message.channel.send("Usage: `career <player>` - Look up player career stats")
                 else:
                     await message.channel.send("Usage: `career <player>` - Look up player career stats")
                 return
             
             # Handle history searches
             if 'history' in msg_lower:
-                history_query = message.content.replace('history', '').strip()
-                if history_query:
-                    await self.handle_history_search(message, history_query, logger)
+                # Extract player name more precisely, similar to Twitch bot
+                parts = message.content.lower().split()
+                history_index = next((i for i, part in enumerate(parts) if 'history' in part), None)
+                
+                if history_index is not None and history_index + 1 < len(parts):
+                    # Get the word immediately after "history"
+                    player_name = parts[history_index + 1]
+                    # Remove any @ mentions or special characters
+                    player_name = player_name.strip('@').strip()
+                    if player_name:
+                        await self.handle_history_search(message, player_name, logger)
+                    else:
+                        await message.channel.send("Usage: `history <player>` - Look up player game history")
                 else:
                     await message.channel.send("Usage: `history <player>` - Look up player game history")
                 return
@@ -544,28 +584,56 @@ class DiscordBot(commands.Bot):
             
             # Query player records from database
             history_list = db.get_player_records(player_name)
-            logger.debug(f"History answer for {player_name}: {str(history_list)}")
+            logger.debug(f"History query for '{player_name}' returned: {str(history_list)}")
             
-            if history_list:
-                # Format records same as Twitch bot
-                formatted_records = [f"{rec.split(', ')[0]} vs {rec.split(', ')[1]}, {rec.split(', ')[2].split(' ')[0]}-{rec.split(', ')[3].split(' ')[0]}" for rec in history_list]
-                result_string = " and ".join(formatted_records)
-                
-                # Create AI prompt similar to Twitch bot
-                ai_prompt = f"restate all of the info here and do not exclude anything: total win/loss record of {player_name} we know the results of so far {result_string}"
-                
-                # Process with AI for natural response
-                await self.process_history_with_ai(message, ai_prompt, logger)
+            if history_list and len(history_list) > 0:
+                try:
+                    # Validate and format records same as Twitch bot
+                    formatted_records = []
+                    total_wins = 0
+                    total_losses = 0
+                    
+                    for rec in history_list:
+                        parts = rec.split(', ')
+                        if len(parts) >= 4:
+                            player1 = parts[0]
+                            player2 = parts[1] 
+                            wins = int(parts[2].split(' ')[0])
+                            losses = int(parts[3].split(' ')[0])
+                            
+                            formatted_records.append(f"{player1} vs {player2}, {wins}-{losses}")
+                            total_wins += wins
+                            total_losses += losses
+                        else:
+                            logger.warning(f"Malformed database record: {rec}")
+                    
+                    if not formatted_records:
+                        logger.error("All database records were malformed")
+                        await message.channel.send("I have an issue with the database data format. Please try again later.")
+                        return
+                        
+                    result_string = " and ".join(formatted_records)
+                    
+                    # Create AI prompt with validation - include totals to prevent AI errors
+                    ai_prompt = f"restate all of the info here and do not exclude anything: total win/loss record of {player_name} we know the results of so far {result_string}. The total is {total_wins} wins and {total_losses} losses."
+                    
+                    logger.debug(f"Calculated totals for {player_name}: {total_wins} wins, {total_losses} losses")
+                    
+                    # Process with AI for natural response
+                    await self.process_history_with_ai(message, ai_prompt, logger)
+                    logger.info(f"Sent history result for '{player_name}' to Discord")
+                    
+                except (ValueError, IndexError) as e:
+                    logger.error(f"Error parsing database records for '{player_name}': {e}")
+                    await message.channel.send("I have an issue parsing the database data. Please try again later.")
             else:
-                # No records found
-                ai_prompt = f"restate all of the info here: there are no game records in history for {player_name}"
-                await self.process_history_with_ai(message, ai_prompt, logger)
+                # No records found - return direct message, don't use AI
+                logger.info(f"No history records found for player '{player_name}'")
+                await message.channel.send(f"No game records found for player '{player_name}' in the database.")
                 
-            logger.info(f"Sent history result for '{player_name}' to Discord")
-            
         except Exception as e:
-            logger.error(f"Error in Discord history search: {e}")
-            await message.channel.send(f"Sorry, I couldn't find history for player '{player_name}'.")
+            logger.error(f"Error in Discord history search for '{player_name}': {e}")
+            await message.channel.send("I have an issue connecting with the database. Please try again later.")
     
     async def process_history_with_ai(self, message, ai_prompt, logger):
         """Process history data through AI for natural response."""

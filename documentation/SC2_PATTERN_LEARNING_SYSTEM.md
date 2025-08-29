@@ -1,0 +1,469 @@
+# SC2 Pattern Learning System Documentation
+
+## Overview
+
+The SC2 Pattern Learning System is an intelligent build order analysis and pattern recognition system designed to learn from your StarCraft 2 expertise and provide strategic insights for repeat opponents. The system combines your expert player comments with AI analysis of replay data to create a comprehensive learning database that improves over time.
+
+> **⚠️ IMPORTANT: BLIZZARD API BUG**
+> 
+> The SC2 localhost JSON API currently has a critical bug where `isReplay` is always returned as `true`, even for real games. This affects how the system distinguishes between real games and replay viewing. See the [Blizzard API Bug](#blizzard-api-bug) section for details and workarounds.
+
+## Key Features
+
+### 🧠 Dual Learning Approach
+- **Expert Learning**: Extracts strategic insights from your player comments
+- **AI Learning**: Analyzes replay data when no player comment is provided
+- **Pattern Recognition**: Identifies build order similarities and strategic patterns
+- **Opponent Intelligence**: Provides insights for repeat opponents based on learned patterns
+
+### 💾 Persistent Storage
+- **File-based persistence** using JSON files in `data/` directory
+- **Survives bot restarts** - learning accumulates over time
+- **Automatic backup** after every learning operation
+- **Easy data inspection** and manual editing capabilities
+
+### 🎯 Strategic Focus
+- **First 60 supply analysis** (configurable via `BUILD_ORDER_COUNT_TO_ANALYZE`)
+- **Early game focus** where strategic decisions are made
+- **Key building timings** for critical structures
+- **Opening sequence analysis** for pattern recognition
+
+### 🚫 Duplicate Prevention
+- **Smart game identification** prevents re-learning from the same replay
+- **Unique game signatures** based on opponent, map, duration, and date
+- **Automatic duplicate detection** when watching replays
+- **Efficient learning** without redundant prompts or data
+
+## System Architecture
+
+### Core Components
+
+#### 1. SC2PatternLearner Class
+```python
+class SC2PatternLearner:
+    def __init__(self, db, logger):
+        self.patterns = defaultdict(list)           # Pattern storage
+        self.comment_keywords = defaultdict(set)    # Keyword associations
+        self.db = db                               # Database connection
+        self.logger = logger                       # Logging system
+```
+
+#### 2. Data Storage Structure
+```
+data/
+├── patterns.json          # Learned patterns with build signatures
+├── keywords.json          # Keyword associations and comments
+└── learning_stats.json    # System statistics and metadata
+```
+
+#### 3. Pattern Signature Format
+```python
+signature = {
+    'early_game': [],      # First 60 supply buildings/units
+    'key_timings': {},     # Critical building timings
+    'opening_sequence': [] # First 10 buildings in order
+}
+```
+
+## Blizzard API Bug and Workarounds
+
+### 🐛 The Problem
+
+**Blizzard broke their own SC2 localhost JSON API** where the `isReplay` field now always returns `true`, even for real games. This broke the previous logic that relied on this field to distinguish between:
+
+- **Real games** (you playing) → Should trigger pattern learning
+- **Replay viewing** (you watching) → Should NOT trigger pattern learning
+
+### 🔧 Our Workaround
+
+Since we can't trust the `isReplay` flag anymore, the system now detects real games by checking if **the streamer is actually playing**:
+
+```python
+def get_status(self):
+    # Check if streamer is actually playing (not watching)
+    streamer_playing = any(self._is_streamer_account(player['name']) for player in self.players)
+    
+    if streamer_playing:
+        return "MATCH_ENDED"  # Streamer playing = real game
+    else:
+        return "REPLAY_ENDED" # Streamer not playing = replay viewing
+```
+
+### ⚠️ Current Limitations
+
+**Until Blizzard fixes their API:**
+- ✅ **Real games you play** → Correctly detected as `MATCH_ENDED`
+- ❌ **Watching replays** → Also detected as `MATCH_ENDED` (false positive)
+- 🔧 **Duplicate detection** → Prevents re-learning from replay viewing
+
+### 🎯 What This Means
+
+1. **Pattern learning will work** for your real games
+2. **Watching replays might trigger prompts** (but duplicate detection will skip them)
+3. **System is robust** despite Blizzard's broken API
+4. **Easy to fix** when Blizzard eventually fixes their API
+
+### 📝 Code Locations
+
+The workaround is implemented in:
+- `models/game_info.py` - `get_status()` method
+- `api/sc2_game_utils.py` - Pattern learning trigger logic
+- `api/pattern_learning.py` - Duplicate detection system
+
+---
+
+## How It Works
+
+### 1. Game Completion Flow
+
+#### Step 1: Game Ends
+When a StarCraft 2 game ends, the system automatically:
+- Extracts game data (opponent, race, result, map, duration, date)
+- Analyzes replay data for build order information
+- Prepares for player comment input
+
+#### Step 2: Comment Prompt
+The system displays a formatted game summary and prompts for input:
+```
+🎮 GAME COMPLETED - ENTER PLAYER COMMENT
+============================================================
+Opponent: PlayerX
+Race: Zerg
+Result: Victory
+Map: Acropolis
+Duration: 8m 32s
+Date: 2024-01-15 14:30:00
+============================================================
+Enter player comment about the game (or press Enter to skip):
+```
+
+#### Step 3: Learning Process
+- **With Comment**: System extracts keywords and creates expert patterns
+- **Without Comment**: AI analyzes replay data and creates learned patterns
+- **Pattern Storage**: All patterns are saved to persistent files
+- **Keyword Association**: Comments are linked to relevant SC2 strategy terms
+
+#### Step 4: Duplicate Detection
+- **Game ID Generation**: Creates unique identifier from opponent + map + duration + date
+- **Duplicate Check**: Verifies if game has already been processed
+- **Smart Skipping**: Prevents re-learning from replay viewing or duplicate games
+- **Efficient Learning**: Only processes new, unique games
+
+### 2. Pattern Learning Process
+
+#### Expert Comment Processing
+```python
+def _process_new_comment(self, game_data, comment):
+    # Extract SC2 strategy keywords
+    keywords = self._extract_keywords(comment)
+    
+    # Create pattern signature from build data
+    pattern_signature = self._create_pattern_signature(build_data)
+    
+    # Store with expert insight marker
+    comment_data = {
+        'has_player_comment': True,  # Expert insight
+        'ai_confidence': None        # Not AI-generated
+    }
+```
+
+#### AI Learning Process
+```python
+def process_game_without_comment(self, game_data):
+    # Analyze first 60 supply for strategy indicators
+    strategy_guess = self._guess_strategy_from_build(build_data)
+    
+    # Calculate AI confidence in the guess
+    ai_confidence = self._calculate_ai_confidence(build_data)
+    
+    # Store as AI-learned pattern
+    ai_comment_data = {
+        'has_player_comment': False,  # AI-generated
+        'ai_confidence': ai_confidence
+    }
+```
+
+### 3. Duplicate Detection System
+
+#### Game Identification
+```python
+def _generate_game_id(self, game_data):
+    # Create unique ID from: opponent + map + duration + date
+    opponent = game_data.get('opponent_name', 'Unknown')
+    map_name = game_data.get('map', 'Unknown')
+    duration = game_data.get('duration', 'Unknown')
+    date_part = game_data.get('date', '').split(' ')[0]  # YYYY-MM-DD only
+    
+    game_id = f"{opponent}_{map_name}_{duration}_{date_part}"
+    return game_id.lower().replace(' ', '_').replace(':', '_')
+```
+
+#### Duplicate Prevention
+```python
+def _is_game_already_processed(self, game_id):
+    # Check existing patterns and comments for this game ID
+    # Prevents duplicate prompts when watching replays
+    # Returns True if game already processed, False if new
+```
+
+**Benefits:**
+- 🚫 **No duplicate prompts** when watching replays
+- 🎯 **Real games still trigger** pattern learning
+- 💾 **Efficient storage** without redundant data
+- 🔄 **Works with Blizzard's broken API**
+
+### 4. Pattern Recognition
+
+#### Build Order Analysis
+The system focuses on the first 60 supply (configurable) because:
+- **Strategic decisions** are made in early game
+- **Build order patterns** are most consistent early
+- **Late game** is too variable and chaotic
+- **Timing windows** are critical for strategy identification
+
+#### Key Building Detection
+The system tracks critical buildings for each race:
+```python
+# Zerg Key Buildings
+'SpawningPool', 'RoachWarren', 'BanelingNest', 'Spire', 'NydusNetwork'
+
+# Terran Key Buildings  
+'Barracks', 'Factory', 'Starport', 'FusionCore', 'Armory', 'NuclearFacility'
+
+# Protoss Key Buildings
+'Gateway', 'Forge', 'TwilightCouncil', 'RoboticsFacility', 'Stargate'
+```
+
+#### Similarity Calculation
+```python
+def _calculate_similarity(self, current, known):
+    score = 0.0
+    
+    # Early game similarity (40% weight)
+    early_match = len(set(current['early_game']) & set(known['early_game']))
+    early_total = len(set(current['early_game']) | set(known['early_game']))
+    score += (early_match / early_total) * 0.4
+    
+    # Building sequence similarity (30% weight)
+    seq_match = len(set(current['opening_sequence']) & set(known['opening_sequence']))
+    seq_total = len(set(current['opening_sequence']) | set(known['opening_sequence']))
+    score += (seq_match / seq_total) * 0.3
+    
+    # Timing similarity (30% weight)
+    # Compares building timings within 30 seconds
+    score += timing_similarity * 0.3
+    
+    return score
+```
+
+### 5. Insight Generation
+
+#### For Repeat Opponents
+When facing a previous opponent, the system provides:
+
+**Expert Insights** (from your comments):
+```
+🎯 PlayerX tends to do Roach rush - you noted this before
+```
+
+**AI Insights** (from learned patterns):
+```
+🤖 I think based on previous games vs. PlayerX, they tend to do Early zerg aggression (confidence: 70%)
+```
+
+#### Insight Types
+```python
+insight = {
+    'type': 'expert_insight' | 'ai_insight',
+    'message': 'Formatted insight message',
+    'confidence': 'high' | '70%' | '85%',
+    'source': 'player_comment' | 'ai_learning',
+    'strategy': 'Identified strategy type'
+}
+```
+
+## Configuration
+
+### Settings in `config.py`
+```python
+# Pattern Learning System Settings
+ENABLE_PATTERN_LEARNING = True                    # Enable/disable system
+PATTERN_LEARNING_SIMILARITY_THRESHOLD = 0.7      # Minimum similarity for pattern matching
+PATTERN_LEARNING_MAX_PATTERNS = 1000             # Maximum patterns per keyword
+PATTERN_DATA_DIR = "data"                        # Directory for pattern storage
+BUILD_ORDER_COUNT_TO_ANALYZE = 60               # Supply threshold for analysis
+```
+
+### Adjustable Parameters
+- **Similarity Threshold**: Higher = more strict pattern matching
+- **Max Patterns**: Prevents memory bloat from excessive patterns
+- **Supply Threshold**: How much of the game to analyze (60 supply recommended)
+
+## Usage Instructions
+
+### 1. System Integration
+The pattern learning system is automatically integrated into your Twitch bot:
+```python
+# In api/twitch_bot.py
+if config.ENABLE_PATTERN_LEARNING:
+    self.pattern_learner = SC2PatternLearner(self.db, logger)
+
+# In api/sc2_game_utils.py (delayed trigger)
+if hasattr(self, 'pattern_learner'):
+    # 15-second delay to allow replay processing
+    timer_thread = threading.Thread(target=delayed_pattern_learning, daemon=True)
+    timer_thread.start()
+```
+
+### 2. Adding Player Comments
+After each game:
+1. **Review the game summary** displayed by the system
+2. **Enter your strategic insights** using SC2 terminology
+3. **Press Enter to skip** if no comment is desired
+4. **System automatically learns** from your input
+
+### 3. Comment Best Practices
+**Good Examples:**
+- "This player always goes roach rush - very predictable"
+- "Fast expand into muta tech, standard macro play"
+- "Early pool aggression, then transitions to macro"
+- "Factory first, reaper harass into mech"
+
+**Keywords the System Recognizes:**
+- **Strategy**: rush, macro, tech, timing, all-in, cheese
+- **Units**: zergling, roach, marine, zealot, stalker
+- **Buildings**: pool, barracks, gateway, forge, factory
+- **Playstyle**: aggressive, defensive, economic, fast, slow
+
+### 4. Viewing Learned Patterns
+Check the `data/` directory for:
+- **`patterns.json`**: All learned patterns with build signatures
+- **`keywords.json`**: Keyword associations and comment data
+- **`learning_stats.json`**: System statistics and metadata
+
+## Technical Details
+
+### File Structure
+```
+documentation/
+└── SC2_PATTERN_LEARNING_SYSTEM.md    # This file
+
+data/
+├── patterns.json                      # Pattern storage
+├── keywords.json                      # Keyword associations
+└── learning_stats.json                # System statistics
+
+api/
+├── pattern_learning.py                # Core learning system
+├── sc2_game_utils.py                 # Game completion handling
+└── twitch_bot.py                      # Bot integration
+```
+
+### Data Persistence
+- **JSON Format**: Human-readable and editable
+- **Auto-save**: After every learning operation
+- **Auto-load**: On system startup
+- **Error Handling**: Graceful fallback if files are corrupted
+
+### Performance Considerations
+- **Memory Usage**: Patterns stored in memory during runtime
+- **File I/O**: Minimal impact, only on save/load operations
+- **Pattern Matching**: O(n) complexity for similarity calculations
+- **Scalability**: Designed to handle thousands of patterns efficiently
+
+## Troubleshooting
+
+### Common Issues
+
+#### 1. System Not Prompting for Comments
+**Check:**
+- `ENABLE_PATTERN_LEARNING = True` in config
+- Pattern learner properly initialized in TwitchBot
+- Game ended handler integration
+- **Blizzard API bug workaround** is working correctly
+
+#### 2. Patterns Not Saving
+**Check:**
+- `data/` directory exists and is writable
+- File permissions on the data directory
+- Disk space availability
+
+#### 3. Low Quality Insights
+**Solutions:**
+- Provide more detailed player comments
+- Lower similarity threshold for more matches
+- Increase supply threshold for more data
+
+#### 4. System Performance Issues
+**Optimizations:**
+- Reduce `PATTERN_LEARNING_MAX_PATTERNS`
+- Increase similarity threshold for fewer matches
+- Clean up old patterns manually if needed
+
+#### 5. Duplicate Prompts When Watching Replays
+**This is expected behavior** due to Blizzard's broken API. The system will:
+- Detect replay viewing as "real game" (false positive)
+- But skip the prompt due to duplicate detection
+- Log: "Game already processed, skipping comment prompt"
+
+### Debug Information
+The system logs detailed information:
+```
+INFO: Pattern learning system initialized with 15 patterns
+INFO: Scheduled delayed pattern learning trigger (15 seconds)
+INFO: Replay data available - triggering pattern learning system
+INFO: Game already processed (ID: opponent_map_duration_date), skipping comment prompt
+INFO: AI learned pattern: Early zerg aggression (confidence: 70%)
+INFO: Patterns saved to data/
+```
+
+## Future Enhancements
+
+### Planned Features
+1. **Machine Learning Integration**: True ML algorithms for pattern recognition
+2. **Advanced Analytics**: Win rate correlation with build patterns
+3. **Meta Analysis**: Strategy popularity and effectiveness tracking
+4. **Visual Interface**: Web-based pattern visualization
+5. **API Integration**: External tools for pattern analysis
+
+### Extensibility
+The system is designed for easy extension:
+- **New keyword types** can be added to `_extract_keywords()`
+- **Additional similarity metrics** can be implemented
+- **Custom pattern formats** can be created
+- **External data sources** can be integrated
+
+## Best Practices
+
+### For Optimal Learning
+1. **Be Consistent**: Use similar terminology across comments
+2. **Be Specific**: Include race, timing, and strategy details
+3. **Regular Input**: Provide comments for most games
+4. **Quality Over Quantity**: Better to have fewer, detailed comments than many vague ones
+
+### For System Maintenance
+1. **Monitor File Sizes**: Check `data/` directory growth
+2. **Review Patterns**: Periodically examine learned patterns
+3. **Clean Up**: Remove outdated or incorrect patterns if needed
+4. **Backup**: Keep copies of pattern files for safety
+
+## Conclusion
+
+The SC2 Pattern Learning System represents a significant advancement in automated StarCraft 2 analysis. By combining your expert insights with AI pattern recognition, it creates a powerful tool for understanding opponent tendencies and improving strategic decision-making.
+
+The system is designed to be:
+- **Intelligent**: Learns from your expertise
+- **Persistent**: Maintains knowledge across sessions
+- **Configurable**: Adapts to your preferences
+- **Extensible**: Ready for future enhancements
+- **Robust**: Works around Blizzard's broken API
+- **Efficient**: Prevents duplicate learning and redundant prompts
+
+As you use the system, it will become increasingly valuable, providing deeper insights into opponent patterns and helping you develop more effective counter-strategies.
+
+---
+
+**Last Updated**: August 2025  
+**Version**: 1.1 (Updated for Blizzard API Bug)  
+**Author**: AI Assistant  
+**System**: SC2 Pattern Learning System

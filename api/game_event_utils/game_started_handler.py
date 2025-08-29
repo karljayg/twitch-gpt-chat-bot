@@ -1,6 +1,6 @@
 from datetime import datetime
 import pytz
-from ..chat_utils import processMessageForOpenAI
+from api.chat_utils import processMessageForOpenAI
 
 from settings import config
 import utils.tokensArray as tokensArray
@@ -42,10 +42,10 @@ def game_started(self, current_game, contextHistory, logger):
 
                             # Check if the streamer's name is Player1 or Player2 and assign picked_race
                             for streamer_name in config.SC2_PLAYER_ACCOUNTS:
-                                if result['Player1_Name'] == streamer_name:
+                                if result['Player1_Name'].lower() == streamer_name.lower():
                                     streamer_picked_race = result['Player1_PickRace']
                                     break  # Exit loop if match found
-                                elif result['Player2_Name'] == streamer_name:
+                                elif result['Player2_Name'].lower() == streamer_name.lower():
                                     streamer_picked_race = result['Player2_PickRace']
                                     break  # Exit loop if match found
 
@@ -140,26 +140,30 @@ def game_started(self, current_game, contextHistory, logger):
                             if not player_comments:
                                 logger.debug(f"No games with comments found for player '{current_player_name}' and race '{player_current_race}'. Skipping OpenAI processing.")
                             else:
-                                # Build the message string for OpenAI
-                                msg = "1. Summarize the comments for the opponent building a profile based on previous matchups in 350 characters total. \n"
-                                msg += "Below are each comments, each containing: \n"
-                                msg += "player_comments: The comment about the player. \n"
-                                msg += "map: The map on which the game was played. \n"
-                                msg += "date_played: The date when the game was played (formatted). \n"
-                                msg += "game_duration: The duration of the game. \n"
-                                msg += "2. At the end of the summary statement from #1, add these words 'player comments warning'. \n"
+                                # Build the message string for OpenAI with enhanced SC2 focus and anti-hallucination measures
+                                msg = "As a StarCraft 2 expert, analyze these previous game comments about the opponent. "
+                                msg += "IMPORTANT: Use ONLY the data provided below - do NOT make assumptions or add information not present. \n\n"
+                                msg += "Instructions:\n"
+                                msg += "1. Focus on SC2-specific insights: build orders, strategies, unit compositions, timing, macro/micro patterns\n"
+                                msg += "2. Use proper SC2 terminology (e.g., 'early game aggression', 'macro-focused', 'tech rush', 'timing attack')\n"
+                                msg += "3. If comments mention specific units/buildings, reference them accurately\n"
+                                msg += "4. Keep summary under 300 characters\n"
+                                msg += "5. End with exactly: 'player comments warning'\n\n"
+                                msg += "Previous game data:\n"
                                 msg += "-----\n"
 
                                 # Add player comments to the message
                                 for comment in player_comments:
                                     msg += (
-                                        f"player_comments: {comment['player_comments']}, "
-                                        f"map: {comment['map']}, "
-                                        f"date_played: {comment['date_played']}, "
-                                        f"game_duration: {comment['game_duration']}\n"
+                                        f"Comment: {comment['player_comments']}\n"
+                                        f"Map: {comment['map']}\n"
+                                        f"Date: {comment['date_played']}\n"
+                                        f"Duration: {comment['game_duration']}\n"
+                                        f"---\n"
                                     )
 
                                 msg += "-----\n"
+                                msg += "Based ONLY on the above data, provide a StarCraft 2-focused summary:"
 
                                 # Send the message to OpenAI
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)                     
@@ -186,7 +190,14 @@ def game_started(self, current_game, contextHistory, logger):
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
 
                                 msg = "Keep it concise in 400 characters or less: \n"
-                                msg += f"print the first {config.BUILD_ORDER_COUNT_TO_ANALYZE} steps of the opponent's build order and group consecutive items together. For example, Probe 10 - Probe 11 - Probe 12 should be Probe (11-13). \n"
+                                msg += f"<{player_name}>'s build order: "
+                                msg += f"Summarize in chronological order:\n"
+                                msg += "- Show the first 10-15 key steps in order\n"
+                                msg += "- Group consecutive identical items with counts (e.g., 'SCV x3')\n"
+                                msg += "- Use abbreviations for common units (SCV, Marine, Marauder, etc.)\n"
+                                msg += "- Keep it under 150 characters total\n"
+                                msg += "- Format: 'SCV x3, Barracks, SCV x2, Marine x2, Orbital, Marine x3, Reactor'\n"
+                                msg += "- This shows: 3 SCVs, then Barracks, then 2 more SCVs, then 2 Marines, then Orbital, then 3 more Marines, then Reactor\n"
                                 msg += "-----\n"
                                 msg += f"{player_name}'s build order versus {config.STREAMER_NICKNAME}'s {streamer_picked_race}: {first_few_build_steps} \n"
                                 msg += f"omit {config.STREAMER_NICKNAME}'s build order. \n"                                

@@ -4,10 +4,10 @@ import utils.tokensArray as tokensArray
 from utils.file_utils import find_latest_file
 from utils.file_utils import find_recent_file_within_time
 import spawningtool.parser
-from .game_event_utils import game_started_handler
-from .game_event_utils import game_replay_handler
-from .game_event_utils import game_ended_handler
-from .chat_utils import processMessageForOpenAI
+from api.game_event_utils import game_started_handler
+from api.game_event_utils import game_replay_handler
+from api.game_event_utils import game_ended_handler
+from api.chat_utils import processMessageForOpenAI
 from collections import defaultdict
 
 from settings import config
@@ -106,6 +106,9 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
 
             # Save the replay JSON to a file
             game_ended_handler.save_file(replay_data, 'json', logger)
+            
+            # Store replay data in the TwitchBot instance for pattern learning
+            self.last_replay_data = replay_data
 
             # Players and Map
             players = [f"{player_data['name']}: {player_data['race']}" for player_data in
@@ -193,6 +196,55 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
 
     elif current_game.get_status() == "MATCH_ENDED":
         response = game_ended_handler.game_ended(self, game_player_names, winning_players, losing_players, logger)
+        
+        # Schedule pattern learning trigger after a delay to allow replay processing
+        # Note: Due to Blizzard API bug (isReplay always "true"), we now detect real games
+        # by checking if streamer is playing, not by the broken isReplay flag
+        if hasattr(self, 'pattern_learner') and self.pattern_learner:
+            logger.info("Pattern learning system found - scheduling delayed trigger")
+            import threading
+            import time
+            
+            def delayed_pattern_learning():
+                logger.info("Starting delayed pattern learning trigger (15 second wait)")
+                time.sleep(15)  # Wait 15 seconds for replay to be processed
+                try:
+                    logger.info("Delayed pattern learning trigger - checking if replay was saved")
+                    
+                    # Check if we have replay data available
+                    if hasattr(self, 'last_replay_data') and self.last_replay_data:
+                        logger.info("Replay data available - triggering pattern learning system")
+                        
+                        # Prepare game data for comment prompt
+                        game_data = self._prepare_game_data_for_comment(game_player_names, winning_players, losing_players, logger)
+                        logger.debug(f"Game data prepared for pattern learning: {game_data}")
+                        
+                        # Prompt for comment
+                        logger.info("Prompting for player comment...")
+                        comment = self.pattern_learner.prompt_for_player_comment(game_data)
+                        
+                        if comment:
+                            logger.info(f"Player comment received: {comment}")
+                        else:
+                            # No comment provided - let AI learn from replay data
+                            logger.info("No player comment - AI learning from replay data")
+                            self.pattern_learner.process_game_without_comment(game_data)
+                    else:
+                        logger.warning("No replay data available after delay - pattern learning skipped")
+                        logger.debug(f"Available attributes: {[attr for attr in dir(self) if not attr.startswith('_')]}")
+                        
+                except Exception as e:
+                    logger.error(f"Error in delayed pattern learning: {e}")
+                    import traceback
+                    logger.error(f"Traceback: {traceback.format_exc()}")
+            
+            # Start the delayed trigger in a separate thread
+            timer_thread = threading.Thread(target=delayed_pattern_learning, daemon=True)
+            timer_thread.start()
+            logger.info("Scheduled delayed pattern learning trigger (15 seconds)")
+        else:
+            logger.warning("Pattern learning system NOT available - check initialization")
+            logger.debug(f"Available attributes: {[attr for attr in dir(self) if not attr.startswith('_')]}")
 
     elif current_game.get_status() == "REPLAY_STARTED":
         contextHistory.clear()
@@ -200,6 +252,8 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
 
     elif current_game.get_status() == "REPLAY_ENDED":
         response = game_replay_handler.replay_ended(self, current_game, game_player_names, logger)
+
+
 
     if not config.OPENAI_DISABLED:
         if self.first_run:
@@ -216,12 +270,92 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
         if ((current_game.get_status() not in ["MATCH_STARTED", "REPLAY_STARTED"] and self.total_seconds >= config.ABANDONED_GAME_THRESHOLD)
                 or (current_game.isReplay and config.USE_CONFIG_TEST_REPLAY_FILE)):
             logger.debug("analyzing, replay summary to AI: ")
-            not_alias = tokensArray.find_master_name(opponent_name)
-            if not_alias is not None:
-                replay_summary = replay_summary.replace(opponent_name, not_alias)
-
             processMessageForOpenAI(self, replay_summary, "replay_analysis", logger, contextHistory)
             replay_summary = ""
         else:
             logger.debug("not analyzing replay")
             return
+
+
+def _prepare_game_data_for_comment(self, game_player_names, winning_players, losing_players, logger):
+    """Prepare game data for the comment prompt"""
+    try:
+        game_data = {}
+        
+        # Get opponent info
+        if config.STREAMER_NICKNAME in game_player_names:
+            opponent_names = [name for name in game_player_names if name != config.STREAMER_NICKNAME]
+            if opponent_names:
+                game_data['opponent_name'] = opponent_names[0]
+                
+                # Try to get opponent race from current game
+                try:
+                    if hasattr(self, 'current_game') and self.current_game:
+                        game_data['opponent_race'] = self.current_game.get_player_race(opponent_names[0])
+                except:
+                    game_data['opponent_race'] = 'Unknown'
+        
+        # Game result
+        if config.STREAMER_NICKNAME in winning_players:
+            game_data['result'] = 'Victory'
+        elif config.STREAMER_NICKNAME in losing_players:
+            game_data['result'] = 'Defeat'
+        else:
+            game_data['result'] = 'Tie'
+        
+        # Game duration
+        if hasattr(self, 'total_seconds'):
+            game_data['duration'] = f"{int(self.total_seconds // 60)}m {int(self.total_seconds % 60)}s"
+        
+        # Current date/time
+        from datetime import datetime
+        game_data['date'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Map info (if available)
+        try:
+            if hasattr(self, 'last_replay_data') and self.last_replay_data:
+                game_data['map'] = self.last_replay_data.get('map', 'Unknown')
+            elif hasattr(self, 'current_game') and self.current_game:
+                # This would need to be implemented based on your game data structure
+                game_data['map'] = 'Unknown'
+        except:
+            game_data['map'] = 'Unknown'
+        
+        # Build order data (if available from replay data)
+        try:
+            # Check if we have replay data available
+            if hasattr(self, 'last_replay_data') and self.last_replay_data:
+                # Extract build order from replay data
+                build_data = []
+                if 'players' in self.last_replay_data:
+                    for player in self.last_replay_data['players']:
+                        if 'buildOrder' in player:
+                            for step in player['buildOrder']:
+                                build_data.append({
+                                    'supply': step.get('supply', 0),
+                                    'name': step.get('name', ''),
+                                    'time': step.get('time', 0)
+                                })
+                
+                if build_data:
+                    game_data['build_order'] = build_data
+                    logger.debug(f"Added {len(build_data)} build order steps to game data")
+                else:
+                    logger.debug("No build order data found in replay")
+                    
+        except Exception as e:
+            logger.debug(f"Could not extract build order data: {e}")
+        
+        # Build order summary (if available)
+        try:
+            if hasattr(self, 'current_game') and self.current_game:
+                # This would need to be implemented based on your game data structure
+                game_data['build_order_summary'] = 'Not available'
+        except:
+            game_data['build_order_summary'] = 'Not available'
+        
+        return game_data
+        
+    except Exception as e:
+        logger.error(f"Error preparing game data for comment: {e}")
+        return {}

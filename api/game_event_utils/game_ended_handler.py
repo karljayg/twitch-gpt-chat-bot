@@ -1,6 +1,6 @@
 import json
 from collections import defaultdict
-
+from datetime import datetime
 
 from settings import config
 
@@ -57,4 +57,11 @@ def game_ended(self, game_player_names,winning_players,losing_players, logger):
                 self.play_SC2_sound("victory")
             else:
                 self.play_SC2_sound("defeat")
+    
+        # Check if this is an FSL game and ask for reviewer request
+
+    # Pattern learning system is now triggered after replay is saved to database
+    # This ensures we have all the replay data available for analysis
+    
     return response
+

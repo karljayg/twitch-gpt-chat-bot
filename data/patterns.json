@@ -1,0 +1,218 @@
+{
+  "early_zerg_aggression": [
+    {
+      "comment": "AI detected: Early zerg aggression",
+      "keywords": [
+        "early_zerg_aggression"
+      ],
+      "game_data": {
+        "opponent_name": "TestPlayer",
+        "opponent_race": "Zerg",
+        "result": "Victory",
+        "map": "Acropolis",
+        "duration": "8m 32s",
+        "date": "2024-01-15 14:30:00",
+        "build_order": [
+          {
+            "supply": 12,
+            "name": "SpawningPool",
+            "time": 120
+          },
+          {
+            "supply": 13,
+            "name": "Zergling",
+            "time": 180
+          },
+          {
+            "supply": 14,
+            "name": "Zergling",
+            "time": 200
+          },
+          {
+            "supply": 15,
+            "name": "Zergling",
+            "time": 220
+          },
+          {
+            "supply": 16,
+            "name": "RoachWarren",
+            "time": 300
+          },
+          {
+            "supply": 17,
+            "name": "Roach",
+            "time": 400
+          },
+          {
+            "supply": 18,
+            "name": "Roach",
+            "time": 420
+          },
+          {
+            "supply": 19,
+            "name": "Roach",
+            "time": 440
+          },
+          {
+            "supply": 20,
+            "name": "Roach",
+            "time": 460
+          },
+          {
+            "supply": 21,
+            "name": "Roach",
+            "time": 480
+          },
+          {
+            "supply": 22,
+            "name": "Roach",
+            "time": 500
+          },
+          {
+            "supply": 23,
+            "name": "Roach",
+            "time": 520
+          },
+          {
+            "supply": 24,
+            "name": "Roach",
+            "time": 540
+          },
+          {
+            "supply": 25,
+            "name": "Roach",
+            "time": 560
+          },
+          {
+            "supply": 26,
+            "name": "Roach",
+            "time": 580
+          },
+          {
+            "supply": 27,
+            "name": "Roach",
+            "time": 600
+          },
+          {
+            "supply": 28,
+            "name": "Roach",
+            "time": 620
+          },
+          {
+            "supply": 29,
+            "name": "Roach",
+            "time": 640
+          },
+          {
+            "supply": 30,
+            "name": "Roach",
+            "time": 660
+          },
+          {
+            "supply": 31,
+            "name": "Roach",
+            "time": 680
+          },
+          {
+            "supply": 32,
+            "name": "Roach",
+            "time": 700
+          },
+          {
+            "supply": 33,
+            "name": "Roach",
+            "time": 720
+          },
+          {
+            "supply": 34,
+            "name": "Roach",
+            "time": 740
+          },
+          {
+            "supply": 35,
+            "name": "Roach",
+            "time": 760
+          },
+          {
+            "supply": 36,
+            "name": "Roach",
+            "time": 780
+          },
+          {
+            "supply": 37,
+            "name": "Roach",
+            "time": 800
+          },
+          {
+            "supply": 38,
+            "name": "Roach",
+            "time": 820
+          },
+          {
+            "supply": 39,
+            "name": "Roach",
+            "time": 840
+          },
+          {
+            "supply": 40,
+            "name": "Roach",
+            "time": 860
+          },
+          {
+            "supply": 41,
+            "name": "Roach",
+            "time": 880
+          },
+          {
+            "supply": 42,
+            "name": "Roach",
+            "time": 900
+          },
+          {
+            "supply": 43,
+            "name": "Roach",
+            "time": 920
+          },
+          {
+            "supply": 44,
+            "name": "Roach",
+            "time": 940
+          },
+          {
+            "supply": 45,
+            "name": "Roach",
+            "time": 960
+          },
+          {
+            "supply": 46,
+            "name": "Roach",
+            "time": 980
+          },
+          {
+            "supply": 47,
+            "name": "Roach",
+            "time": 1000
+          },
+          {
+            "supply": 48,
+            "name": "Roach",
+            "time": 1020
+          },
+          {
+            "supply": 49,
+            "name": "Roach",
+            "time": 1030
+          },
+          {
+            "supply": 50,
+            "name": "Roach",
+            "time": 1040
+          }
+        ]
+      },
+      "timestamp": "2025-08-29T10:20:06.932677",
+      "has_player_comment": false,
+      "ai_confidence": 0.7
+    }
+  ]
+}
