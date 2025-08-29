@@ -112,6 +112,9 @@ class SC2PatternLearner:
             # Save to database (if you want persistence)
             self._save_comment_to_db(game_data, comment)
             
+            # Save patterns to file for persistence
+            self.save_patterns_to_file()
+            
             self.logger.info(f"Processed new comment with keywords: {keywords}")
             
         except Exception as e:

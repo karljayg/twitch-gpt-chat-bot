@@ -651,13 +651,14 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                     build_data = []
                     if 'players' in self.last_replay_data:
                         for player in self.last_replay_data['players']:
-                            if 'buildOrder' in player:
+                            if 'buildOrder' in player and isinstance(player['buildOrder'], list):
                                 for step in player['buildOrder']:
-                                    build_data.append({
-                                        'supply': step.get('supply', 0),
-                                        'name': step.get('name', ''),
-                                        'time': step.get('time', 0)
-                                    })
+                                    if isinstance(step, dict):
+                                        build_data.append({
+                                            'supply': step.get('supply', 0),
+                                            'name': step.get('name', ''),
+                                            'time': step.get('time', 0)
+                                        })
                     
                     if build_data:
                         game_data['build_order'] = build_data
