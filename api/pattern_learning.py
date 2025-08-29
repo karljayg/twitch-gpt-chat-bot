@@ -562,12 +562,44 @@ class SC2PatternLearner:
             with open(patterns_file, 'w') as f:
                 json.dump(dict(self.patterns), f, indent=2, default=str)
             
-            # Save keywords
-            keywords_file = os.path.join(config.PATTERN_DATA_DIR, 'keywords.json')
-            with open(keywords_file, 'w') as f:
-                # Convert sets to lists for JSON serialization
-                keywords_dict = {k: list(v) for k, v in self.comment_keywords.items()}
-                json.dump(keywords_dict, f, indent=2, default=str)
+            # Save comments with efficient structure (no duplication)
+            comments_file = os.path.join(config.PATTERN_DATA_DIR, 'comments.json')
+            
+            # Create efficient structure: comments array + keyword index
+            comments_data = {
+                "comments": [],
+                "keyword_index": {}
+            }
+            
+            # Add all unique comments
+            comment_id = 0
+            seen_comments = set()
+            
+            for keyword, comment_list in self.comment_keywords.items():
+                for comment_data in comment_list:
+                    # Create unique comment ID
+                    comment_text = comment_data['comment']
+                    if comment_text not in seen_comments:
+                        comment_id += 1
+                        comment_entry = {
+                            "id": f"comment_{comment_id:03d}",
+                            "comment": comment_text,
+                            "keywords": comment_data['keywords'],
+                            "game_data": comment_data['game_data'],
+                            "timestamp": comment_data['timestamp'],
+                            "has_player_comment": comment_data['has_player_comment']
+                        }
+                        comments_data["comments"].append(comment_entry)
+                        seen_comments.add(comment_text)
+                        
+                        # Add to keyword index
+                        for kw in comment_data['keywords']:
+                            if kw not in comments_data["keyword_index"]:
+                                comments_data["keyword_index"][kw] = []
+                            comments_data["keyword_index"][kw].append(f"comment_{comment_id:03d}")
+            
+            with open(comments_file, 'w') as f:
+                json.dump(comments_data, f, indent=2, default=str)
             
             # Save learning stats
             stats_file = os.path.join(config.PATTERN_DATA_DIR, 'learning_stats.json')
@@ -595,16 +627,33 @@ class SC2PatternLearner:
                 
                 self.logger.info(f"Loaded {len(patterns_data)} pattern categories from file")
             
-            # Load keywords
-            keywords_file = os.path.join(config.PATTERN_DATA_DIR, 'keywords.json')
-            if os.path.exists(keywords_file):
-                with open(keywords_file, 'r') as f:
-                    keywords_data = json.load(f)
-                    # Convert back to defaultdict(list)
-                    for keyword, comments in keywords_data.items():
-                        self.comment_keywords[keyword] = comments
+            # Load comments with efficient structure
+            comments_file = os.path.join(config.PATTERN_DATA_DIR, 'comments.json')
+            if os.path.exists(comments_file):
+                with open(comments_file, 'r') as f:
+                    comments_data = json.load(f)
+                    
+                    # Reconstruct comment_keywords from efficient structure
+                    for comment in comments_data.get('comments', []):
+                        comment_id = comment['id']
+                        keywords = comment.get('keywords', [])
+                        
+                        # Add to each keyword's list
+                        for keyword in keywords:
+                            if keyword not in self.comment_keywords:
+                                self.comment_keywords[keyword] = []
+                            
+                            # Create the comment data structure
+                            comment_entry = {
+                                'comment': comment['comment'],
+                                'keywords': comment['keywords'],
+                                'game_data': comment['game_data'],
+                                'timestamp': comment['timestamp'],
+                                'has_player_comment': comment.get('has_player_comment', True)
+                            }
+                            self.comment_keywords[keyword].append(comment_entry)
                 
-                self.logger.info(f"Loaded {len(keywords_data)} keyword categories from file")
+                self.logger.info(f"Loaded {len(comments_data.get('comments', []))} comments from file")
                 
         except Exception as e:
             self.logger.error(f"Error loading patterns from file: {e}")
