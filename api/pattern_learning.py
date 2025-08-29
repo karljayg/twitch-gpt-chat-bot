@@ -14,7 +14,7 @@ class SC2PatternLearner:
         self.db = db
         self.logger = logger
         self.patterns = defaultdict(list)
-        self.comment_keywords = defaultdict(set)
+        self.comment_keywords = defaultdict(list)
         
         # Ensure data directory exists
         os.makedirs(config.PATTERN_DATA_DIR, exist_ok=True)
@@ -105,7 +105,7 @@ class SC2PatternLearner:
             
             # Update keyword patterns and analyze for new patterns
             for keyword in keywords:
-                self.comment_keywords[keyword].add(comment_data)
+                self.comment_keywords[keyword].append(comment_data)
                 # Analyze for new patterns for each keyword
                 self._analyze_patterns(keyword, comment_data)
             
@@ -582,9 +582,9 @@ class SC2PatternLearner:
             if os.path.exists(keywords_file):
                 with open(keywords_file, 'r') as f:
                     keywords_data = json.load(f)
-                    # Convert back to defaultdict(set)
+                    # Convert back to defaultdict(list)
                     for keyword, comments in keywords_data.items():
-                        self.comment_keywords[keyword] = set(comments)
+                        self.comment_keywords[keyword] = comments
                 
                 self.logger.info(f"Loaded {len(keywords_data)} keyword categories from file")
                 
@@ -677,8 +677,8 @@ class SC2PatternLearner:
                             return True
             
             # Look through existing comments for this game
-            for comment_set in self.comment_keywords.values():
-                for comment_data in comment_set:
+            for comment_list in self.comment_keywords.values():
+                for comment_data in comment_list:
                     if isinstance(comment_data, dict) and 'game_data' in comment_data and comment_data['game_data']:
                         comment_game_id = self._generate_game_id(comment_data['game_data'])
                         if comment_game_id == game_id:
