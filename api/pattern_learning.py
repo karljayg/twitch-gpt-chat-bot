@@ -229,7 +229,8 @@ class SC2PatternLearner:
             'marine', 'marauder', 'tank', 'medivac', 'battlecruiser',
             'zealot', 'stalker', 'immortal', 'carrier', 'tempest',
             'aggressive', 'defensive', 'economic', 'fast', 'slow',
-            'standard', 'unusual', 'creative', 'meta', 'counter'
+            'standard', 'unusual', 'creative', 'meta', 'counter',
+            'reaper', 'expand', 'build', 'safe', 'opening'
         ]
         
         # Extract keywords (case-insensitive)
@@ -243,7 +244,7 @@ class SC2PatternLearner:
         # Also look for race-specific terms
         race_terms = {
             'zerg': ['pool', 'hatchery', 'spire', 'nydus', 'baneling'],
-            'terran': ['barracks', 'factory', 'starport', 'orbital', 'stim'],
+            'terran': ['barracks', 'factory', 'starport', 'orbital', 'stim', 'reaper', 'terran'],
             'protoss': ['gateway', 'forge', 'stargate', 'twilight', 'charge']
         }
         
