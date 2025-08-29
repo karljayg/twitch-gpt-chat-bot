@@ -103,17 +103,18 @@ class SC2PatternLearner:
                 'has_player_comment': True  # Mark as having expert insight
             }
             
-            # Update keyword patterns and analyze for new patterns
-            for keyword in keywords:
-                self.comment_keywords[keyword].append(comment_data)
-                # Analyze for new patterns for each keyword
-                self._analyze_patterns(keyword, comment_data)
-            
-            # Save to database (if you want persistence)
+            # Save to database FIRST (this should always happen)
             self._save_comment_to_db(game_data, comment)
             
-            # Save patterns to file for persistence
-            self.save_patterns_to_file()
+            # Update keyword patterns and analyze for new patterns (only if keywords found)
+            if keywords:
+                for keyword in keywords:
+                    self.comment_keywords[keyword].append(comment_data)
+                    # Analyze for new patterns for each keyword
+                    self._analyze_patterns(keyword, comment_data)
+                
+                # Save patterns to file for persistence
+                self.save_patterns_to_file()
             
             self.logger.info(f"Processed new comment with keywords: {keywords}")
             
@@ -221,39 +222,45 @@ class SC2PatternLearner:
             return 0.0
     
     def _extract_keywords(self, comment):
-        """Extract SC2 strategy keywords from comment"""
-        # Common SC2 strategy terms
-        strategy_keywords = [
-            'rush', 'macro', 'tech', 'timing', 'all-in', 'cheese',
-            'zergling', 'roach', 'hydra', 'muta', 'brood', 'ultra',
-            'marine', 'marauder', 'tank', 'medivac', 'battlecruiser',
-            'zealot', 'stalker', 'immortal', 'carrier', 'tempest',
-            'aggressive', 'defensive', 'economic', 'fast', 'slow',
-            'standard', 'unusual', 'creative', 'meta', 'counter',
-            'reaper', 'expand', 'build', 'safe', 'opening'
-        ]
-        
-        # Extract keywords (case-insensitive)
-        found_keywords = []
-        comment_lower = comment.lower()
-        
-        for keyword in strategy_keywords:
-            if keyword in comment_lower:
-                found_keywords.append(keyword)
-        
-        # Also look for race-specific terms
-        race_terms = {
-            'zerg': ['pool', 'hatchery', 'spire', 'nydus', 'baneling'],
-            'terran': ['barracks', 'factory', 'starport', 'orbital', 'stim', 'reaper', 'terran'],
-            'protoss': ['gateway', 'forge', 'stargate', 'twilight', 'charge']
-        }
-        
-        for race, terms in race_terms.items():
-            for term in terms:
-                if term in comment_lower:
-                    found_keywords.append(f"{race}_{term}")
-        
-        return found_keywords
+        """Extract SC2 strategy keywords from comment by learning from existing replay_summary data"""
+        try:
+            # Get existing keywords from the database to learn what terms are meaningful
+            existing_keywords = self._get_existing_keywords_from_db()
+            
+            # Extract keywords that appear in the comment and exist in our learned vocabulary
+            found_keywords = []
+            comment_lower = comment.lower()
+            
+            for keyword in existing_keywords:
+                if keyword.lower() in comment_lower:
+                    found_keywords.append(keyword)
+            
+            # If no existing keywords match, extract basic terms and let the system learn
+            if not found_keywords:
+                # Simple word extraction for new learning
+                words = comment_lower.split()
+                # Filter out common non-strategic words
+                stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'was', 'are', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'can', 'this', 'that', 'these', 'those'}
+                strategic_words = [word for word in words if word not in stop_words and len(word) > 2]
+                found_keywords = strategic_words[:5]  # Limit to 5 most relevant words
+            
+            return found_keywords
+            
+        except Exception as e:
+            self.logger.error(f"Error extracting keywords: {e}")
+            # Fallback: return basic words from comment
+            return comment.lower().split()[:3]
+    
+    def _get_existing_keywords_from_db(self):
+        """Get existing keywords from replay_summary data to learn vocabulary"""
+        try:
+            # This would query your existing replay_summary data to see what terms are already meaningful
+            # For now, return an empty list to let the system learn from scratch
+            # TODO: Implement query to extract meaningful terms from existing replay_summary entries
+            return []
+        except Exception as e:
+            self.logger.error(f"Error getting existing keywords from DB: {e}")
+            return []
     
     def _analyze_patterns(self, keyword, comment_data):
         """Analyze build patterns for a specific keyword"""
