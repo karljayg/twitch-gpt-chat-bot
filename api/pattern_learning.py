@@ -557,10 +557,33 @@ class SC2PatternLearner:
     def save_patterns_to_file(self):
         """Save all patterns to JSON files for persistence"""
         try:
-            # Save patterns
+            # Save patterns with efficient structure (no duplication)
             patterns_file = os.path.join(config.PATTERN_DATA_DIR, 'patterns.json')
+            
+            # Create efficient patterns structure
+            efficient_patterns = {}
+            pattern_id = 0
+            
+            # Process each pattern category
+            for keyword, pattern_list in self.patterns.items():
+                for pattern in pattern_list:
+                    pattern_id += 1
+                    pattern_name = f"{keyword}_{pattern_id:03d}"
+                    
+                    # Create efficient pattern signature
+                    efficient_patterns[pattern_name] = {
+                        "signature": pattern.get('signature', {}),
+                        "comment_id": f"comment_{pattern_id:03d}",
+                        "game_id": f"game_{pattern_id:03d}",
+                        "sample_count": 1,
+                        "last_seen": datetime.now().isoformat(),
+                        "strategy_type": self._classify_strategy(pattern),
+                        "race": self._detect_race(pattern),
+                        "confidence": pattern.get('ai_confidence', 0.8)
+                    }
+            
             with open(patterns_file, 'w') as f:
-                json.dump(dict(self.patterns), f, indent=2, default=str)
+                json.dump(efficient_patterns, f, indent=2, default=str)
             
             # Save comments with efficient structure (no duplication)
             comments_file = os.path.join(config.PATTERN_DATA_DIR, 'comments.json')
@@ -612,6 +635,43 @@ class SC2PatternLearner:
             
         except Exception as e:
             self.logger.error(f"Error saving patterns to file: {e}")
+    
+    def _classify_strategy(self, pattern):
+        """Classify the strategy type based on pattern data"""
+        try:
+            signature = pattern.get('signature', {})
+            early_game = signature.get('early_game', [])
+            
+            # Basic strategy classification
+            if any('Pool' in name for name in early_game):
+                return "zerg_aggression"
+            elif any('Barracks' in name for name in early_game):
+                return "terran_aggression"
+            elif any('Gateway' in name for name in early_game):
+                return "protoss_aggression"
+            elif len([s for s in early_game if 'Hatchery' in s or 'CommandCenter' in s or 'Nexus' in s]) >= 2:
+                return "economic_expansion"
+            else:
+                return "standard_opening"
+        except:
+            return "unknown_strategy"
+    
+    def _detect_race(self, pattern):
+        """Detect the race from pattern data"""
+        try:
+            signature = pattern.get('signature', {})
+            early_game = signature.get('early_game', [])
+            
+            if any('Pool' in name for name in early_game):
+                return "zerg"
+            elif any('Barracks' in name for name in early_game):
+                return "terran"
+            elif any('Gateway' in name for name in early_game):
+                return "protoss"
+            else:
+                return "unknown"
+        except:
+            return "unknown"
     
     def load_patterns_from_file(self):
         """Load patterns from JSON files on startup"""
