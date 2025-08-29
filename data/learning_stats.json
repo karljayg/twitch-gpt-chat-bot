@@ -1,17 +1,9 @@
 {
-  "total_keywords": 3,
-  "total_patterns": 3,
-  "keyword_breakdown": {
-    "blink": 1,
-    "stalkers": 1,
-    "collosus": 1
-  },
-  "pattern_breakdown": {
-    "blink": 1,
-    "stalkers": 1,
-    "collosus": 1
-  },
+  "total_keywords": 0,
+  "total_patterns": 0,
+  "keyword_breakdown": {},
+  "pattern_breakdown": {},
   "ai_learned_patterns": 0,
-  "expert_patterns": 3,
-  "last_saved": "2025-08-29T16:15:00.000000"
+  "expert_patterns": 0,
+  "last_saved": "2025-08-29T16:20:00.000000"
 }
