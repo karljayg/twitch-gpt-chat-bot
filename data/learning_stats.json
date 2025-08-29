@@ -1,13 +1,17 @@
 {
-  "total_keywords": 1,
-  "total_patterns": 1,
+  "total_keywords": 3,
+  "total_patterns": 3,
   "keyword_breakdown": {
-    "rush": 0
+    "blink": 1,
+    "stalkers": 1,
+    "collosus": 1
   },
   "pattern_breakdown": {
-    "early_zerg_aggression": 1
+    "blink": 1,
+    "stalkers": 1,
+    "collosus": 1
   },
-  "ai_learned_patterns": 1,
-  "expert_patterns": 0,
-  "last_saved": "2025-08-29T10:20:06.935684"
+  "ai_learned_patterns": 0,
+  "expert_patterns": 3,
+  "last_saved": "2025-08-29T16:15:00.000000"
 }
