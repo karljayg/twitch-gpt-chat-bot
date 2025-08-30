@@ -643,28 +643,59 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             except:
                 game_data['map'] = 'Unknown'
             
-            # Build order data (if available from replay data)
+            # Build order data (if available from replay summary)
             try:
-                # Check if we have replay data available
+                # Check if we have replay summary available
                 if hasattr(self, 'last_replay_data') and self.last_replay_data:
-                    # Extract build order from replay data
-                    build_data = []
-                    if 'players' in self.last_replay_data:
-                        for player in self.last_replay_data['players']:
-                            if 'buildOrder' in player and isinstance(player['buildOrder'], list):
-                                for step in player['buildOrder']:
-                                    if isinstance(step, dict):
-                                        build_data.append({
-                                            'supply': step.get('supply', 0),
-                                            'name': step.get('name', ''),
-                                            'time': step.get('time', 0)
-                                        })
-                    
-                    if build_data:
-                        game_data['build_order'] = build_data
-                        logger.debug(f"Added {len(build_data)} build order steps to game data")
+                    # Try to read the replay summary file for build order data
+                    import os
+                    replay_summary_path = 'temp/replay_summary.txt'
+                    if os.path.exists(replay_summary_path):
+                        with open(replay_summary_path, 'r') as f:
+                            summary_text = f.read()
+                        
+                        # Parse build order from summary text
+                        build_data = []
+                        in_build_order = False
+                        current_player = None
+                        
+                        for line in summary_text.split('\n'):
+                            line = line.strip()
+                            if "Build Order (first set of steps):" in line:
+                                in_build_order = True
+                                current_player = line.split("'s")[0]
+                                continue
+                            elif in_build_order and line.startswith("Time:"):
+                                # Parse: "Time: 0:00, Name: Probe, Supply: 12"
+                                try:
+                                    parts = line.split(", ")
+                                    time_part = parts[0].split(": ")[1]  # "0:00"
+                                    name_part = parts[1].split(": ")[1]  # "Probe"
+                                    supply_part = parts[2].split(": ")[1]  # "12"
+                                    
+                                    # Convert time to seconds
+                                    minutes, seconds = map(int, time_part.split(":"))
+                                    time_seconds = minutes * 60 + seconds
+                                    
+                                    build_data.append({
+                                        'supply': int(supply_part),
+                                        'name': name_part,
+                                        'time': time_seconds
+                                    })
+                                except Exception as e:
+                                    logger.debug(f"Could not parse build order line: {line} - {e}")
+                                    continue
+                            elif in_build_order and not line.startswith("Time:"):
+                                # End of build order section
+                                break
+                        
+                        if build_data:
+                            game_data['build_order'] = build_data
+                            logger.debug(f"Added {len(build_data)} build order steps to game data")
+                        else:
+                            logger.debug("No build order data found in replay summary")
                     else:
-                        logger.debug("No build order data found in replay")
+                        logger.debug("Replay summary file not found")
                         
             except Exception as e:
                 logger.debug(f"Could not extract build order data: {e}")

@@ -397,6 +397,26 @@
       },
       "timestamp": "2025-08-29T21:55:47.913224",
       "has_player_comment": true
+    },
+    {
+      "id": "comment_002",
+      "comment": "DT 2 base, all in. Just defend DT, counter with roaches afte.",
+      "keywords": [
+        "base,",
+        "all",
+        "in.",
+        "just",
+        "defend"
+      ],
+      "game_data": {
+        "opponent_name": "K",
+        "result": "Defeat",
+        "duration": "19m 25s",
+        "date": "2025-08-29 22:48:20",
+        "map": "Ley Lines"
+      },
+      "timestamp": "2025-08-29T22:48:36.757135",
+      "has_player_comment": true
     }
   ],
   "keyword_index": {
@@ -489,6 +509,21 @@
       "comment_001",
       "comment_001",
       "comment_001"
+    ],
+    "base,": [
+      "comment_002"
+    ],
+    "all": [
+      "comment_002"
+    ],
+    "in.": [
+      "comment_002"
+    ],
+    "just": [
+      "comment_002"
+    ],
+    "defend": [
+      "comment_002"
     ]
   }
 }
