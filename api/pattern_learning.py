@@ -108,10 +108,12 @@ class SC2PatternLearner:
             
             # Update keyword patterns and analyze for new patterns (only if keywords found)
             if keywords:
+                # Store comment data for each keyword
                 for keyword in keywords:
                     self.comment_keywords[keyword].append(comment_data)
-                    # Analyze for new patterns for each keyword
-                    self._analyze_patterns(keyword, comment_data)
+                
+                # Create pattern ONCE and reference it by all keywords
+                self._create_pattern_for_comment(comment_data)
                 
                 # Save patterns to file for persistence
                 self.save_patterns_to_file()
@@ -262,8 +264,8 @@ class SC2PatternLearner:
             self.logger.error(f"Error getting existing keywords from DB: {e}")
             return []
     
-    def _analyze_patterns(self, keyword, comment_data):
-        """Analyze build patterns for a specific keyword"""
+    def _create_pattern_for_comment(self, comment_data):
+        """Create a single pattern entry for a comment and reference it by all keywords"""
         try:
             # Get build order data from game
             build_data = comment_data['game_data'].get('build_order', [])
@@ -272,7 +274,7 @@ class SC2PatternLearner:
                 # Create pattern signature
                 pattern_signature = self._create_pattern_signature(build_data)
                 
-                # Store pattern with keyword reference
+                # Create single pattern entry
                 pattern_entry = {
                     'signature': pattern_signature,
                     'comment': comment_data['comment'],
@@ -280,13 +282,22 @@ class SC2PatternLearner:
                     'keywords': comment_data['keywords']  # Store all keywords for this pattern
                 }
                 
-                # Store in patterns by keyword
-                self.patterns[keyword].append(pattern_entry)
+                # Store pattern in a special 'all_patterns' list (not by keyword)
+                if not hasattr(self, 'all_patterns'):
+                    self.all_patterns = []
+                self.all_patterns.append(pattern_entry)
                 
-                self.logger.info(f"Added pattern for keyword '{keyword}': {len(self.patterns[keyword])} samples")
+                # Reference this pattern by each keyword (just store the index)
+                for keyword in comment_data['keywords']:
+                    if keyword not in self.patterns:
+                        self.patterns[keyword] = []
+                    # Store reference to the pattern (index in all_patterns)
+                    self.patterns[keyword].append(len(self.all_patterns) - 1)
+                
+                self.logger.info(f"Created pattern with {len(comment_data['keywords'])} keywords")
                 
         except Exception as e:
-            self.logger.error(f"Error analyzing patterns: {e}")
+            self.logger.error(f"Error creating pattern: {e}")
     
     def _create_pattern_signature(self, build_data):
         """Create a signature for build order pattern - first 60 supply focus"""
@@ -494,11 +505,11 @@ class SC2PatternLearner:
         """Get statistics about the learning system"""
         stats = {
             'total_keywords': len(self.comment_keywords),
-            'total_patterns': sum(len(patterns) for patterns in self.patterns.values()),
+            'total_patterns': len(self.all_patterns) if hasattr(self, 'all_patterns') else 0,
             'keyword_breakdown': {k: len(v) for k, v in self.comment_keywords.items()},
             'pattern_breakdown': {k: len(v) for k, v in self.patterns.items()},
-            'ai_learned_patterns': len([p for patterns in self.patterns.values() for p in patterns if not p.get('has_player_comment', False)]),
-            'expert_patterns': len([p for patterns in self.patterns.values() for p in patterns if p.get('has_player_comment', False)])
+            'ai_learned_patterns': len([p for p in (self.all_patterns if hasattr(self, 'all_patterns') else []) if not p.get('has_player_comment', False)]),
+            'expert_patterns': len([p for p in (self.all_patterns if hasattr(self, 'all_patterns') else []) if p.get('has_player_comment', False)])
         }
         return stats
     
@@ -571,9 +582,9 @@ class SC2PatternLearner:
             # Track unique patterns by their signature hash
             seen_signatures = {}
             
-            # Process all patterns to find unique ones
-            for keyword, pattern_list in self.patterns.items():
-                for pattern in pattern_list:
+            # Process all patterns from the centralized list
+            if hasattr(self, 'all_patterns'):
+                for pattern in self.all_patterns:
                     # Create a hash of the signature to identify duplicates
                     signature_str = json.dumps(pattern['signature'], sort_keys=True)
                     

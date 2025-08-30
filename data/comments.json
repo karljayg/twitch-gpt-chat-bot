@@ -1,0 +1,494 @@
+{
+  "comments": [
+    {
+      "id": "comment_001",
+      "comment": "gateway expand to stalker pressure with blink upgrade",
+      "keywords": [
+        "gateway",
+        "expand",
+        "stalker",
+        "pressure",
+        "blink",
+        "gateway",
+        "expand",
+        "stalker",
+        "pressure",
+        "blink",
+        "gateway",
+        "expand",
+        "stalker",
+        "pressure",
+        "blink",
+        "gateway",
+        "expand",
+        "stalker",
+        "pressure",
+        "blink",
+        "gateway",
+        "expand",
+        "stalker",
+        "pressure",
+        "blink",
+        "gateway",
+        "expand",
+        "stalker",
+        "pressure",
+        "blink",
+        "gateway",
+        "expand",
+        "stalker",
+        "pressure",
+        "blink",
+        "gateway",
+        "expand",
+        "stalker",
+        "pressure",
+        "blink",
+        "gateway",
+        "expand",
+        "stalker",
+        "pressure",
+        "blink",
+        "gateway",
+        "expand",
+        "stalker",
+        "pressure",
+        "blink",
+        "gateway",
+        "expand",
+        "stalker",
+        "pressure",
+        "blink",
+        "gateway",
+        "expand",
+        "stalker",
+        "pressure",
+        "blink",
+        "gateway",
+        "expand",
+        "stalker",
+        "pressure",
+        "blink",
+        "gateway",
+        "expand",
+        "stalker",
+        "pressure",
+        "blink",
+        "gateway",
+        "expand",
+        "stalker",
+        "pressure",
+        "blink",
+        "gateway",
+        "expand",
+        "stalker",
+        "pressure",
+        "blink"
+      ],
+      "game_data": {
+        "opponent_name": "BurnerAcct",
+        "opponent_race": "Zerg",
+        "result": "Victory",
+        "map": "Incorporeal LE",
+        "duration": "20m 9s",
+        "date": "2025-08-29 21:50:31",
+        "build_order": [
+          {
+            "supply": 12,
+            "name": "Probe",
+            "time": 0
+          },
+          {
+            "supply": 13,
+            "name": "Probe",
+            "time": 12
+          },
+          {
+            "supply": 14,
+            "name": "Pylon",
+            "time": 21
+          },
+          {
+            "supply": 14,
+            "name": "Probe",
+            "time": 24
+          },
+          {
+            "supply": 15,
+            "name": "Probe",
+            "time": 36
+          },
+          {
+            "supply": 15,
+            "name": "Gateway",
+            "time": 39
+          },
+          {
+            "supply": 16,
+            "name": "Probe",
+            "time": 44
+          },
+          {
+            "supply": 17,
+            "name": "Assimilator",
+            "time": 50
+          },
+          {
+            "supply": 17,
+            "name": "Probe",
+            "time": 53
+          },
+          {
+            "supply": 18,
+            "name": "Probe",
+            "time": 65
+          },
+          {
+            "supply": 18,
+            "name": "Assimilator",
+            "time": 68
+          },
+          {
+            "supply": 19,
+            "name": "Pylon",
+            "time": 74
+          },
+          {
+            "supply": 19,
+            "name": "Probe",
+            "time": 77
+          },
+          {
+            "supply": 20,
+            "name": "CyberneticsCore",
+            "time": 86
+          },
+          {
+            "supply": 20,
+            "name": "Probe",
+            "time": 89
+          },
+          {
+            "supply": 21,
+            "name": "Probe",
+            "time": 101
+          },
+          {
+            "supply": 21,
+            "name": "Zealot",
+            "time": 105
+          },
+          {
+            "supply": 24,
+            "name": "Probe",
+            "time": 113
+          },
+          {
+            "supply": 25,
+            "name": "TwilightCouncil",
+            "time": 123
+          },
+          {
+            "supply": 25,
+            "name": "Warp Gate",
+            "time": 124
+          },
+          {
+            "supply": 25,
+            "name": "Probe",
+            "time": 126
+          },
+          {
+            "supply": 26,
+            "name": "Stalker",
+            "time": 128
+          },
+          {
+            "supply": 28,
+            "name": "Probe",
+            "time": 138
+          },
+          {
+            "supply": 29,
+            "name": "Stalker",
+            "time": 151
+          },
+          {
+            "supply": 29,
+            "name": "Charge",
+            "time": 152
+          },
+          {
+            "supply": 29,
+            "name": "Gateway",
+            "time": 154
+          },
+          {
+            "supply": 29,
+            "name": "Pylon",
+            "time": 155
+          },
+          {
+            "supply": 31,
+            "name": "Zealot",
+            "time": 184
+          },
+          {
+            "supply": 31,
+            "name": "Gateway",
+            "time": 185
+          },
+          {
+            "supply": 33,
+            "name": "Pylon",
+            "time": 196
+          },
+          {
+            "supply": 33,
+            "name": "Gateway",
+            "time": 210
+          },
+          {
+            "supply": 33,
+            "name": "Zealot",
+            "time": 234
+          },
+          {
+            "supply": 33,
+            "name": "Zealot",
+            "time": 234
+          },
+          {
+            "supply": 37,
+            "name": "Zealot",
+            "time": 239
+          },
+          {
+            "supply": 39,
+            "name": "Gateway",
+            "time": 250
+          },
+          {
+            "supply": 39,
+            "name": "Gateway",
+            "time": 252
+          },
+          {
+            "supply": 39,
+            "name": "Stalker",
+            "time": 255
+          },
+          {
+            "supply": 39,
+            "name": "Stalker",
+            "time": 255
+          },
+          {
+            "supply": 43,
+            "name": "Stalker",
+            "time": 261
+          },
+          {
+            "supply": 45,
+            "name": "Stalker",
+            "time": 265
+          },
+          {
+            "supply": 47,
+            "name": "Blink",
+            "time": 292
+          },
+          {
+            "supply": 47,
+            "name": "Nexus",
+            "time": 294
+          },
+          {
+            "supply": 47,
+            "name": "Pylon",
+            "time": 298
+          },
+          {
+            "supply": 47,
+            "name": "Pylon",
+            "time": 299
+          },
+          {
+            "supply": 47,
+            "name": "Probe",
+            "time": 317
+          },
+          {
+            "supply": 47,
+            "name": "Sentry",
+            "time": 319
+          },
+          {
+            "supply": 47,
+            "name": "Sentry",
+            "time": 319
+          },
+          {
+            "supply": 47,
+            "name": "Sentry",
+            "time": 320
+          },
+          {
+            "supply": 54,
+            "name": "Probe",
+            "time": 329
+          },
+          {
+            "supply": 55,
+            "name": "RoboticsFacility",
+            "time": 337
+          },
+          {
+            "supply": 55,
+            "name": "RoboticsFacility",
+            "time": 338
+          },
+          {
+            "supply": 55,
+            "name": "Probe",
+            "time": 339
+          },
+          {
+            "supply": 56,
+            "name": "Probe",
+            "time": 347
+          },
+          {
+            "supply": 56,
+            "name": "Probe",
+            "time": 355
+          },
+          {
+            "supply": 57,
+            "name": "Probe",
+            "time": 363
+          },
+          {
+            "supply": 58,
+            "name": "Probe",
+            "time": 367
+          },
+          {
+            "supply": 58,
+            "name": "Probe",
+            "time": 371
+          },
+          {
+            "supply": 61,
+            "name": "Probe",
+            "time": 379
+          },
+          {
+            "supply": 61,
+            "name": "Probe",
+            "time": 380
+          },
+          {
+            "supply": 61,
+            "name": "Forge",
+            "time": 382
+          }
+        ]
+      },
+      "timestamp": "2025-08-29T21:55:47.913224",
+      "has_player_comment": true
+    }
+  ],
+  "keyword_index": {
+    "gateway": [
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001"
+    ],
+    "expand": [
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001"
+    ],
+    "stalker": [
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001"
+    ],
+    "pressure": [
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001"
+    ],
+    "blink": [
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001",
+      "comment_001"
+    ]
+  }
+}

@@ -1,0 +1,5 @@
+---
+description: periodically commit to git
+globs: when making changes that I confirm works, since file corruption happened so much lately, i want you to save to source control periodically, on a feature branch
+alwaysApply: true
+---
