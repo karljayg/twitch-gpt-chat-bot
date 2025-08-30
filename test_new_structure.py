@@ -5,7 +5,7 @@ import os
 sys.path.append('.')
 
 from api.pattern_learning import SC2PatternLearner
-from models.mathison_db import MathisonDB
+from models.mathison_db import Database
 import logging
 
 # Setup logging
@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 class MockDB:
     def update_player_comments_in_last_replay(self, comment):
         return True
+    
+    def get_player_comments(self, player_name, player_race):
+        return []
 
 # Test the new structure
 def test_new_structure():
