@@ -325,17 +325,23 @@ def _prepare_game_data_for_comment(self, game_player_names, winning_players, los
         try:
             # Check if we have replay data available
             if hasattr(self, 'last_replay_data') and self.last_replay_data:
+                logger.debug(f"Replay data keys: {list(self.last_replay_data.keys())}")
+                if 'players' in self.last_replay_data:
+                    logger.debug(f"Players data: {self.last_replay_data['players']}")
                 # Extract build order from replay data
                 build_data = []
                 if 'players' in self.last_replay_data:
                     for player in self.last_replay_data['players']:
-                        if 'buildOrder' in player:
+                        if 'buildOrder' in player and isinstance(player['buildOrder'], list):
                             for step in player['buildOrder']:
-                                build_data.append({
-                                    'supply': step.get('supply', 0),
-                                    'name': step.get('name', ''),
-                                    'time': step.get('time', 0)
-                                })
+                                if isinstance(step, dict):
+                                    build_data.append({
+                                        'supply': step.get('supply', 0),
+                                        'name': step.get('name', ''),
+                                        'time': step.get('time', 0)
+                                    })
+                        elif 'buildOrder' in player:
+                            logger.debug(f"Build order is not a list: {type(player['buildOrder'])} - {player['buildOrder']}")
                 
                 if build_data:
                     game_data['build_order'] = build_data
