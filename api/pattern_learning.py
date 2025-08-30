@@ -272,12 +272,16 @@ class SC2PatternLearner:
                 # Create pattern signature
                 pattern_signature = self._create_pattern_signature(build_data)
                 
-                # Store pattern
-                self.patterns[keyword].append({
+                # Store pattern with keyword reference
+                pattern_entry = {
                     'signature': pattern_signature,
                     'comment': comment_data['comment'],
-                    'game_data': comment_data['game_data']
-                })
+                    'game_data': comment_data['game_data'],
+                    'keywords': comment_data['keywords']  # Store all keywords for this pattern
+                }
+                
+                # Store in patterns by keyword
+                self.patterns[keyword].append(pattern_entry)
                 
                 self.logger.info(f"Added pattern for keyword '{keyword}': {len(self.patterns[keyword])} samples")
                 
@@ -560,27 +564,47 @@ class SC2PatternLearner:
             # Save patterns with efficient structure (no duplication)
             patterns_file = os.path.join(config.PATTERN_DATA_DIR, 'patterns.json')
             
-            # Create efficient patterns structure
+            # Create efficient patterns structure - ONE pattern per unique build order
             efficient_patterns = {}
             pattern_id = 0
             
-            # Process each pattern category
+            # Track unique patterns by their signature hash
+            seen_signatures = {}
+            
+            # Process all patterns to find unique ones
             for keyword, pattern_list in self.patterns.items():
                 for pattern in pattern_list:
-                    pattern_id += 1
-                    pattern_name = f"{keyword}_{pattern_id:03d}"
+                    # Create a hash of the signature to identify duplicates
+                    signature_str = json.dumps(pattern['signature'], sort_keys=True)
                     
-                    # Create efficient pattern signature
-                    efficient_patterns[pattern_name] = {
-                        "signature": pattern.get('signature', {}),
-                        "comment_id": f"comment_{pattern_id:03d}",
-                        "game_id": f"game_{pattern_id:03d}",
-                        "sample_count": 1,
-                        "last_seen": datetime.now().isoformat(),
-                        "strategy_type": self._classify_strategy(pattern),
-                        "race": self._detect_race(pattern),
-                        "confidence": pattern.get('ai_confidence', 0.8)
-                    }
+                    if signature_str not in seen_signatures:
+                        # This is a new unique pattern
+                        pattern_id += 1
+                        pattern_name = f"pattern_{pattern_id:03d}"
+                        
+                        # Create efficient pattern entry
+                        efficient_patterns[pattern_name] = {
+                            "signature": pattern['signature'],
+                            "comment_id": f"comment_{pattern_id:03d}",
+                            "game_id": f"game_{pattern_id:03d}",
+                            "keywords": pattern.get('keywords', []),  # All keywords that reference this pattern
+                            "comment": pattern['comment'],
+                            "sample_count": 1,
+                            "last_seen": datetime.now().isoformat(),
+                            "strategy_type": self._classify_strategy(pattern),
+                            "race": self._detect_race(pattern),
+                            "confidence": pattern.get('ai_confidence', 0.8)
+                        }
+                        
+                        # Mark this signature as seen
+                        seen_signatures[signature_str] = pattern_name
+                    else:
+                        # This pattern already exists, just add the keyword to the existing pattern
+                        existing_pattern_name = seen_signatures[signature_str]
+                        if 'keywords' not in efficient_patterns[existing_pattern_name]:
+                            efficient_patterns[existing_pattern_name]['keywords'] = []
+                        efficient_patterns[existing_pattern_name]['keywords'].extend(pattern.get('keywords', []))
+                        efficient_patterns[existing_pattern_name]['sample_count'] += 1
             
             with open(patterns_file, 'w') as f:
                 json.dump(efficient_patterns, f, indent=2, default=str)
