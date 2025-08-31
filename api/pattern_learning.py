@@ -10,14 +10,17 @@ import logging
 from settings import config
 
 class SC2PatternLearner:
-    def __init__(self, db, logger):
+    def __init__(self, db, logger, data_dir=None):
         self.db = db
         self.logger = logger
         self.patterns = defaultdict(list)
         self.comment_keywords = defaultdict(list)
         
+        # Use provided data directory or default from config
+        self.data_dir = data_dir if data_dir else config.PATTERN_DATA_DIR
+        
         # Ensure data directory exists
-        os.makedirs(config.PATTERN_DATA_DIR, exist_ok=True)
+        os.makedirs(self.data_dir, exist_ok=True)
         
         # Load existing patterns from file
         self.load_patterns_from_file()
@@ -94,9 +97,11 @@ class SC2PatternLearner:
             # Extract keywords from comment
             keywords = self._extract_keywords(comment)
             
-            # Store comment with game data for learning
+            # Store comment with game data for learning (dual storage)
             comment_data = {
-                'comment': comment,
+                'raw_comment': comment,  # Original comment as entered
+                'cleaned_comment': self._clean_comment_text(comment),  # Cleaned version for analysis
+                'comment': comment,  # Keep for backward compatibility
                 'keywords': keywords,
                 'game_data': game_data,
                 'timestamp': datetime.now().isoformat(),
@@ -138,7 +143,9 @@ class SC2PatternLearner:
                 
                 # Store as AI-learned pattern
                 ai_comment_data = {
-                    'comment': f"AI detected: {strategy_guess}",
+                    'raw_comment': f"AI detected: {strategy_guess}",
+                    'cleaned_comment': f"AI detected: {strategy_guess}",
+                    'comment': f"AI detected: {strategy_guess}",  # Keep for backward compatibility
                     'keywords': [strategy_guess.lower().replace(' ', '_')],
                     'game_data': game_data,
                     'timestamp': datetime.now().isoformat(),
@@ -224,15 +231,17 @@ class SC2PatternLearner:
             return 0.0
     
     def _extract_keywords(self, comment):
-        """Extract SC2 strategy keywords from comment by learning from existing replay_summary data"""
+        """Extract SC2 strategy keywords from comment with improved cleaning and deduplication"""
         try:
             # Get existing keywords from the database to learn what terms are meaningful
             existing_keywords = self._get_existing_keywords_from_db()
             
+            # Clean the comment and extract keywords
+            cleaned_comment = self._clean_comment_text(comment)
+            comment_lower = cleaned_comment.lower()
+            
             # Extract keywords that appear in the comment and exist in our learned vocabulary
             found_keywords = []
-            comment_lower = comment.lower()
-            
             for keyword in existing_keywords:
                 if keyword.lower() in comment_lower:
                     found_keywords.append(keyword)
@@ -246,12 +255,36 @@ class SC2PatternLearner:
                 strategic_words = [word for word in words if word not in stop_words and len(word) > 2]
                 found_keywords = strategic_words[:5]  # Limit to 5 most relevant words
             
-            return found_keywords
+            # Remove duplicates while preserving order
+            seen = set()
+            unique_keywords = []
+            for keyword in found_keywords:
+                if keyword.lower() not in seen:
+                    seen.add(keyword.lower())
+                    unique_keywords.append(keyword)
+            
+            return unique_keywords
             
         except Exception as e:
             self.logger.error(f"Error extracting keywords: {e}")
             # Fallback: return basic words from comment
             return comment.lower().split()[:3]
+    
+    def _clean_comment_text(self, comment):
+        """Clean comment text by removing punctuation and normalizing"""
+        try:
+            # Remove punctuation but keep spaces
+            import re
+            # Remove punctuation except for spaces and hyphens (for unit names like "Dark-Templar")
+            cleaned = re.sub(r'[^\w\s-]', ' ', comment)
+            # Normalize multiple spaces to single space
+            cleaned = re.sub(r'\s+', ' ', cleaned)
+            # Strip leading/trailing spaces
+            cleaned = cleaned.strip()
+            return cleaned
+        except Exception as e:
+            self.logger.error(f"Error cleaning comment text: {e}")
+            return comment
     
     def _get_existing_keywords_from_db(self):
         """Get existing keywords from replay_summary data to learn vocabulary"""
@@ -300,7 +333,7 @@ class SC2PatternLearner:
             self.logger.error(f"Error creating pattern: {e}")
     
     def _create_pattern_signature(self, build_data):
-        """Create a signature for build order pattern - first 60 supply focus"""
+        """Create a signature for build order pattern with consolidated units"""
         signature = {
             'early_game': [],      # First 60 supply (configurable)
             'key_timings': {},     # Critical building timings
@@ -308,33 +341,94 @@ class SC2PatternLearner:
         }
         
         try:
+            # Only analyze first 60 supply (configurable threshold)
             early_game_steps = []
-            
             for step in build_data:
                 supply = step.get('supply', 0)
+                if supply <= config.BUILD_ORDER_COUNT_TO_ANALYZE:
+                    early_game_steps.append(step)
+            
+            # Consolidate consecutive identical units with counts and order
+            if early_game_steps:
+                consolidated_build = self._consolidate_build_order(early_game_steps)
+                signature['early_game'] = consolidated_build
+                
+                # Extract opening sequence (first 10 consolidated steps)
+                signature['opening_sequence'] = consolidated_build[:10] if consolidated_build else []
+            
+            # Track key timings for critical buildings
+            for step in build_data:
                 name = step.get('name', '')
                 time = step.get('time', 0)
                 
-                # Only analyze first 60 supply (configurable threshold)
-                if supply <= config.BUILD_ORDER_COUNT_TO_ANALYZE:
-                    early_game_steps.append(step)
-                    signature['early_game'].append(name)
-                    
-                    # Track key timings for critical buildings
-                    if name in ['SpawningPool', 'Barracks', 'Gateway', 'Forge', 'Factory', 
-                               'RoachWarren', 'BanelingNest', 'Spire', 'NydusNetwork',
-                               'TwilightCouncil', 'RoboticsFacility', 'Stargate',
-                               'FusionCore', 'Armory', 'Starport', 'NuclearFacility']:
-                        signature['key_timings'][name] = time
-                    
-                    # Track opening sequence (first 10 buildings)
-                    if len(signature['opening_sequence']) < 10:
-                        signature['opening_sequence'].append(name)
+                if name in ['SpawningPool', 'Barracks', 'Gateway', 'Forge', 'Factory', 
+                           'RoachWarren', 'BanelingNest', 'Spire', 'NydusNetwork',
+                           'TwilightCouncil', 'RoboticsFacility', 'Stargate',
+                           'FusionCore', 'Armory', 'Starport', 'NuclearFacility']:
+                    signature['key_timings'][name] = time
                     
         except Exception as e:
             self.logger.error(f"Error creating pattern signature: {e}")
             
         return signature
+    
+    def _consolidate_build_order(self, build_data):
+        """Consolidate consecutive identical units with counts and order information"""
+        try:
+            if not build_data:
+                return []
+            
+            consolidated = []
+            current_unit = None
+            current_count = 0
+            current_supply = 0
+            current_time = 0
+            order = 1
+            
+            for i, step in enumerate(build_data):
+                if isinstance(step, dict) and 'name' in step:
+                    unit_name = step['name']
+                    
+                    if unit_name == current_unit:
+                        # Same unit, increment count and update final values
+                        current_count += 1
+                        current_supply = step.get('supply', current_supply)
+                        current_time = step.get('time', current_time)
+                    else:
+                        # Different unit, save previous and start new
+                        if current_unit is not None:
+                            consolidated.append({
+                                'unit': current_unit,
+                                'count': current_count,
+                                'order': order,
+                                'supply': current_supply,
+                                'time': current_time
+                            })
+                            order += 1
+                        
+                        # Start new unit
+                        current_unit = unit_name
+                        current_count = 1
+                        current_supply = step.get('supply', 0)
+                        current_time = step.get('time', 0)
+            
+            # Don't forget the last unit - but only if we haven't already processed it
+            if current_unit is not None and current_count > 0:
+                # Check if this unit was already added in the loop
+                if not consolidated or consolidated[-1]['unit'] != current_unit:
+                    consolidated.append({
+                        'unit': current_unit,
+                        'count': current_count,
+                        'order': order,
+                        'supply': current_supply,
+                        'time': current_time
+                    })
+            
+            return consolidated
+            
+        except Exception as e:
+            self.logger.error(f"Error consolidating build order: {e}")
+            return []
     
     def _save_comment_to_db(self, game_data, comment):
         """Save comment to database for persistence"""
@@ -460,18 +554,24 @@ class SC2PatternLearner:
             score = 0.0
             total_checks = 0
             
-            # Early game similarity
+            # Early game similarity - handle both old and new formats
             if current['early_game'] and known['early_game']:
-                early_match = len(set(current['early_game']) & set(known['early_game']))
-                early_total = len(set(current['early_game']) | set(known['early_game']))
+                current_units = self._extract_unit_names(current['early_game'])
+                known_units = self._extract_unit_names(known['early_game'])
+                
+                early_match = len(set(current_units) & set(known_units))
+                early_total = len(set(current_units) | set(known_units))
                 if early_total > 0:
                     score += (early_match / early_total) * 0.4  # 40% weight
                     total_checks += 1
             
             # Building sequence similarity
             if current['opening_sequence'] and known['opening_sequence']:
-                seq_match = len(set(current['opening_sequence']) & set(known['opening_sequence']))
-                seq_total = len(set(current['opening_sequence']) | set(known['opening_sequence']))
+                current_seq = self._extract_unit_names(current['opening_sequence'])
+                known_seq = self._extract_unit_names(known['opening_sequence'])
+                
+                seq_match = len(set(current_seq) & set(known_seq))
+                seq_total = len(set(current_seq) | set(known_seq))
                 if seq_total > 0:
                     score += (seq_match / seq_total) * 0.3  # 30% weight
                     total_checks += 1
@@ -500,6 +600,22 @@ class SC2PatternLearner:
         except Exception as e:
             self.logger.error(f"Error calculating similarity: {e}")
             return 0.0
+    
+    def _extract_unit_names(self, early_game):
+        """Extract unit names from early_game list, handling both old and new formats"""
+        try:
+            unit_names = []
+            for entry in early_game:
+                if isinstance(entry, dict) and 'unit' in entry:
+                    # New consolidated format
+                    unit_names.append(entry['unit'])
+                elif isinstance(entry, str):
+                    # Old format
+                    unit_names.append(entry)
+            return unit_names
+        except Exception as e:
+            self.logger.error(f"Error extracting unit names: {e}")
+            return []
     
     def get_learning_stats(self):
         """Get statistics about the learning system"""
@@ -573,7 +689,7 @@ class SC2PatternLearner:
         """Save all patterns to JSON files for persistence"""
         try:
             # Save patterns with efficient structure (no duplication)
-            patterns_file = os.path.join(config.PATTERN_DATA_DIR, 'patterns.json')
+            patterns_file = os.path.join(self.data_dir, 'patterns.json')
             
             # Create efficient patterns structure - ONE pattern per unique build order
             efficient_patterns = {}
@@ -621,7 +737,7 @@ class SC2PatternLearner:
                 json.dump(efficient_patterns, f, indent=2, default=str)
             
             # Save comments with efficient structure (no duplication)
-            comments_file = os.path.join(config.PATTERN_DATA_DIR, 'comments.json')
+            comments_file = os.path.join(self.data_dir, 'comments.json')
             
             # Create efficient structure: comments array + keyword index
             comments_data = {
@@ -641,7 +757,9 @@ class SC2PatternLearner:
                         comment_id += 1
                         comment_entry = {
                             "id": f"comment_{comment_id:03d}",
-                            "comment": comment_text,
+                            "raw_comment": comment_data.get('raw_comment', comment_text),
+                            "cleaned_comment": comment_data.get('cleaned_comment', comment_text),
+                            "comment": comment_text,  # Keep for backward compatibility
                             "keywords": comment_data['keywords'],
                             "game_data": comment_data['game_data'],
                             "timestamp": comment_data['timestamp'],
@@ -660,13 +778,13 @@ class SC2PatternLearner:
                 json.dump(comments_data, f, indent=2, default=str)
             
             # Save learning stats
-            stats_file = os.path.join(config.PATTERN_DATA_DIR, 'learning_stats.json')
+            stats_file = os.path.join(self.data_dir, 'learning_stats.json')
             stats = self.get_learning_stats()
             stats['last_saved'] = datetime.now().isoformat()
             with open(stats_file, 'w') as f:
                 json.dump(stats, f, indent=2, default=str)
             
-            self.logger.info(f"Patterns saved to {config.PATTERN_DATA_DIR}/")
+            self.logger.info(f"Patterns saved to {self.data_dir}/")
             
         except Exception as e:
             self.logger.error(f"Error saving patterns to file: {e}")
@@ -677,17 +795,40 @@ class SC2PatternLearner:
             signature = pattern.get('signature', {})
             early_game = signature.get('early_game', [])
             
-            # Basic strategy classification
-            if any('Pool' in name for name in early_game):
-                return "zerg_aggression"
-            elif any('Barracks' in name for name in early_game):
-                return "terran_aggression"
-            elif any('Gateway' in name for name in early_game):
-                return "protoss_aggression"
-            elif len([s for s in early_game if 'Hatchery' in s or 'CommandCenter' in s or 'Nexus' in s]) >= 2:
-                return "economic_expansion"
-            else:
-                return "standard_opening"
+            # Handle new consolidated format
+            for entry in early_game:
+                if isinstance(entry, dict) and 'unit' in entry:
+                    unit_name = entry['unit']
+                    if 'Pool' in unit_name:
+                        return "zerg_aggression"
+                    elif 'Barracks' in unit_name:
+                        return "terran_aggression"
+                    elif 'Gateway' in unit_name:
+                        return "protoss_aggression"
+                    elif 'Hatchery' in unit_name or 'CommandCenter' in unit_name or 'Nexus' in unit_name:
+                        # Count economic buildings
+                        economic_count = sum(1 for e in early_game if isinstance(e, dict) and 'unit' in e and 
+                                           any(eco in e['unit'] for eco in ['Hatchery', 'CommandCenter', 'Nexus']))
+                        if economic_count >= 2:
+                            return "economic_expansion"
+            
+            # Fallback to old format for backward compatibility
+            for entry in early_game:
+                if isinstance(entry, str):
+                    if 'Pool' in entry:
+                        return "zerg_aggression"
+                    elif 'Barracks' in entry:
+                        return "terran_aggression"
+                    elif 'Gateway' in entry:
+                        return "protoss_aggression"
+                    elif 'Hatchery' in entry or 'CommandCenter' in entry or 'Nexus' in entry:
+                        # Count economic buildings
+                        economic_count = sum(1 for e in early_game if isinstance(e, str) and 
+                                           any(eco in e for eco in ['Hatchery', 'CommandCenter', 'Nexus']))
+                        if economic_count >= 2:
+                            return "economic_expansion"
+            
+            return "standard_opening"
         except:
             return "unknown_strategy"
     
@@ -697,14 +838,28 @@ class SC2PatternLearner:
             signature = pattern.get('signature', {})
             early_game = signature.get('early_game', [])
             
-            if any('Pool' in name for name in early_game):
-                return "zerg"
-            elif any('Barracks' in name for name in early_game):
-                return "terran"
-            elif any('Gateway' in name for name in early_game):
-                return "protoss"
-            else:
-                return "unknown"
+            # Handle new consolidated format
+            for entry in early_game:
+                if isinstance(entry, dict) and 'unit' in entry:
+                    unit_name = entry['unit']
+                    if 'Pool' in unit_name:
+                        return "zerg"
+                    elif 'Barracks' in unit_name:
+                        return "terran"
+                    elif 'Gateway' in unit_name:
+                        return "protoss"
+            
+            # Fallback to old format for backward compatibility
+            for entry in early_game:
+                if isinstance(entry, str):
+                    if 'Pool' in entry:
+                        return "zerg"
+                    elif 'Barracks' in entry:
+                        return "terran"
+                    elif 'Gateway' in entry:
+                        return "protoss"
+            
+            return "unknown"
         except:
             return "unknown"
     
@@ -712,7 +867,7 @@ class SC2PatternLearner:
         """Load patterns from JSON files on startup"""
         try:
             # Load patterns
-            patterns_file = os.path.join(config.PATTERN_DATA_DIR, 'patterns.json')
+            patterns_file = os.path.join(self.data_dir, 'patterns.json')
             if os.path.exists(patterns_file):
                 with open(patterns_file, 'r') as f:
                     patterns_data = json.load(f)
@@ -723,7 +878,7 @@ class SC2PatternLearner:
                 self.logger.info(f"Loaded {len(patterns_data)} pattern categories from file")
             
             # Load comments with efficient structure
-            comments_file = os.path.join(config.PATTERN_DATA_DIR, 'comments.json')
+            comments_file = os.path.join(self.data_dir, 'comments.json')
             if os.path.exists(comments_file):
                 with open(comments_file, 'r') as f:
                     comments_data = json.load(f)
@@ -740,7 +895,9 @@ class SC2PatternLearner:
                             
                             # Create the comment data structure
                             comment_entry = {
-                                'comment': comment['comment'],
+                                'raw_comment': comment.get('raw_comment', comment['comment']),
+                                'cleaned_comment': comment.get('cleaned_comment', comment['comment']),
+                                'comment': comment['comment'],  # Keep for backward compatibility
                                 'keywords': comment['keywords'],
                                 'game_data': comment['game_data'],
                                 'timestamp': comment['timestamp'],

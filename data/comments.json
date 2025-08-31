@@ -2,6 +2,8 @@
   "comments": [
     {
       "id": "comment_001",
+      "raw_comment": "gateway expand to stalker pressure with blink upgrade",
+      "cleaned_comment": "gateway expand to stalker pressure with blink upgrade",
       "comment": "gateway expand to stalker pressure with blink upgrade",
       "keywords": [
         "gateway",
@@ -400,6 +402,8 @@
     },
     {
       "id": "comment_002",
+      "raw_comment": "DT 2 base, all in. Just defend DT, counter with roaches afte.",
+      "cleaned_comment": "DT 2 base, all in. Just defend DT, counter with roaches afte.",
       "comment": "DT 2 base, all in. Just defend DT, counter with roaches afte.",
       "keywords": [
         "base,",

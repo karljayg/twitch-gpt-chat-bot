@@ -2,66 +2,265 @@
   "pattern_001": {
     "signature": {
       "early_game": [
-        "Probe",
-        "Probe",
-        "Pylon",
-        "Probe",
-        "Probe",
-        "Gateway",
-        "Probe",
-        "Assimilator",
-        "Probe",
-        "Probe",
-        "Probe",
-        "Nexus",
-        "CyberneticsCore",
-        "Probe",
-        "Assimilator",
-        "Probe",
-        "Pylon",
-        "Adept",
-        "Probe",
-        "Warp Gate",
-        "Probe",
-        "TwilightCouncil",
-        "Probe",
-        "Stalker",
-        "Probe",
-        "Probe",
-        "Probe",
-        "Probe",
-        "Probe",
-        "RoboticsFacility",
-        "Probe",
-        "Probe",
-        "Probe",
-        "Probe",
-        "DarkShrine",
-        "Probe",
-        "Probe",
-        "Warp Prism",
-        "Gateway",
-        "Gateway",
-        "Gateway",
-        "Pylon",
-        "Assimilator",
-        "Assimilator",
-        "Pylon",
-        "Probe",
-        "Probe",
-        "Probe",
-        "Dark Templar",
-        "Dark Templar",
-        "Dark Templar",
-        "Dark Templar",
-        "Pylon",
-        "Forge",
-        "Probe",
-        "Observer",
-        "Probe",
-        "Probe",
-        "Probe",
-        "Probe"
+        {
+          "unit": "Probe",
+          "count": 2,
+          "order": 1,
+          "supply": 13,
+          "time": 12
+        },
+        {
+          "unit": "Pylon",
+          "count": 1,
+          "order": 2,
+          "supply": 14,
+          "time": 19
+        },
+        {
+          "unit": "Probe",
+          "count": 2,
+          "order": 3,
+          "supply": 15,
+          "time": 35
+        },
+        {
+          "unit": "Gateway",
+          "count": 1,
+          "order": 4,
+          "supply": 15,
+          "time": 39
+        },
+        {
+          "unit": "Probe",
+          "count": 1,
+          "order": 5,
+          "supply": 16,
+          "time": 43
+        },
+        {
+          "unit": "Assimilator",
+          "count": 1,
+          "order": 6,
+          "supply": 16,
+          "time": 44
+        },
+        {
+          "unit": "Probe",
+          "count": 3,
+          "order": 7,
+          "supply": 19,
+          "time": 77
+        },
+        {
+          "unit": "Nexus",
+          "count": 1,
+          "order": 8,
+          "supply": 20,
+          "time": 84
+        },
+        {
+          "unit": "CyberneticsCore",
+          "count": 1,
+          "order": 9,
+          "supply": 20,
+          "time": 94
+        },
+        {
+          "unit": "Probe",
+          "count": 1,
+          "order": 10,
+          "supply": 20,
+          "time": 96
+        },
+        {
+          "unit": "Assimilator",
+          "count": 1,
+          "order": 11,
+          "supply": 21,
+          "time": 105
+        },
+        {
+          "unit": "Probe",
+          "count": 1,
+          "order": 12,
+          "supply": 21,
+          "time": 108
+        },
+        {
+          "unit": "Pylon",
+          "count": 1,
+          "order": 13,
+          "supply": 21,
+          "time": 111
+        },
+        {
+          "unit": "Adept",
+          "count": 1,
+          "order": 14,
+          "supply": 22,
+          "time": 120
+        },
+        {
+          "unit": "Probe",
+          "count": 1,
+          "order": 15,
+          "supply": 22,
+          "time": 121
+        },
+        {
+          "unit": "Warp Gate",
+          "count": 1,
+          "order": 16,
+          "supply": 23,
+          "time": 131
+        },
+        {
+          "unit": "Probe",
+          "count": 1,
+          "order": 17,
+          "supply": 23,
+          "time": 133
+        },
+        {
+          "unit": "TwilightCouncil",
+          "count": 1,
+          "order": 18,
+          "supply": 26,
+          "time": 142
+        },
+        {
+          "unit": "Probe",
+          "count": 1,
+          "order": 19,
+          "supply": 26,
+          "time": 145
+        },
+        {
+          "unit": "Stalker",
+          "count": 1,
+          "order": 20,
+          "supply": 26,
+          "time": 149
+        },
+        {
+          "unit": "Probe",
+          "count": 5,
+          "order": 21,
+          "supply": 33,
+          "time": 173
+        },
+        {
+          "unit": "RoboticsFacility",
+          "count": 1,
+          "order": 22,
+          "supply": 33,
+          "time": 177
+        },
+        {
+          "unit": "Probe",
+          "count": 4,
+          "order": 23,
+          "supply": 36,
+          "time": 201
+        },
+        {
+          "unit": "DarkShrine",
+          "count": 1,
+          "order": 24,
+          "supply": 36,
+          "time": 203
+        },
+        {
+          "unit": "Probe",
+          "count": 2,
+          "order": 25,
+          "supply": 38,
+          "time": 213
+        },
+        {
+          "unit": "Warp Prism",
+          "count": 1,
+          "order": 26,
+          "supply": 40,
+          "time": 219
+        },
+        {
+          "unit": "Gateway",
+          "count": 3,
+          "order": 27,
+          "supply": 40,
+          "time": 223
+        },
+        {
+          "unit": "Pylon",
+          "count": 1,
+          "order": 28,
+          "supply": 40,
+          "time": 234
+        },
+        {
+          "unit": "Assimilator",
+          "count": 2,
+          "order": 29,
+          "supply": 42,
+          "time": 239
+        },
+        {
+          "unit": "Pylon",
+          "count": 1,
+          "order": 30,
+          "supply": 42,
+          "time": 260
+        },
+        {
+          "unit": "Probe",
+          "count": 3,
+          "order": 31,
+          "supply": 43,
+          "time": 278
+        },
+        {
+          "unit": "Dark Templar",
+          "count": 4,
+          "order": 32,
+          "supply": 45,
+          "time": 280
+        },
+        {
+          "unit": "Pylon",
+          "count": 1,
+          "order": 33,
+          "supply": 45,
+          "time": 284
+        },
+        {
+          "unit": "Forge",
+          "count": 1,
+          "order": 34,
+          "supply": 53,
+          "time": 286
+        },
+        {
+          "unit": "Probe",
+          "count": 1,
+          "order": 35,
+          "supply": 53,
+          "time": 292
+        },
+        {
+          "unit": "Observer",
+          "count": 1,
+          "order": 36,
+          "supply": 53,
+          "time": 293
+        },
+        {
+          "unit": "Probe",
+          "count": 4,
+          "order": 37,
+          "supply": 57,
+          "time": 315
+        }
       ],
       "key_timings": {
         "Gateway": 223,
@@ -70,16 +269,76 @@
         "Forge": 286
       },
       "opening_sequence": [
-        "Probe",
-        "Probe",
-        "Pylon",
-        "Probe",
-        "Probe",
-        "Gateway",
-        "Probe",
-        "Assimilator",
-        "Probe",
-        "Probe"
+        {
+          "unit": "Probe",
+          "count": 2,
+          "order": 1,
+          "supply": 13,
+          "time": 12
+        },
+        {
+          "unit": "Pylon",
+          "count": 1,
+          "order": 2,
+          "supply": 14,
+          "time": 19
+        },
+        {
+          "unit": "Probe",
+          "count": 2,
+          "order": 3,
+          "supply": 15,
+          "time": 35
+        },
+        {
+          "unit": "Gateway",
+          "count": 1,
+          "order": 4,
+          "supply": 15,
+          "time": 39
+        },
+        {
+          "unit": "Probe",
+          "count": 1,
+          "order": 5,
+          "supply": 16,
+          "time": 43
+        },
+        {
+          "unit": "Assimilator",
+          "count": 1,
+          "order": 6,
+          "supply": 16,
+          "time": 44
+        },
+        {
+          "unit": "Probe",
+          "count": 3,
+          "order": 7,
+          "supply": 19,
+          "time": 77
+        },
+        {
+          "unit": "Nexus",
+          "count": 1,
+          "order": 8,
+          "supply": 20,
+          "time": 84
+        },
+        {
+          "unit": "CyberneticsCore",
+          "count": 1,
+          "order": 9,
+          "supply": 20,
+          "time": 94
+        },
+        {
+          "unit": "Probe",
+          "count": 1,
+          "order": 10,
+          "supply": 20,
+          "time": 96
+        }
       ]
     },
     "comment_id": "comment_001",
@@ -93,7 +352,7 @@
     ],
     "comment": "gateway expand to stalker pressure with blink upgrade",
     "sample_count": 1,
-    "last_seen": "2025-08-29T22:49:59.501520",
+    "last_seen": "2025-08-30T20:26:12.668236",
     "strategy_type": "protoss_aggression",
     "race": "protoss",
     "confidence": 0.8
