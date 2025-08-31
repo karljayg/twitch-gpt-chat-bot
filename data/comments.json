@@ -349,6 +349,329 @@
     },
     {
       "id": "comment_003",
+      "raw_comment": "terran vs terran 1 base all in, tank viking push",
+      "cleaned_comment": "terran vs terran 1 base all in tank viking push",
+      "comment": "terran vs terran 1 base all in, tank viking push",
+      "keywords": [
+        "terran",
+        "base",
+        "all",
+        "tank"
+      ],
+      "game_data": {
+        "opponent_name": "T",
+        "result": "Victory",
+        "duration": "14m 9s",
+        "date": "2025-08-30 21:49:43",
+        "map": "Tokamak LE",
+        "build_order": [
+          {
+            "supply": 12,
+            "name": "SCV",
+            "time": 0
+          },
+          {
+            "supply": 13,
+            "name": "SupplyDepot",
+            "time": 16
+          },
+          {
+            "supply": 13,
+            "name": "SCV",
+            "time": 16
+          },
+          {
+            "supply": 14,
+            "name": "SCV",
+            "time": 28
+          },
+          {
+            "supply": 15,
+            "name": "Barracks",
+            "time": 39
+          },
+          {
+            "supply": 15,
+            "name": "SCV",
+            "time": 42
+          },
+          {
+            "supply": 16,
+            "name": "Refinery",
+            "time": 51
+          },
+          {
+            "supply": 16,
+            "name": "SCV",
+            "time": 54
+          },
+          {
+            "supply": 17,
+            "name": "SCV",
+            "time": 66
+          },
+          {
+            "supply": 18,
+            "name": "SCV",
+            "time": 78
+          },
+          {
+            "supply": 19,
+            "name": "Marine",
+            "time": 87
+          },
+          {
+            "supply": 19,
+            "name": "SCV",
+            "time": 90
+          },
+          {
+            "supply": 21,
+            "name": "SupplyDepot",
+            "time": 95
+          },
+          {
+            "supply": 21,
+            "name": "SCV",
+            "time": 103
+          },
+          {
+            "supply": 21,
+            "name": "Marine",
+            "time": 105
+          },
+          {
+            "supply": 23,
+            "name": "Orbital Command",
+            "time": 115
+          },
+          {
+            "supply": 24,
+            "name": "Refinery",
+            "time": 129
+          },
+          {
+            "supply": 24,
+            "name": "Marine",
+            "time": 129
+          },
+          {
+            "supply": 24,
+            "name": "Factory",
+            "time": 131
+          },
+          {
+            "supply": 24,
+            "name": "SCV",
+            "time": 147
+          },
+          {
+            "supply": 24,
+            "name": "Marine",
+            "time": 149
+          },
+          {
+            "supply": 26,
+            "name": "SCV",
+            "time": 159
+          },
+          {
+            "supply": 27,
+            "name": "CommandCenter",
+            "time": 165
+          },
+          {
+            "supply": 27,
+            "name": "Marine",
+            "time": 168
+          },
+          {
+            "supply": 28,
+            "name": "SCV",
+            "time": 171
+          },
+          {
+            "supply": 28,
+            "name": "SupplyDepot",
+            "time": 176
+          },
+          {
+            "supply": 28,
+            "name": "FactoryTechLab",
+            "time": 176
+          },
+          {
+            "supply": 28,
+            "name": "Starport",
+            "time": 177
+          },
+          {
+            "supply": 29,
+            "name": "SCV",
+            "time": 183
+          },
+          {
+            "supply": 30,
+            "name": "Marine",
+            "time": 186
+          },
+          {
+            "supply": 30,
+            "name": "EngineeringBay",
+            "time": 188
+          },
+          {
+            "supply": 31,
+            "name": "SCV",
+            "time": 198
+          },
+          {
+            "supply": 31,
+            "name": "Siege Tank",
+            "time": 198
+          },
+          {
+            "supply": 35,
+            "name": "Marine",
+            "time": 204
+          },
+          {
+            "supply": 36,
+            "name": "MissileTurret",
+            "time": 215
+          },
+          {
+            "supply": 36,
+            "name": "StarportReactor",
+            "time": 223
+          },
+          {
+            "supply": 36,
+            "name": "MissileTurret",
+            "time": 224
+          },
+          {
+            "supply": 36,
+            "name": "Siege Tank",
+            "time": 230
+          },
+          {
+            "supply": 39,
+            "name": "MissileTurret",
+            "time": 250
+          },
+          {
+            "supply": 39,
+            "name": "Marine",
+            "time": 251
+          },
+          {
+            "supply": 39,
+            "name": "Orbital Command",
+            "time": 253
+          },
+          {
+            "supply": 40,
+            "name": "Siege Tank",
+            "time": 262
+          },
+          {
+            "supply": 40,
+            "name": "Viking",
+            "time": 263
+          },
+          {
+            "supply": 38,
+            "name": "Viking",
+            "time": 264
+          },
+          {
+            "supply": 45,
+            "name": "Marine",
+            "time": 269
+          },
+          {
+            "supply": 48,
+            "name": "SCV",
+            "time": 273
+          },
+          {
+            "supply": 49,
+            "name": "SCV",
+            "time": 281
+          },
+          {
+            "supply": 49,
+            "name": "Refinery",
+            "time": 285
+          },
+          {
+            "supply": 49,
+            "name": "MissileTurret",
+            "time": 292
+          },
+          {
+            "supply": 49,
+            "name": "SCV",
+            "time": 293
+          },
+          {
+            "supply": 49,
+            "name": "Siege Tank",
+            "time": 294
+          },
+          {
+            "supply": 49,
+            "name": "SupplyDepot",
+            "time": 295
+          },
+          {
+            "supply": 53,
+            "name": "SCV",
+            "time": 308
+          },
+          {
+            "supply": 53,
+            "name": "Refinery",
+            "time": 312
+          },
+          {
+            "supply": 54,
+            "name": "Viking",
+            "time": 316
+          },
+          {
+            "supply": 54,
+            "name": "Liberator",
+            "time": 320
+          },
+          {
+            "supply": 54,
+            "name": "SCV",
+            "time": 320
+          },
+          {
+            "supply": 60,
+            "name": "SCV",
+            "time": 333
+          },
+          {
+            "supply": 61,
+            "name": "SCV",
+            "time": 345
+          },
+          {
+            "supply": 62,
+            "name": "CommandCenter",
+            "time": 350
+          }
+        ]
+      },
+      "timestamp": "2025-08-30T21:50:07.230873",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_004",
       "raw_comment": "not much to learn, the zerg here is slow in macroing and upgrades",
       "cleaned_comment": "not much to learn the zerg here is slow in macroing and upgrades",
       "comment": "not much to learn, the zerg here is slow in macroing and upgrades",
@@ -692,7 +1015,8 @@
       "comment_002"
     ],
     "all": [
-      "comment_002"
+      "comment_002",
+      "comment_003"
     ],
     "in.": [
       "comment_002"
@@ -703,20 +1027,29 @@
     "defend": [
       "comment_002"
     ],
-    "not": [
+    "terran": [
       "comment_003"
+    ],
+    "base": [
+      "comment_003"
+    ],
+    "tank": [
+      "comment_003"
+    ],
+    "not": [
+      "comment_004"
     ],
     "much": [
-      "comment_003"
+      "comment_004"
     ],
     "learn": [
-      "comment_003"
+      "comment_004"
     ],
     "zerg": [
-      "comment_003"
+      "comment_004"
     ],
     "here": [
-      "comment_003"
+      "comment_004"
     ]
   }
 }

@@ -1,6 +1,6 @@
 {
-  "total_keywords": 15,
-  "total_patterns": 3,
+  "total_keywords": 18,
+  "total_patterns": 1,
   "keyword_breakdown": {
     "gateway": 1,
     "expand": 1,
@@ -8,7 +8,7 @@
     "pressure": 1,
     "blink": 1,
     "base,": 1,
-    "all": 1,
+    "all": 2,
     "in.": 1,
     "just": 1,
     "defend": 1,
@@ -16,15 +16,19 @@
     "much": 1,
     "learn": 1,
     "zerg": 1,
-    "here": 1
+    "here": 1,
+    "terran": 1,
+    "base": 1,
+    "tank": 1
   },
   "pattern_breakdown": {
-    "comment_001": 1,
-    "comment_002": 1,
-    "comment_003": 1
+    "pattern_001": 10,
+    "terran": 1,
+    "base": 1,
+    "all": 1,
+    "tank": 1
   },
-  "ai_learned_patterns": 0,
-  "expert_patterns": 3,
-  "last_saved": "2025-08-30T20:49:11.571918",
-  "last_cleaned": "2025-08-30T20:49:11.571918"
+  "ai_learned_patterns": 1,
+  "expert_patterns": 0,
+  "last_saved": "2025-08-30T21:50:07.236378"
 }

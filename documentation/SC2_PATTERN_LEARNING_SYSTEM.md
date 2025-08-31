@@ -52,6 +52,12 @@ The SC2 Pattern Learning System is an intelligent build order analysis and patte
 - **Strategic Filtering**: Maintains meaningful SC2 terms while removing noise
 - **ML Optimization**: Cleaner data for better machine learning performance
 
+### 🧹 **Data Quality & Maintenance**
+- **Automatic Backup**: Creates backup files before major changes
+- **Duplicate Prevention**: Built-in safeguards against data corruption
+- **Data Validation**: Ensures consistency across all files
+- **Cleanup Tools**: Scripts available for data maintenance
+
 ## System Architecture
 
 ### Core Components
@@ -70,7 +76,7 @@ class SC2PatternLearner:
 ```
 data/
 ├── patterns.json          # Learned patterns with build signatures
-├── keywords.json          # Keyword associations and comments
+├── comments.json          # Comment storage with dual format (raw + cleaned)
 └── learning_stats.json    # System statistics and metadata
 ```
 
@@ -550,6 +556,25 @@ The system is designed for easy extension:
 2. **Review Patterns**: Periodically examine learned patterns
 3. **Clean Up**: Remove outdated or incorrect patterns if needed
 4. **Backup**: Keep copies of pattern files for safety
+5. **Data Quality**: Monitor for duplicate keywords or corrupted data
+6. **Regular Testing**: Run test suite to ensure system integrity
+
+### 🧹 **Recent Data Quality Improvements**
+The system now includes automatic data quality safeguards:
+
+- **Duplicate Detection**: Automatically identifies and prevents duplicate keywords
+- **Backup Creation**: Creates `.backup` files before major changes
+- **Data Validation**: Ensures consistency between patterns, comments, and stats
+- **Cleanup Scripts**: Tools available for data maintenance and repair
+
+**Example Backup Files:**
+```
+data/
+├── comments.json          # Current data
+├── comments.json.backup   # Backup before cleanup
+├── learning_stats.json    # Current stats
+└── learning_stats.json.backup  # Backup before cleanup
+```
 
 ## Conclusion
 
