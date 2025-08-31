@@ -421,6 +421,330 @@
       },
       "timestamp": "2025-08-29T22:48:36.757135",
       "has_player_comment": true
+    },
+    {
+      "id": "comment_003",
+      "raw_comment": "not much to learn, the zerg here is slow in macroing and upgrades",
+      "cleaned_comment": "not much to learn the zerg here is slow in macroing and upgrades",
+      "comment": "not much to learn, the zerg here is slow in macroing and upgrades",
+      "keywords": [
+        "not",
+        "much",
+        "learn",
+        "zerg",
+        "here"
+      ],
+      "game_data": {
+        "opponent_name": "K",
+        "result": "Victory",
+        "duration": "14m 50s",
+        "date": "2025-08-30 20:48:58",
+        "map": "Ultralove",
+        "build_order": [
+          {
+            "supply": 12,
+            "name": "Drone",
+            "time": 0
+          },
+          {
+            "supply": 13,
+            "name": "Overlord",
+            "time": 12
+          },
+          {
+            "supply": 13,
+            "name": "Drone",
+            "time": 16
+          },
+          {
+            "supply": 14,
+            "name": "Drone",
+            "time": 30
+          },
+          {
+            "supply": 14,
+            "name": "Drone",
+            "time": 30
+          },
+          {
+            "supply": 14,
+            "name": "Drone",
+            "time": 34
+          },
+          {
+            "supply": 17,
+            "name": "Hatchery",
+            "time": 50
+          },
+          {
+            "supply": 17,
+            "name": "Drone",
+            "time": 52
+          },
+          {
+            "supply": 17,
+            "name": "Drone",
+            "time": 56
+          },
+          {
+            "supply": 18,
+            "name": "Extractor",
+            "time": 65
+          },
+          {
+            "supply": 18,
+            "name": "SpawningPool",
+            "time": 71
+          },
+          {
+            "supply": 16,
+            "name": "Drone",
+            "time": 73
+          },
+          {
+            "supply": 16,
+            "name": "Drone",
+            "time": 77
+          },
+          {
+            "supply": 18,
+            "name": "Drone",
+            "time": 87
+          },
+          {
+            "supply": 19,
+            "name": "Drone",
+            "time": 99
+          },
+          {
+            "supply": 20,
+            "name": "Overlord",
+            "time": 112
+          },
+          {
+            "supply": 20,
+            "name": "Queen",
+            "time": 122
+          },
+          {
+            "supply": 20,
+            "name": "Queen",
+            "time": 122
+          },
+          {
+            "supply": 20,
+            "name": "Zergling",
+            "time": 124
+          },
+          {
+            "supply": 20,
+            "name": "Zergling",
+            "time": 124
+          },
+          {
+            "supply": 20,
+            "name": "Zergling",
+            "time": 124
+          },
+          {
+            "supply": 20,
+            "name": "Zergling",
+            "time": 124
+          },
+          {
+            "supply": 26,
+            "name": "Hatchery",
+            "time": 141
+          },
+          {
+            "supply": 26,
+            "name": "Drone",
+            "time": 141
+          },
+          {
+            "supply": 26,
+            "name": "Drone",
+            "time": 141
+          },
+          {
+            "supply": 27,
+            "name": "Overlord",
+            "time": 149
+          },
+          {
+            "supply": 27,
+            "name": "Overlord",
+            "time": 161
+          },
+          {
+            "supply": 27,
+            "name": "Drone",
+            "time": 162
+          },
+          {
+            "supply": 28,
+            "name": "Queen",
+            "time": 167
+          },
+          {
+            "supply": 28,
+            "name": "Drone",
+            "time": 170
+          },
+          {
+            "supply": 28,
+            "name": "Drone",
+            "time": 170
+          },
+          {
+            "supply": 32,
+            "name": "Drone",
+            "time": 172
+          },
+          {
+            "supply": 33,
+            "name": "Drone",
+            "time": 181
+          },
+          {
+            "supply": 33,
+            "name": "Drone",
+            "time": 182
+          },
+          {
+            "supply": 35,
+            "name": "Drone",
+            "time": 191
+          },
+          {
+            "supply": 35,
+            "name": "Drone",
+            "time": 192
+          },
+          {
+            "supply": 35,
+            "name": "Drone",
+            "time": 192
+          },
+          {
+            "supply": 35,
+            "name": "Drone",
+            "time": 192
+          },
+          {
+            "supply": 35,
+            "name": "Drone",
+            "time": 192
+          },
+          {
+            "supply": 35,
+            "name": "Drone",
+            "time": 192
+          },
+          {
+            "supply": 41,
+            "name": "Drone",
+            "time": 195
+          },
+          {
+            "supply": 41,
+            "name": "Drone",
+            "time": 196
+          },
+          {
+            "supply": 43,
+            "name": "Drone",
+            "time": 200
+          },
+          {
+            "supply": 43,
+            "name": "Lair",
+            "time": 205
+          },
+          {
+            "supply": 44,
+            "name": "RoachWarren",
+            "time": 214
+          },
+          {
+            "supply": 44,
+            "name": "Overlord",
+            "time": 216
+          },
+          {
+            "supply": 44,
+            "name": "Drone",
+            "time": 219
+          },
+          {
+            "supply": 44,
+            "name": "Drone",
+            "time": 219
+          },
+          {
+            "supply": 44,
+            "name": "Drone",
+            "time": 219
+          },
+          {
+            "supply": 46,
+            "name": "Overlord",
+            "time": 228
+          },
+          {
+            "supply": 46,
+            "name": "Overlord",
+            "time": 228
+          },
+          {
+            "supply": 46,
+            "name": "Drone",
+            "time": 229
+          },
+          {
+            "supply": 46,
+            "name": "Drone",
+            "time": 229
+          },
+          {
+            "supply": 46,
+            "name": "Drone",
+            "time": 230
+          },
+          {
+            "supply": 46,
+            "name": "Drone",
+            "time": 232
+          },
+          {
+            "supply": 50,
+            "name": "Drone",
+            "time": 240
+          },
+          {
+            "supply": 50,
+            "name": "Drone",
+            "time": 241
+          },
+          {
+            "supply": 50,
+            "name": "Drone",
+            "time": 241
+          },
+          {
+            "supply": 53,
+            "name": "Drone",
+            "time": 254
+          },
+          {
+            "supply": 53,
+            "name": "Drone",
+            "time": 254
+          }
+        ]
+      },
+      "timestamp": "2025-08-30T20:49:11.557321",
+      "has_player_comment": true
     }
   ],
   "keyword_index": {
@@ -528,6 +852,21 @@
     ],
     "defend": [
       "comment_002"
+    ],
+    "not": [
+      "comment_003"
+    ],
+    "much": [
+      "comment_003"
+    ],
+    "learn": [
+      "comment_003"
+    ],
+    "zerg": [
+      "comment_003"
+    ],
+    "here": [
+      "comment_003"
     ]
   }
 }

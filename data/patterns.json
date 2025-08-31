@@ -3,358 +3,258 @@
     "signature": {
       "early_game": [
         {
-          "unit": "Probe",
-          "count": 2,
+          "unit": "Drone",
+          "count": 1,
           "order": 1,
+          "supply": 12,
+          "time": 0
+        },
+        {
+          "unit": "Overlord",
+          "count": 1,
+          "order": 2,
           "supply": 13,
           "time": 12
         },
         {
-          "unit": "Pylon",
-          "count": 1,
-          "order": 2,
-          "supply": 14,
-          "time": 19
-        },
-        {
-          "unit": "Probe",
-          "count": 2,
+          "unit": "Drone",
+          "count": 4,
           "order": 3,
-          "supply": 15,
-          "time": 35
+          "supply": 14,
+          "time": 34
         },
         {
-          "unit": "Gateway",
+          "unit": "Hatchery",
           "count": 1,
           "order": 4,
-          "supply": 15,
-          "time": 39
+          "supply": 17,
+          "time": 50
         },
         {
-          "unit": "Probe",
-          "count": 1,
+          "unit": "Drone",
+          "count": 2,
           "order": 5,
-          "supply": 16,
-          "time": 43
+          "supply": 17,
+          "time": 56
         },
         {
-          "unit": "Assimilator",
+          "unit": "Extractor",
           "count": 1,
           "order": 6,
-          "supply": 16,
-          "time": 44
+          "supply": 18,
+          "time": 65
         },
         {
-          "unit": "Probe",
-          "count": 3,
-          "order": 7,
-          "supply": 19,
-          "time": 77
-        },
-        {
-          "unit": "Nexus",
+          "unit": "SpawningPool",
           "count": 1,
-          "order": 8,
-          "supply": 20,
-          "time": 84
+          "order": 7,
+          "supply": 18,
+          "time": 71
         },
         {
-          "unit": "CyberneticsCore",
+          "unit": "Drone",
+          "count": 4,
+          "order": 8,
+          "supply": 19,
+          "time": 99
+        },
+        {
+          "unit": "Overlord",
           "count": 1,
           "order": 9,
           "supply": 20,
-          "time": 94
+          "time": 112
         },
         {
-          "unit": "Probe",
-          "count": 1,
+          "unit": "Queen",
+          "count": 2,
           "order": 10,
           "supply": 20,
-          "time": 96
+          "time": 122
         },
         {
-          "unit": "Assimilator",
-          "count": 1,
+          "unit": "Zergling",
+          "count": 4,
           "order": 11,
-          "supply": 21,
-          "time": 105
+          "supply": 20,
+          "time": 124
         },
         {
-          "unit": "Probe",
+          "unit": "Hatchery",
           "count": 1,
           "order": 12,
-          "supply": 21,
-          "time": 108
+          "supply": 26,
+          "time": 141
         },
         {
-          "unit": "Pylon",
-          "count": 1,
+          "unit": "Drone",
+          "count": 2,
           "order": 13,
-          "supply": 21,
-          "time": 111
+          "supply": 26,
+          "time": 141
         },
         {
-          "unit": "Adept",
-          "count": 1,
+          "unit": "Overlord",
+          "count": 2,
           "order": 14,
-          "supply": 22,
-          "time": 120
+          "supply": 27,
+          "time": 161
         },
         {
-          "unit": "Probe",
+          "unit": "Drone",
           "count": 1,
           "order": 15,
-          "supply": 22,
-          "time": 121
+          "supply": 27,
+          "time": 162
         },
         {
-          "unit": "Warp Gate",
+          "unit": "Queen",
           "count": 1,
           "order": 16,
-          "supply": 23,
-          "time": 131
+          "supply": 28,
+          "time": 167
         },
         {
-          "unit": "Probe",
-          "count": 1,
+          "unit": "Drone",
+          "count": 14,
           "order": 17,
-          "supply": 23,
-          "time": 133
+          "supply": 43,
+          "time": 200
         },
         {
-          "unit": "TwilightCouncil",
+          "unit": "Lair",
           "count": 1,
           "order": 18,
-          "supply": 26,
-          "time": 142
+          "supply": 43,
+          "time": 205
         },
         {
-          "unit": "Probe",
+          "unit": "RoachWarren",
           "count": 1,
           "order": 19,
-          "supply": 26,
-          "time": 145
+          "supply": 44,
+          "time": 214
         },
         {
-          "unit": "Stalker",
+          "unit": "Overlord",
           "count": 1,
           "order": 20,
-          "supply": 26,
-          "time": 149
+          "supply": 44,
+          "time": 216
         },
         {
-          "unit": "Probe",
-          "count": 5,
+          "unit": "Drone",
+          "count": 3,
           "order": 21,
-          "supply": 33,
-          "time": 173
-        },
-        {
-          "unit": "RoboticsFacility",
-          "count": 1,
-          "order": 22,
-          "supply": 33,
-          "time": 177
-        },
-        {
-          "unit": "Probe",
-          "count": 4,
-          "order": 23,
-          "supply": 36,
-          "time": 201
-        },
-        {
-          "unit": "DarkShrine",
-          "count": 1,
-          "order": 24,
-          "supply": 36,
-          "time": 203
-        },
-        {
-          "unit": "Probe",
-          "count": 2,
-          "order": 25,
-          "supply": 38,
-          "time": 213
-        },
-        {
-          "unit": "Warp Prism",
-          "count": 1,
-          "order": 26,
-          "supply": 40,
+          "supply": 44,
           "time": 219
         },
         {
-          "unit": "Gateway",
-          "count": 3,
-          "order": 27,
-          "supply": 40,
-          "time": 223
-        },
-        {
-          "unit": "Pylon",
-          "count": 1,
-          "order": 28,
-          "supply": 40,
-          "time": 234
-        },
-        {
-          "unit": "Assimilator",
+          "unit": "Overlord",
           "count": 2,
-          "order": 29,
-          "supply": 42,
-          "time": 239
+          "order": 22,
+          "supply": 46,
+          "time": 228
         },
         {
-          "unit": "Pylon",
-          "count": 1,
-          "order": 30,
-          "supply": 42,
-          "time": 260
-        },
-        {
-          "unit": "Probe",
-          "count": 3,
-          "order": 31,
-          "supply": 43,
-          "time": 278
-        },
-        {
-          "unit": "Dark Templar",
-          "count": 4,
-          "order": 32,
-          "supply": 45,
-          "time": 280
-        },
-        {
-          "unit": "Pylon",
-          "count": 1,
-          "order": 33,
-          "supply": 45,
-          "time": 284
-        },
-        {
-          "unit": "Forge",
-          "count": 1,
-          "order": 34,
+          "unit": "Drone",
+          "count": 9,
+          "order": 23,
           "supply": 53,
-          "time": 286
-        },
-        {
-          "unit": "Probe",
-          "count": 1,
-          "order": 35,
-          "supply": 53,
-          "time": 292
-        },
-        {
-          "unit": "Observer",
-          "count": 1,
-          "order": 36,
-          "supply": 53,
-          "time": 293
-        },
-        {
-          "unit": "Probe",
-          "count": 4,
-          "order": 37,
-          "supply": 57,
-          "time": 315
+          "time": 254
         }
       ],
       "key_timings": {
-        "Gateway": 223,
-        "TwilightCouncil": 142,
-        "RoboticsFacility": 177,
-        "Forge": 286
+        "SpawningPool": 71,
+        "RoachWarren": 214
       },
       "opening_sequence": [
         {
-          "unit": "Probe",
-          "count": 2,
+          "unit": "Drone",
+          "count": 1,
           "order": 1,
+          "supply": 12,
+          "time": 0
+        },
+        {
+          "unit": "Overlord",
+          "count": 1,
+          "order": 2,
           "supply": 13,
           "time": 12
         },
         {
-          "unit": "Pylon",
-          "count": 1,
-          "order": 2,
-          "supply": 14,
-          "time": 19
-        },
-        {
-          "unit": "Probe",
-          "count": 2,
+          "unit": "Drone",
+          "count": 4,
           "order": 3,
-          "supply": 15,
-          "time": 35
+          "supply": 14,
+          "time": 34
         },
         {
-          "unit": "Gateway",
+          "unit": "Hatchery",
           "count": 1,
           "order": 4,
-          "supply": 15,
-          "time": 39
+          "supply": 17,
+          "time": 50
         },
         {
-          "unit": "Probe",
-          "count": 1,
+          "unit": "Drone",
+          "count": 2,
           "order": 5,
-          "supply": 16,
-          "time": 43
+          "supply": 17,
+          "time": 56
         },
         {
-          "unit": "Assimilator",
+          "unit": "Extractor",
           "count": 1,
           "order": 6,
-          "supply": 16,
-          "time": 44
+          "supply": 18,
+          "time": 65
         },
         {
-          "unit": "Probe",
-          "count": 3,
-          "order": 7,
-          "supply": 19,
-          "time": 77
-        },
-        {
-          "unit": "Nexus",
+          "unit": "SpawningPool",
           "count": 1,
-          "order": 8,
-          "supply": 20,
-          "time": 84
+          "order": 7,
+          "supply": 18,
+          "time": 71
         },
         {
-          "unit": "CyberneticsCore",
+          "unit": "Drone",
+          "count": 4,
+          "order": 8,
+          "supply": 19,
+          "time": 99
+        },
+        {
+          "unit": "Overlord",
           "count": 1,
           "order": 9,
           "supply": 20,
-          "time": 94
+          "time": 112
         },
         {
-          "unit": "Probe",
-          "count": 1,
+          "unit": "Queen",
+          "count": 2,
           "order": 10,
           "supply": 20,
-          "time": 96
+          "time": 122
         }
       ]
     },
     "comment_id": "comment_001",
     "game_id": "game_001",
     "keywords": [
-      "gateway",
-      "expand",
-      "stalker",
-      "pressure",
-      "blink"
+      "not",
+      "much",
+      "learn",
+      "zerg",
+      "here"
     ],
-    "comment": "gateway expand to stalker pressure with blink upgrade",
+    "comment": "not much to learn, the zerg here is slow in macroing and upgrades",
     "sample_count": 1,
-    "last_seen": "2025-08-30T20:26:12.668236",
-    "strategy_type": "protoss_aggression",
-    "race": "protoss",
+    "last_seen": "2025-08-30T20:49:11.570414",
+    "strategy_type": "economic_expansion",
+    "race": "zerg",
     "confidence": 0.8
   }
 }

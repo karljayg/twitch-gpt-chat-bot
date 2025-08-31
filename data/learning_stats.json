@@ -1,27 +1,32 @@
 {
-  "total_keywords": 10,
+  "total_keywords": 15,
   "total_patterns": 1,
   "keyword_breakdown": {
-    "gateway": 17,
-    "expand": 17,
-    "stalker": 17,
-    "pressure": 17,
-    "blink": 17,
+    "gateway": 16,
+    "expand": 16,
+    "stalker": 16,
+    "pressure": 16,
+    "blink": 16,
     "base,": 1,
     "all": 1,
     "in.": 1,
     "just": 1,
-    "defend": 1
+    "defend": 1,
+    "not": 1,
+    "much": 1,
+    "learn": 1,
+    "zerg": 1,
+    "here": 1
   },
   "pattern_breakdown": {
     "pattern_001": 10,
-    "gateway": 1,
-    "expand": 1,
-    "stalker": 1,
-    "pressure": 1,
-    "blink": 1
+    "not": 1,
+    "much": 1,
+    "learn": 1,
+    "zerg": 1,
+    "here": 1
   },
   "ai_learned_patterns": 1,
   "expert_patterns": 0,
-  "last_saved": "2025-08-30T20:26:12.669766"
+  "last_saved": "2025-08-30T20:49:11.571918"
 }

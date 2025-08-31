@@ -34,6 +34,24 @@ The SC2 Pattern Learning System is an intelligent build order analysis and patte
 - **Automatic duplicate detection** when watching replays
 - **Efficient learning** without redundant prompts or data
 
+### 🏗️ **Improved Build Order Structure**
+- **Consolidated Units**: Consecutive identical units are grouped with counts and order
+- **Efficient Storage**: `{"unit": "Probe", "count": 3, "order": 1}` instead of `["Probe", "Probe", "Probe"]`
+- **Better ML Preparation**: Structured data format optimized for machine learning analysis
+- **Order Preservation**: Maintains strategic sequence information for pattern recognition
+
+### 📝 **Dual Comment Storage**
+- **Raw Comments**: Original human input preserved exactly as entered
+- **Cleaned Comments**: Processed version for analysis (punctuation removed, normalized)
+- **Authenticity**: Preserves authentic human input while enabling clean ML analysis
+- **Backward Compatibility**: Maintains existing comment structure
+
+### 🔍 **Enhanced Keyword Extraction**
+- **Smart Cleaning**: Removes punctuation (except hyphens), normalizes whitespace
+- **Deduplication**: Eliminates duplicate keywords within the same comment
+- **Strategic Filtering**: Maintains meaningful SC2 terms while removing noise
+- **ML Optimization**: Cleaner data for better machine learning performance
+
 ## System Architecture
 
 ### Core Components
@@ -59,9 +77,17 @@ data/
 #### 3. Pattern Signature Format
 ```python
 signature = {
-    'early_game': [],      # First 60 supply buildings/units
+    'early_game': [        # First 60 supply buildings/units (consolidated)
+        {
+            'unit': 'Probe',      # Unit/building name
+            'count': 3,           # Number of consecutive units
+            'order': 1,           # Strategic order in build sequence
+            'supply': 13,         # Supply count when built
+            'time': 120           # Game time in seconds
+        }
+    ],
     'key_timings': {},     # Critical building timings
-    'opening_sequence': [] # First 10 buildings in order
+    'opening_sequence': [] # First 10 buildings in order (consolidated)
 }
 ```
 
@@ -337,9 +363,84 @@ After each game:
 
 ### 4. Viewing Learned Patterns
 Check the `data/` directory for:
-- **`patterns.json`**: All learned patterns with build signatures
-- **`keywords.json`**: Keyword associations and comment data
+- **`patterns.json`**: All learned patterns with build signatures (updated format)
+- **`comments.json`**: Comment storage with dual format (raw + cleaned)
 - **`learning_stats.json`**: System statistics and metadata
+
+## Test-Driven Development
+
+### 🧪 **Development Philosophy**
+The pattern learning system was developed using **Test-Driven Development (TDD)** to ensure:
+- **Code Quality**: All features are thoroughly tested before implementation
+- **Reliability**: Changes can be made confidently with comprehensive test coverage
+- **Maintainability**: Easy to modify and extend without breaking existing functionality
+- **Documentation**: Tests serve as living documentation of intended behavior
+
+### 📋 **Test Suite Coverage**
+The `test_pattern_learning_improvements.py` file contains **6 comprehensive tests**:
+
+#### 1. **Build Order Structure Test**
+```python
+def test_improved_build_order_structure(self):
+    """Test that build orders are stored with count and order information"""
+    # Verifies consolidated unit format with counts and order
+    # Ensures proper probe grouping and sequence preservation
+```
+
+#### 2. **Dual Comment Storage Test**
+```python
+def test_dual_comment_storage(self):
+    """Test that both raw and cleaned comments are stored"""
+    # Verifies raw_comment and cleaned_comment fields exist
+    # Ensures backward compatibility with existing comment structure
+```
+
+#### 3. **Keyword Extraction Test**
+```python
+def test_improved_keyword_extraction(self):
+    """Test that keywords are properly extracted without punctuation or duplicates"""
+    # Verifies punctuation removal and keyword deduplication
+    # Ensures clean data for machine learning
+```
+
+#### 4. **Build Order Consolidation Test**
+```python
+def test_build_order_consolidation(self):
+    """Test that consecutive identical units are consolidated with counts"""
+    # Verifies unit consolidation logic
+    # Ensures proper pattern creation and numbering
+```
+
+#### 5. **Keyword Indexing Test**
+```python
+def test_keyword_indexing(self):
+    """Test that keywords are properly indexed for fast lookup"""
+    # Verifies efficient keyword-to-comment mapping
+    # Ensures fast pattern retrieval
+```
+
+#### 6. **Data Consistency Test**
+```python
+def test_data_consistency(self):
+    """Test that all data files are consistent with each other"""
+    # Verifies cross-file data integrity
+    # Ensures patterns, comments, and stats remain synchronized
+```
+
+### 🔄 **TDD Workflow**
+1. **Write Test First**: Define expected behavior in test form
+2. **Run Test**: Verify it fails (red phase)
+3. **Implement Feature**: Write minimal code to pass test
+4. **Run Test**: Verify it passes (green phase)
+5. **Refactor**: Clean up code while maintaining test coverage
+6. **Repeat**: Continue with next feature
+
+### 🎯 **Benefits of TDD Approach**
+- **Confidence**: Can modify code knowing tests will catch regressions
+- **Design**: Tests force better API design and separation of concerns
+- **Documentation**: Tests serve as executable specifications
+- **Quality**: Catches bugs early in development cycle
+- **Maintainability**: Easy to add new features without breaking existing ones
 
 ## Technical Details
 
@@ -349,14 +450,17 @@ documentation/
 └── SC2_PATTERN_LEARNING_SYSTEM.md    # This file
 
 data/
-├── patterns.json                      # Pattern storage
-├── keywords.json                      # Keyword associations
+├── patterns.json                      # Pattern storage (updated format)
+├── comments.json                      # Comment storage (dual format)
 └── learning_stats.json                # System statistics
 
 api/
-├── pattern_learning.py                # Core learning system
+├── pattern_learning.py                # Core learning system (improved)
 ├── sc2_game_utils.py                 # Game completion handling
 └── twitch_bot.py                      # Bot integration
+
+test/
+└── test_pattern_learning_improvements.py  # Comprehensive test suite
 ```
 
 ### Data Persistence
@@ -464,6 +568,6 @@ As you use the system, it will become increasingly valuable, providing deeper in
 ---
 
 **Last Updated**: August 2025  
-**Version**: 1.1 (Updated for Blizzard API Bug)  
+**Version**: 2.0 (Pattern Learning Improvements + TDD)  
 **Author**: AI Assistant  
 **System**: SC2 Pattern Learning System

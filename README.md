@@ -36,6 +36,13 @@ Enhance your StarCraft II Twitch (and Discord) streams with AI-powered commentar
 - Summaries by opponent, race, and alias
 - Matchup-specific notes and outcomes
 
+### 🧠 **Pattern Learning System** *(NEW)*
+- **Intelligent Build Order Analysis**: Learns from your SC2 expertise
+- **Strategic Pattern Recognition**: Identifies opponent tendencies
+- **Machine Learning Ready**: Optimized data structure for future ML integration
+- **Test-Driven Development**: Comprehensive test coverage for reliability
+- **Dual Comment Storage**: Preserves authentic input while enabling analysis
+
 ---
 
 ## 🚀 Getting Started
@@ -182,6 +189,7 @@ twitch-gpt-chat-bot/
 │   ├── chat_utils.py
 │   ├── discord_bot.py
 │   ├── game_event_utils.py
+│   ├── pattern_learning.py          # 🧠 Pattern Learning System
 │   ├── sc2_game_utils.py
 │   ├── sgreplay_pb2.py
 │   ├── stormgate.py
@@ -207,7 +215,8 @@ twitch-gpt-chat-bot/
 ├── temp/
 ├── test/
 │   ├── replays/
-│   └── SC2_game_result_test.json
+│   ├── SC2_game_result_test.json
+│   └── test_pattern_learning_improvements.py  # 🧪 TDD Test Suite
 ├── utils/
 │   ├── emote_utils.py
 │   ├── file_utils.py
@@ -216,6 +225,7 @@ twitch-gpt-chat-bot/
 │   └── sound_player_utils.py
 ├── app.py
 ├── LICENSE.md
+├── PATTERN_LEARNING_IMPROVEMENTS.md  # 📚 Pattern Learning Documentation
 ├── README.md
 ├── requirements.txt
 ```
@@ -254,6 +264,25 @@ This triggers a reply from the OpenAI-powered assistant.
 ---
 
 ## 🧠 Development Notes
+
+### 🧪 **Pattern Learning System Development**
+The pattern learning system was developed using **Test-Driven Development (TDD)**:
+
+- **Test Suite**: `test_pattern_learning_improvements.py` (6 comprehensive tests)
+- **Coverage**: Build order structure, comment storage, keyword extraction
+- **Approach**: Red-Green-Refactor cycle for reliable development
+- **Documentation**: `PATTERN_LEARNING_IMPROVEMENTS.md` for detailed implementation
+
+### 📚 **Documentation**
+- **`SC2_PATTERN_LEARNING_SYSTEM.md`**: Main system documentation
+- **`PATTERN_LEARNING_IMPROVEMENTS.md`**: Recent improvements and TDD approach
+- **Test files**: Living documentation of intended behavior
+
+### 🎯 **Key Improvements Made**
+1. **Build Order Consolidation**: Efficient unit grouping with metadata
+2. **Dual Comment Storage**: Raw + cleaned comment preservation
+3. **Enhanced Keyword Extraction**: Clean, deduplicated strategic terms
+4. **ML Readiness**: Structured data format for future machine learning
 
 Helpful developer reference videos:
 
