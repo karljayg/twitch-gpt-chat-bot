@@ -1,6 +1,7 @@
 from datetime import datetime
 import pytz
 from api.chat_utils import processMessageForOpenAI
+from api.ml_opponent_analyzer import analyze_opponent_for_game_start
 
 from settings import config
 import utils.tokensArray as tokensArray
@@ -28,6 +29,16 @@ def game_started(self, current_game, contextHistory, logger):
                         player_current_race = current_game.get_player_race(player_name)
                         streamer_current_race = current_game.get_opponent_race(player_name)
                         logger.debug(f"checking DB for {player_name} as {player_current_race} versus {config.STREAMER_NICKNAME} as any race, even tho {config.STREAMER_NICKNAME} is {streamer_current_race} in this current game")
+
+                        # ML Analysis: Generate strategic intelligence if opponent is known
+                        try:
+                            current_map = getattr(current_game, 'map', 'Unknown')
+                            analyze_opponent_for_game_start(
+                                player_name, player_current_race, current_map, 
+                                self, logger, contextHistory
+                            )
+                        except Exception as e:
+                            logger.error(f"Error in ML opponent analysis: {e}")
 
                         # look for player with same name and race as this current game in the database
                         logger.debug(f"checking if {player_name} is in the DB independent of race because Random is not considered due to bug in replay parser")
