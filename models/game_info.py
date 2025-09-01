@@ -5,18 +5,8 @@ class GameInfo:
     """
     GameInfo class for parsing SC2 game data from localhost JSON API
     
-    IMPORTANT: BLIZZARD API BUG
-    ===========================
-    The SC2 localhost JSON API now always returns "isReplay: true" even for real games.
-    This broke the previous logic that relied on the isReplay flag to distinguish
-    between real games and replay viewing.
-    
-    WORKAROUND: We now detect real games by checking if the streamer is actually
-    playing (present in the players list). This means:
-    - Real games you play = MATCH_STARTED/MATCH_ENDED
-    - Watching replays = Also detected as MATCH_STARTED/MATCH_ENDED (until Blizzard fixes it)
-    
-    TODO: Revert this workaround when Blizzard fixes their API
+    The SC2 localhost JSON API now correctly returns "isReplay: false" for real games
+    and "isReplay: true" for replay viewing. The previous workarounds are no longer needed.
     """
     def __init__(self, json_data):
         # BLIZZARD API BUG: isReplay is always "true" even for real games
@@ -64,39 +54,32 @@ class GameInfo:
         return 'Unknown'  # Return a default value indicating the race is unknown
 
     def get_status(self):
-        # BLIZZARD API BUG: isReplay is always "true" even for real games
-        # This broke the SC2 localhost JSON API - we can't rely on isReplay flag anymore
-        # TODO: Fix this when/if Blizzard fixes their API
-        # 
-        # WORKAROUND: We now detect real games by checking if the streamer is actually playing
-        # This means watching replays will also be detected as "real games" until Blizzard fixes it
-        streamer_playing = any(self._is_streamer_account(player['name']) for player in self.players)
+        # The isReplay flag now works correctly - we can trust it again
+        # Real games: isReplay = false, Watching replays: isReplay = true
         
         # Debug logging
         import logging
         logger = logging.getLogger(__name__)
-        logger.debug(f"GameInfo.get_status() - isReplay: {self.isReplay} (BLIZZARD BUG: always true), streamer_playing: {streamer_playing}")
+        logger.debug(f"GameInfo.get_status() - isReplay: {self.isReplay}")
         logger.debug(f"Players: {[p['name'] for p in self.players]}")
         logger.debug(f"Results: {[p['result'] for p in self.players]}")
         
         if all(player['result'] == 'Undecided' for player in self.players):
             # Game is starting
-            if streamer_playing:
-                logger.debug("Detected MATCH_STARTED (streamer is playing - ignoring broken isReplay flag)")
-                return "MATCH_STARTED"  # Streamer is playing = real game (regardless of broken isReplay)
-            else:
-                # Can't trust isReplay flag anymore, assume it's a replay if streamer not playing
-                logger.debug("Detected REPLAY_STARTED (streamer not playing - assuming replay due to Blizzard API bug)")
+            if self.isReplay:
+                logger.debug("Detected REPLAY_STARTED (isReplay = true)")
                 return "REPLAY_STARTED"
+            else:
+                logger.debug("Detected MATCH_STARTED (isReplay = false)")
+                return "MATCH_STARTED"
         elif any(player['result'] in ['Defeat', 'Victory', 'Tie'] for player in self.players):
             # Game has ended
-            if streamer_playing:
-                logger.debug("Detected MATCH_ENDED (streamer was playing - ignoring broken isReplay flag)")
-                return "MATCH_ENDED"  # Streamer was playing = real game ended (regardless of broken isReplay)
-            else:
-                # Can't trust isReplay flag anymore, assume it's a replay if streamer not playing
-                logger.debug("Detected REPLAY_ENDED (streamer not playing - assuming replay due to Blizzard API bug)")
+            if self.isReplay:
+                logger.debug("Detected REPLAY_ENDED (isReplay = true)")
                 return "REPLAY_ENDED"
+            else:
+                logger.debug("Detected MATCH_ENDED (isReplay = false)")
+                return "MATCH_ENDED"
         return None
 
     def get_winner(self):

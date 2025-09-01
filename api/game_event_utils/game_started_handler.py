@@ -222,4 +222,9 @@ def game_started(self, current_game, contextHistory, logger):
 
     except Exception as e:
         logger.debug(f"error with find if player exists: {e}")
+    
+    # Convert list back to string if it was converted to list for processing
+    if isinstance(game_player_names, list):
+        game_player_names = ', '.join(game_player_names)
+    
     return game_player_names

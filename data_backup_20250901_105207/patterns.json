@@ -1,0 +1,764 @@
+{
+  "pattern_001": {
+    "signature": {
+      "early_game": [
+        {
+          "unit": "Drone",
+          "count": 1,
+          "order": 1,
+          "supply": 12,
+          "time": 0
+        },
+        {
+          "unit": "Overlord",
+          "count": 1,
+          "order": 2,
+          "supply": 13,
+          "time": 12
+        },
+        {
+          "unit": "Drone",
+          "count": 1,
+          "order": 3,
+          "supply": 13,
+          "time": 16
+        }
+      ],
+      "key_timings": {},
+      "opening_sequence": [
+        {
+          "unit": "Drone",
+          "count": 1,
+          "order": 1,
+          "supply": 12,
+          "time": 0
+        },
+        {
+          "unit": "Overlord",
+          "count": 1,
+          "order": 2,
+          "supply": 13,
+          "time": 12
+        },
+        {
+          "unit": "Drone",
+          "count": 1,
+          "order": 3,
+          "supply": 13,
+          "time": 16
+        }
+      ]
+    },
+    "comment_id": "comment_001",
+    "game_id": "game_001",
+    "keywords": [
+      "all",
+      "marinetank",
+      "viking",
+      "push"
+    ],
+    "comment": "all in marinetank viking push",
+    "sample_count": 1,
+    "last_seen": "2025-09-01T10:31:50.957496",
+    "strategy_type": "standard_opening",
+    "race": "unknown",
+    "confidence": 0.8
+  },
+  "pattern_002": {
+    "signature": {
+      "early_game": [
+        {
+          "unit": "SCV",
+          "count": 2,
+          "order": 1,
+          "supply": 13,
+          "time": 12
+        },
+        {
+          "unit": "SupplyDepot",
+          "count": 1,
+          "order": 2,
+          "supply": 14,
+          "time": 17
+        },
+        {
+          "unit": "SCV",
+          "count": 2,
+          "order": 3,
+          "supply": 15,
+          "time": 38
+        },
+        {
+          "unit": "Barracks",
+          "count": 1,
+          "order": 4,
+          "supply": 15,
+          "time": 40
+        },
+        {
+          "unit": "Refinery",
+          "count": 1,
+          "order": 5,
+          "supply": 16,
+          "time": 44
+        },
+        {
+          "unit": "SCV",
+          "count": 3,
+          "order": 6,
+          "supply": 18,
+          "time": 76
+        },
+        {
+          "unit": "Refinery",
+          "count": 1,
+          "order": 7,
+          "supply": 19,
+          "time": 85
+        },
+        {
+          "unit": "Reaper",
+          "count": 1,
+          "order": 8,
+          "supply": 19,
+          "time": 88
+        },
+        {
+          "unit": "Orbital Command",
+          "count": 1,
+          "order": 9,
+          "supply": 20,
+          "time": 96
+        },
+        {
+          "unit": "CommandCenter",
+          "count": 1,
+          "order": 10,
+          "supply": 20,
+          "time": 118
+        },
+        {
+          "unit": "SCV",
+          "count": 1,
+          "order": 11,
+          "supply": 20,
+          "time": 122
+        },
+        {
+          "unit": "Factory",
+          "count": 1,
+          "order": 12,
+          "supply": 20,
+          "time": 126
+        },
+        {
+          "unit": "BarracksReactor",
+          "count": 1,
+          "order": 13,
+          "supply": 20,
+          "time": 131
+        },
+        {
+          "unit": "SupplyDepot",
+          "count": 1,
+          "order": 14,
+          "supply": 20,
+          "time": 138
+        },
+        {
+          "unit": "SCV",
+          "count": 3,
+          "order": 15,
+          "supply": 22,
+          "time": 165
+        },
+        {
+          "unit": "Marine",
+          "count": 2,
+          "order": 16,
+          "supply": 22,
+          "time": 168
+        },
+        {
+          "unit": "Starport",
+          "count": 1,
+          "order": 17,
+          "supply": 22,
+          "time": 170
+        },
+        {
+          "unit": "FactoryTechLab",
+          "count": 1,
+          "order": 18,
+          "supply": 22,
+          "time": 170
+        },
+        {
+          "unit": "SCV",
+          "count": 1,
+          "order": 19,
+          "supply": 25,
+          "time": 177
+        },
+        {
+          "unit": "Marine",
+          "count": 2,
+          "order": 20,
+          "supply": 26,
+          "time": 186
+        },
+        {
+          "unit": "Orbital Command",
+          "count": 1,
+          "order": 21,
+          "supply": 26,
+          "time": 189
+        },
+        {
+          "unit": "SCV",
+          "count": 1,
+          "order": 22,
+          "supply": 26,
+          "time": 189
+        },
+        {
+          "unit": "Siege Tank",
+          "count": 1,
+          "order": 23,
+          "supply": 29,
+          "time": 197
+        },
+        {
+          "unit": "SCV",
+          "count": 1,
+          "order": 24,
+          "supply": 32,
+          "time": 206
+        },
+        {
+          "unit": "StarportReactor",
+          "count": 1,
+          "order": 25,
+          "supply": 33,
+          "time": 215
+        },
+        {
+          "unit": "SupplyDepot",
+          "count": 1,
+          "order": 26,
+          "supply": 33,
+          "time": 216
+        },
+        {
+          "unit": "SCV",
+          "count": 1,
+          "order": 27,
+          "supply": 33,
+          "time": 216
+        },
+        {
+          "unit": "Marine",
+          "count": 1,
+          "order": 28,
+          "supply": 33,
+          "time": 218
+        },
+        {
+          "unit": "SCV",
+          "count": 1,
+          "order": 29,
+          "supply": 33,
+          "time": 219
+        },
+        {
+          "unit": "Marine",
+          "count": 1,
+          "order": 30,
+          "supply": 33,
+          "time": 220
+        },
+        {
+          "unit": "SCV",
+          "count": 1,
+          "order": 31,
+          "supply": 36,
+          "time": 229
+        },
+        {
+          "unit": "Siege Tank",
+          "count": 1,
+          "order": 32,
+          "supply": 36,
+          "time": 231
+        },
+        {
+          "unit": "SCV",
+          "count": 1,
+          "order": 33,
+          "supply": 36,
+          "time": 232
+        },
+        {
+          "unit": "Marine",
+          "count": 2,
+          "order": 34,
+          "supply": 41,
+          "time": 238
+        },
+        {
+          "unit": "SupplyDepot",
+          "count": 1,
+          "order": 35,
+          "supply": 41,
+          "time": 238
+        },
+        {
+          "unit": "SCV",
+          "count": 2,
+          "order": 36,
+          "supply": 43,
+          "time": 250
+        },
+        {
+          "unit": "Viking",
+          "count": 2,
+          "order": 37,
+          "supply": 43,
+          "time": 254
+        },
+        {
+          "unit": "SupplyDepot",
+          "count": 1,
+          "order": 38,
+          "supply": 49,
+          "time": 259
+        },
+        {
+          "unit": "Orbital Command",
+          "count": 1,
+          "order": 39,
+          "supply": 49,
+          "time": 261
+        },
+        {
+          "unit": "Marine",
+          "count": 1,
+          "order": 40,
+          "supply": 49,
+          "time": 261
+        },
+        {
+          "unit": "SCV",
+          "count": 1,
+          "order": 41,
+          "supply": 49,
+          "time": 263
+        },
+        {
+          "unit": "Siege Tank",
+          "count": 1,
+          "order": 42,
+          "supply": 51,
+          "time": 273
+        },
+        {
+          "unit": "Marine",
+          "count": 1,
+          "order": 43,
+          "supply": 51,
+          "time": 274
+        },
+        {
+          "unit": "SCV",
+          "count": 1,
+          "order": 44,
+          "supply": 51,
+          "time": 275
+        },
+        {
+          "unit": "Marine",
+          "count": 1,
+          "order": 45,
+          "supply": 56,
+          "time": 279
+        },
+        {
+          "unit": "SupplyDepot",
+          "count": 1,
+          "order": 46,
+          "supply": 56,
+          "time": 284
+        },
+        {
+          "unit": "SCV",
+          "count": 2,
+          "order": 47,
+          "supply": 57,
+          "time": 290
+        },
+        {
+          "unit": "Marine",
+          "count": 1,
+          "order": 48,
+          "supply": 57,
+          "time": 292
+        }
+      ],
+      "key_timings": {
+        "Barracks": 40,
+        "Factory": 126,
+        "Starport": 170
+      },
+      "opening_sequence": [
+        {
+          "unit": "SCV",
+          "count": 2,
+          "order": 1,
+          "supply": 13,
+          "time": 12
+        },
+        {
+          "unit": "SupplyDepot",
+          "count": 1,
+          "order": 2,
+          "supply": 14,
+          "time": 17
+        },
+        {
+          "unit": "SCV",
+          "count": 2,
+          "order": 3,
+          "supply": 15,
+          "time": 38
+        },
+        {
+          "unit": "Barracks",
+          "count": 1,
+          "order": 4,
+          "supply": 15,
+          "time": 40
+        },
+        {
+          "unit": "Refinery",
+          "count": 1,
+          "order": 5,
+          "supply": 16,
+          "time": 44
+        },
+        {
+          "unit": "SCV",
+          "count": 3,
+          "order": 6,
+          "supply": 18,
+          "time": 76
+        },
+        {
+          "unit": "Refinery",
+          "count": 1,
+          "order": 7,
+          "supply": 19,
+          "time": 85
+        },
+        {
+          "unit": "Reaper",
+          "count": 1,
+          "order": 8,
+          "supply": 19,
+          "time": 88
+        },
+        {
+          "unit": "Orbital Command",
+          "count": 1,
+          "order": 9,
+          "supply": 20,
+          "time": 96
+        },
+        {
+          "unit": "CommandCenter",
+          "count": 1,
+          "order": 10,
+          "supply": 20,
+          "time": 118
+        }
+      ]
+    },
+    "comment_id": "comment_002",
+    "game_id": "game_002",
+    "keywords": [
+      "adepts",
+      "oracle",
+      "control",
+      "map",
+      "into"
+    ],
+    "comment": "adepts to oracle control of map, into gateway units upgrade",
+    "sample_count": 1,
+    "last_seen": "2025-09-01T10:31:50.957496",
+    "strategy_type": "terran_aggression",
+    "race": "terran",
+    "confidence": 0.8
+  },
+  "pattern_003": {
+    "signature": {
+      "early_game": [
+        {
+          "unit": "Drone",
+          "count": 2,
+          "order": 1,
+          "supply": 13,
+          "time": 7
+        },
+        {
+          "unit": "Extractor",
+          "count": 2,
+          "order": 2,
+          "supply": 14,
+          "time": 24
+        },
+        {
+          "unit": "Drone",
+          "count": 2,
+          "order": 3,
+          "supply": 14,
+          "time": 25
+        },
+        {
+          "unit": "SpawningPool",
+          "count": 1,
+          "order": 4,
+          "supply": 16,
+          "time": 46
+        },
+        {
+          "unit": "Overlord",
+          "count": 1,
+          "order": 5,
+          "supply": 15,
+          "time": 54
+        },
+        {
+          "unit": "Hatchery",
+          "count": 1,
+          "order": 6,
+          "supply": 15,
+          "time": 62
+        },
+        {
+          "unit": "Drone",
+          "count": 2,
+          "order": 7,
+          "supply": 14,
+          "time": 76
+        },
+        {
+          "unit": "Zergling",
+          "count": 6,
+          "order": 8,
+          "supply": 16,
+          "time": 95
+        },
+        {
+          "unit": "Queen",
+          "count": 1,
+          "order": 9,
+          "supply": 16,
+          "time": 96
+        },
+        {
+          "unit": "Hatchery",
+          "count": 1,
+          "order": 10,
+          "supply": 21,
+          "time": 122
+        },
+        {
+          "unit": "Zergling",
+          "count": 4,
+          "order": 11,
+          "supply": 20,
+          "time": 129
+        },
+        {
+          "unit": "Overlord",
+          "count": 1,
+          "order": 12,
+          "supply": 20,
+          "time": 131
+        },
+        {
+          "unit": "Drone",
+          "count": 5,
+          "order": 13,
+          "supply": 22,
+          "time": 159
+        },
+        {
+          "unit": "Zergling",
+          "count": 6,
+          "order": 14,
+          "supply": 25,
+          "time": 165
+        },
+        {
+          "unit": "Drone",
+          "count": 3,
+          "order": 15,
+          "supply": 28,
+          "time": 184
+        },
+        {
+          "unit": "Hatchery",
+          "count": 1,
+          "order": 16,
+          "supply": 28,
+          "time": 184
+        },
+        {
+          "unit": "Drone",
+          "count": 2,
+          "order": 17,
+          "supply": 29,
+          "time": 190
+        },
+        {
+          "unit": "Zergling",
+          "count": 8,
+          "order": 18,
+          "supply": 32,
+          "time": 208
+        },
+        {
+          "unit": "Drone",
+          "count": 5,
+          "order": 19,
+          "supply": 32,
+          "time": 211
+        },
+        {
+          "unit": "Zergling",
+          "count": 2,
+          "order": 20,
+          "supply": 36,
+          "time": 221
+        },
+        {
+          "unit": "Extractor",
+          "count": 1,
+          "order": 21,
+          "supply": 37,
+          "time": 235
+        },
+        {
+          "unit": "Overlord",
+          "count": 1,
+          "order": 22,
+          "supply": 37,
+          "time": 235
+        },
+        {
+          "unit": "Queen",
+          "count": 1,
+          "order": 23,
+          "supply": 34,
+          "time": 235
+        },
+        {
+          "unit": "Extractor",
+          "count": 1,
+          "order": 24,
+          "supply": 34,
+          "time": 236
+        }
+      ],
+      "key_timings": {
+        "SpawningPool": 46
+      },
+      "opening_sequence": [
+        {
+          "unit": "Drone",
+          "count": 2,
+          "order": 1,
+          "supply": 13,
+          "time": 7
+        },
+        {
+          "unit": "Extractor",
+          "count": 2,
+          "order": 2,
+          "supply": 14,
+          "time": 24
+        },
+        {
+          "unit": "Drone",
+          "count": 2,
+          "order": 3,
+          "supply": 14,
+          "time": 25
+        },
+        {
+          "unit": "SpawningPool",
+          "count": 1,
+          "order": 4,
+          "supply": 16,
+          "time": 46
+        },
+        {
+          "unit": "Overlord",
+          "count": 1,
+          "order": 5,
+          "supply": 15,
+          "time": 54
+        },
+        {
+          "unit": "Hatchery",
+          "count": 1,
+          "order": 6,
+          "supply": 15,
+          "time": 62
+        },
+        {
+          "unit": "Drone",
+          "count": 2,
+          "order": 7,
+          "supply": 14,
+          "time": 76
+        },
+        {
+          "unit": "Zergling",
+          "count": 6,
+          "order": 8,
+          "supply": 16,
+          "time": 95
+        },
+        {
+          "unit": "Queen",
+          "count": 1,
+          "order": 9,
+          "supply": 16,
+          "time": 96
+        },
+        {
+          "unit": "Hatchery",
+          "count": 1,
+          "order": 10,
+          "supply": 21,
+          "time": 122
+        }
+      ]
+    },
+    "comment_id": "comment_003",
+    "game_id": "game_003",
+    "keywords": [
+      "oracle",
+      "too",
+      "much",
+      "damage"
+    ],
+    "comment": "oracle too much damage",
+    "sample_count": 1,
+    "last_seen": "2025-09-01T10:31:50.958722",
+    "strategy_type": "zerg_aggression",
+    "race": "zerg",
+    "confidence": 0.8
+  }
+}
