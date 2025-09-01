@@ -4,9 +4,25 @@
 
 The SC2 Pattern Learning System is an intelligent build order analysis and pattern recognition system designed to learn from your StarCraft 2 expertise and provide strategic insights for repeat opponents. The system combines your expert player comments with AI analysis of replay data to create a comprehensive learning database that improves over time.
 
-> **⚠️ IMPORTANT: BLIZZARD API BUG**
+> **✅ BLIZZARD API FIXED**
 > 
-> The SC2 localhost JSON API currently has a critical bug where `isReplay` is always returned as `true`, even for real games. This affects how the system distinguishes between real games and replay viewing. See the [Blizzard API Bug](#blizzard-api-bug) section for details and workarounds.
+> The SC2 localhost JSON API now correctly returns `isReplay: false` for real games and `isReplay: true` for replay viewing. The system can now properly distinguish between real games and replay viewing.
+
+## Bug Fixes
+
+### 🐛 **Player Name Truncation Fix** (v1.0.1)
+- **Issue**: Opponent names were being truncated to single letters in pattern learning system
+  - "eGaliza" became "e"
+  - "Muskul" became "M"  
+  - "TheSenate" became "T"
+- **Root Cause**: String iteration bug in `twitch_bot.py:_prepare_game_data_for_comment()`
+  - Code was iterating over `game_player_names` string character-by-character instead of splitting into player names
+  - `for name in "eGaliza, KJ"` gave `["e", "G", "a", ...]` instead of `["eGaliza", "KJ"]`
+- **Solution**: Added proper string splitting logic
+  - Split by comma: `game_player_names.split(',')`
+  - Strip whitespace: `[name.strip() for name in ...]`
+  - Filter out streamer name: `[name for name in player_names_list if name != STREAMER_NICKNAME]`
+- **Impact**: Pattern learning now correctly captures full opponent names for better strategic analysis
 
 ## Key Features
 
@@ -97,50 +113,14 @@ signature = {
 }
 ```
 
-## Blizzard API Bug and Workarounds
+## Game Detection System
 
-### 🐛 The Problem
+The system now properly distinguishes between real games and replay viewing using the `isReplay` flag from the SC2 localhost JSON API:
 
-**Blizzard broke their own SC2 localhost JSON API** where the `isReplay` field now always returns `true`, even for real games. This broke the previous logic that relied on this field to distinguish between:
+- **Real games** (you playing) → `isReplay: false` → Triggers pattern learning
+- **Replay viewing** (you watching) → `isReplay: true` → Does NOT trigger pattern learning
 
-- **Real games** (you playing) → Should trigger pattern learning
-- **Replay viewing** (you watching) → Should NOT trigger pattern learning
-
-### 🔧 Our Workaround
-
-Since we can't trust the `isReplay` flag anymore, the system now detects real games by checking if **the streamer is actually playing**:
-
-```python
-def get_status(self):
-    # Check if streamer is actually playing (not watching)
-    streamer_playing = any(self._is_streamer_account(player['name']) for player in self.players)
-    
-    if streamer_playing:
-        return "MATCH_ENDED"  # Streamer playing = real game
-    else:
-        return "REPLAY_ENDED" # Streamer not playing = replay viewing
-```
-
-### ⚠️ Current Limitations
-
-**Until Blizzard fixes their API:**
-- ✅ **Real games you play** → Correctly detected as `MATCH_ENDED`
-- ❌ **Watching replays** → Also detected as `MATCH_ENDED` (false positive)
-- 🔧 **Duplicate detection** → Prevents re-learning from replay viewing
-
-### 🎯 What This Means
-
-1. **Pattern learning will work** for your real games
-2. **Watching replays might trigger prompts** (but duplicate detection will skip them)
-3. **System is robust** despite Blizzard's broken API
-4. **Easy to fix** when Blizzard eventually fixes their API
-
-### 📝 Code Locations
-
-The workaround is implemented in:
-- `models/game_info.py` - `get_status()` method
-- `api/sc2_game_utils.py` - Pattern learning trigger logic
-- `api/pattern_learning.py` - Duplicate detection system
+This ensures that pattern learning only occurs when you're actually playing, not when watching replays.
 
 ---
 
@@ -490,7 +470,8 @@ test/
 - `ENABLE_PATTERN_LEARNING = True` in config
 - Pattern learner properly initialized in TwitchBot
 - Game ended handler integration
-- **Blizzard API bug workaround** is working correctly
+- Game is a 1v1 (not 2v2 or team game)
+- `isReplay` flag is correctly set to `false`
 
 #### 2. Patterns Not Saving
 **Check:**
@@ -511,10 +492,11 @@ test/
 - Clean up old patterns manually if needed
 
 #### 5. Duplicate Prompts When Watching Replays
-**This is expected behavior** due to Blizzard's broken API. The system will:
-- Detect replay viewing as "real game" (false positive)
-- But skip the prompt due to duplicate detection
-- Log: "Game already processed, skipping comment prompt"
+**This should not happen** with the fixed API. The system will:
+- Correctly detect replay viewing as `isReplay: true`
+- Return `REPLAY_ENDED` status
+- NOT trigger pattern learning
+- Log: "Detected REPLAY_ENDED (isReplay = true)"
 
 ### Debug Information
 The system logs detailed information:
@@ -585,7 +567,7 @@ The system is designed to be:
 - **Persistent**: Maintains knowledge across sessions
 - **Configurable**: Adapts to your preferences
 - **Extensible**: Ready for future enhancements
-- **Robust**: Works around Blizzard's broken API
+- **Robust**: Properly distinguishes real games from replays
 - **Efficient**: Prevents duplicate learning and redundant prompts
 
 As you use the system, it will become increasingly valuable, providing deeper insights into opponent patterns and helping you develop more effective counter-strategies.
@@ -593,6 +575,6 @@ As you use the system, it will become increasingly valuable, providing deeper in
 ---
 
 **Last Updated**: August 2025  
-**Version**: 2.0 (Pattern Learning Improvements + TDD)  
+**Version**: 2.1 (Blizzard API Fix + Pattern Learning Improvements + TDD)  
 **Author**: AI Assistant  
 **System**: SC2 Pattern Learning System

@@ -6,6 +6,14 @@ Enhance your StarCraft II Twitch (and Discord) streams with AI-powered commentar
 📧 **Contact:** [Twitter](https://twitter.com/karljayg) | Email: kj (at) psistorm.com  
 📄 **Docs:** [Full Documentation (Google Doc)](https://docs.google.com/document/d/1C8MM_BqbOYL9W0N0qu0T1g2DS7Uj_a6Vebd6LJLX4yU/edit?usp=sharing)
 
+## 🆕 Recent Updates
+
+### v1.0.1 - Player Name Truncation Fix
+- **Fixed**: Pattern learning system was truncating opponent names to single letters
+- **Issue**: "eGaliza" → "e", "Muskul" → "M" due to string iteration bug
+- **Solution**: Proper comma-separated string parsing in opponent name extraction
+- **Impact**: Pattern learning now correctly captures full opponent names
+
 ---
 
 ## ✨ Features
