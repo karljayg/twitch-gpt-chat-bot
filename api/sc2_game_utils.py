@@ -205,7 +205,7 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
             import threading
             import time
             
-            def delayed_pattern_learning():
+            def delayed_pattern_learning(captured_game_player_names, captured_winning_players, captured_losing_players):
                 logger.info("Starting delayed pattern learning trigger (15 second wait)")
                 time.sleep(15)  # Wait 15 seconds for replay to be processed
                 try:
@@ -216,7 +216,8 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
                         logger.info("Replay data available - triggering pattern learning system")
                         
                         # Prepare game data for comment prompt
-                        game_data = self._prepare_game_data_for_comment(game_player_names, winning_players, losing_players, logger)
+                        logger.debug(f"DEBUG: captured_game_player_names before _prepare_game_data_for_comment: {repr(captured_game_player_names)}")
+                        game_data = self._prepare_game_data_for_comment(captured_game_player_names, captured_winning_players, captured_losing_players, logger)
                         logger.debug(f"Game data prepared for pattern learning: {game_data}")
                         
                         # Prompt for comment
@@ -238,8 +239,8 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
                     import traceback
                     logger.error(f"Traceback: {traceback.format_exc()}")
             
-            # Start the delayed trigger in a separate thread
-            timer_thread = threading.Thread(target=delayed_pattern_learning, daemon=True)
+            # Start the delayed trigger in a separate thread with captured variables
+            timer_thread = threading.Thread(target=delayed_pattern_learning, args=(game_player_names, winning_players, losing_players), daemon=True)
             timer_thread.start()
             logger.info("Scheduled delayed pattern learning trigger (15 seconds)")
         else:
@@ -284,7 +285,9 @@ def _prepare_game_data_for_comment(self, game_player_names, winning_players, los
         
         # Get opponent info
         if config.STREAMER_NICKNAME in game_player_names:
-            opponent_names = [name for name in game_player_names if name != config.STREAMER_NICKNAME]
+            # Split the comma-separated string into a list first
+            player_names_list = [name.strip() for name in game_player_names.split(',')]
+            opponent_names = [name for name in player_names_list if name != config.STREAMER_NICKNAME]
             if opponent_names:
                 game_data['opponent_name'] = opponent_names[0]
                 
