@@ -606,7 +606,9 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             
             # Get opponent info
             if config.STREAMER_NICKNAME in game_player_names:
-                opponent_names = [name for name in game_player_names if name != config.STREAMER_NICKNAME]
+                # Split the comma-separated string into a list first
+                player_names_list = [name.strip() for name in game_player_names.split(',')]
+                opponent_names = [name for name in player_names_list if name != config.STREAMER_NICKNAME]
                 if opponent_names:
                     game_data['opponent_name'] = opponent_names[0]
                     
