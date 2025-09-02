@@ -52,6 +52,96 @@ class SC2PatternLearner:
             self.logger.error(f"Error in auto-comment processing: {e}")
             return None
     
+    def add_player_comment_later(self, opponent_name, map_name, date, comment):
+        """
+        Add a player comment for a game that was already processed
+        Useful for adding insights after the fact
+        """
+        try:
+            # Find the game in our processed data
+            game_data = self._find_game_by_details(opponent_name, map_name, date)
+            
+            if game_data:
+                self.logger.info(f"Found game vs {opponent_name} on {map_name} - adding comment: {comment}")
+                
+                # Process the comment
+                self._process_new_comment(game_data, comment)
+                
+                # Update the existing AI pattern with player comment
+                self._upgrade_ai_pattern_to_player_comment(game_data, comment)
+                
+                # Save updated patterns
+                self.save_patterns_to_file()
+                
+                return True
+            else:
+                self.logger.warning(f"Could not find game vs {opponent_name} on {map_name} around {date}")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"Error adding player comment later: {e}")
+            return False
+    
+    def edit_ai_comment(self, opponent_name, map_name, date, new_comment):
+        """
+        Replace an AI-generated comment with a player comment
+        This upgrades the pattern from AI-learned to expert insight
+        """
+        try:
+            # Find the game in our processed data
+            game_data = self._find_game_by_details(opponent_name, map_name, date)
+            
+            if game_data:
+                self.logger.info(f"Found game vs {opponent_name} on {map_name} - upgrading AI comment to: {new_comment}")
+                
+                # Process the new comment
+                self._process_new_comment(game_data, new_comment)
+                
+                # Remove the old AI pattern and replace with player comment
+                self._replace_ai_pattern_with_player_comment(game_data, new_comment)
+                
+                # Save updated patterns
+                self.save_patterns_to_file()
+                
+                return True
+            else:
+                self.logger.warning(f"Could not find game vs {opponent_name} on {map_name} around {date}")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"Error editing AI comment: {e}")
+            return False
+    
+    def list_recent_games_for_comment(self, limit=10):
+        """
+        List recent games that could benefit from player comments
+        Shows games that only have AI-generated patterns
+        """
+        try:
+            recent_games = []
+            
+            if hasattr(self, 'all_patterns'):
+                for pattern in self.all_patterns:
+                    if not pattern.get('has_player_comment', False):  # Only AI-generated patterns
+                        game_data = pattern.get('game_data', {})
+                        if game_data:
+                            recent_games.append({
+                                'opponent': game_data.get('opponent_name', 'Unknown'),
+                                'race': game_data.get('opponent_race', 'Unknown'),
+                                'map': game_data.get('map', 'Unknown'),
+                                'date': game_data.get('date', 'Unknown'),
+                                'ai_comment': pattern.get('comment', 'Unknown'),
+                                'confidence': pattern.get('ai_confidence', 0.0)
+                            })
+            
+            # Sort by date (most recent first) and limit results
+            recent_games.sort(key=lambda x: x['date'], reverse=True)
+            return recent_games[:limit]
+            
+        except Exception as e:
+            self.logger.error(f"Error listing recent games: {e}")
+            return []
+    
     def _format_game_summary(self, game_data):
         """Format game details for the comment prompt"""
         summary = []
@@ -1020,3 +1110,88 @@ class SC2PatternLearner:
         except Exception as e:
             self.logger.error(f"Error checking if game already processed: {e}")
             return False
+    
+    def _find_game_by_details(self, opponent_name, map_name, date):
+        """Find a game by opponent, map, and approximate date"""
+        try:
+            # Look through all patterns to find matching game
+            if hasattr(self, 'all_patterns'):
+                for pattern in self.all_patterns:
+                    game_data = pattern.get('game_data', {})
+                    if (game_data.get('opponent_name', '').lower() == opponent_name.lower() and
+                        game_data.get('map', '').lower() == map_name.lower()):
+                        
+                        # Check if date is close (within 1 day)
+                        game_date = game_data.get('date', '')
+                        if game_date:
+                            try:
+                                from datetime import datetime
+                                game_dt = datetime.fromisoformat(game_date.replace('Z', '+00:00'))
+                                search_dt = datetime.fromisoformat(date.replace('Z', '+00:00'))
+                                date_diff = abs((game_dt - search_dt).days)
+                                
+                                if date_diff <= 1:  # Within 1 day
+                                    return game_data
+                            except:
+                                # If date parsing fails, just check if dates are similar strings
+                                if date in game_date or game_date in date:
+                                    return game_data
+            
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"Error finding game by details: {e}")
+            return None
+    
+    def _upgrade_ai_pattern_to_player_comment(self, game_data, comment):
+        """Upgrade an AI-generated pattern to include player comment"""
+        try:
+            game_id = self._generate_game_id(game_data)
+            
+            # Find and update the AI pattern
+            if hasattr(self, 'all_patterns'):
+                for pattern in self.all_patterns:
+                    if (pattern.get('game_data') and 
+                        self._generate_game_id(pattern['game_data']) == game_id):
+                        
+                        # Update the pattern to include player comment
+                        pattern['has_player_comment'] = True
+                        pattern['comment'] = comment
+                        pattern['raw_comment'] = comment
+                        pattern['cleaned_comment'] = self._clean_comment_text(comment)
+                        
+                        # Extract new keywords from the comment
+                        new_keywords = self._extract_keywords(comment)
+                        pattern['keywords'] = new_keywords
+                        
+                        self.logger.info(f"Upgraded AI pattern to player comment: {comment}")
+                        break
+                        
+        except Exception as e:
+            self.logger.error(f"Error upgrading AI pattern: {e}")
+    
+    def _replace_ai_pattern_with_player_comment(self, game_data, comment):
+        """Replace an AI-generated pattern with a player comment"""
+        try:
+            game_id = self._generate_game_id(game_data)
+            
+            # Find and remove the old AI pattern
+            if hasattr(self, 'all_patterns'):
+                for i, pattern in enumerate(self.all_patterns):
+                    if (pattern.get('game_data') and 
+                        self._generate_game_id(pattern['game_data']) == game_id):
+                        
+                        # Remove the old pattern
+                        old_pattern = self.all_patterns.pop(i)
+                        
+                        # Also remove from patterns by keyword
+                        old_keyword = old_pattern.get('comment', '').replace('AI detected: ', '').lower().replace(' ', '_')
+                        if old_keyword in self.patterns:
+                            self.patterns[old_keyword] = [p for p in self.patterns[old_keyword] 
+                                                        if p.get('game_data') != game_data]
+                        
+                        self.logger.info(f"Replaced AI pattern with player comment: {comment}")
+                        break
+                        
+        except Exception as e:
+            self.logger.error(f"Error replacing AI pattern: {e}")
