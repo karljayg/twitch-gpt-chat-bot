@@ -814,7 +814,9 @@ class SC2PatternLearner:
                             "last_seen": datetime.now().isoformat(),
                             "strategy_type": self._classify_strategy(pattern),
                             "race": self._detect_race(pattern),
-                            "confidence": pattern.get('ai_confidence', 0.8)
+                            "confidence": pattern.get('ai_confidence', 0.8),
+                            "game_data": pattern.get('game_data', {}),  # Include game data for comment management
+                            "has_player_comment": pattern.get('has_player_comment', False)
                         }
                         
                         # Mark this signature as seen
@@ -973,9 +975,27 @@ class SC2PatternLearner:
             if os.path.exists(patterns_file):
                 with open(patterns_file, 'r') as f:
                     patterns_data = json.load(f)
-                    # Convert back to defaultdict
-                    for keyword, patterns in patterns_data.items():
-                        self.patterns[keyword] = patterns
+                    
+                    # Reconstruct all_patterns from saved data
+                    self.all_patterns = []
+                    for pattern_name, pattern_data in patterns_data.items():
+                        # Convert saved pattern back to all_patterns format
+                        pattern_entry = {
+                            'signature': pattern_data.get('signature', {}),
+                            'comment': pattern_data.get('comment', ''),
+                            'keywords': pattern_data.get('keywords', []),
+                            'game_data': pattern_data.get('game_data', {}),
+                            'has_player_comment': pattern_data.get('has_player_comment', False),
+                            'ai_confidence': pattern_data.get('confidence', 0.8),
+                            'timestamp': pattern_data.get('last_seen', datetime.now().isoformat())
+                        }
+                        self.all_patterns.append(pattern_entry)
+                        
+                        # Also reconstruct patterns by keyword for backward compatibility
+                        for keyword in pattern_data.get('keywords', []):
+                            if keyword not in self.patterns:
+                                self.patterns[keyword] = []
+                            self.patterns[keyword].append(pattern_entry)
                 
                 self.logger.info(f"Loaded {len(patterns_data)} pattern categories from file")
             

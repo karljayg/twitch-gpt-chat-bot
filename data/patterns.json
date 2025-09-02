@@ -101,9 +101,137 @@
     ],
     "comment": "AI detected: Early protoss aggression",
     "sample_count": 1,
-    "last_seen": "2025-09-02T10:57:23.045826",
+    "last_seen": "2025-09-02T11:46:13.034175",
     "strategy_type": "protoss_aggression",
     "race": "protoss",
-    "confidence": 0.6000000000000001
+    "confidence": 0.6000000000000001,
+    "game_data": {},
+    "has_player_comment": false
+  },
+  "pattern_002": {
+    "signature": {
+      "early_game": [
+        {
+          "unit": "Drone",
+          "count": 1,
+          "order": 1,
+          "supply": 1,
+          "time": 0
+        },
+        {
+          "unit": "Overlord",
+          "count": 1,
+          "order": 2,
+          "supply": 1,
+          "time": 10
+        },
+        {
+          "unit": "SpawningPool",
+          "count": 1,
+          "order": 3,
+          "supply": 1,
+          "time": 20
+        },
+        {
+          "unit": "Zergling",
+          "count": 3,
+          "order": 4,
+          "supply": 4,
+          "time": 40
+        }
+      ],
+      "key_timings": {
+        "SpawningPool": 20
+      },
+      "opening_sequence": [
+        {
+          "unit": "Drone",
+          "count": 1,
+          "order": 1,
+          "supply": 1,
+          "time": 0
+        },
+        {
+          "unit": "Overlord",
+          "count": 1,
+          "order": 2,
+          "supply": 1,
+          "time": 10
+        },
+        {
+          "unit": "SpawningPool",
+          "count": 1,
+          "order": 3,
+          "supply": 1,
+          "time": 20
+        },
+        {
+          "unit": "Zergling",
+          "count": 3,
+          "order": 4,
+          "supply": 4,
+          "time": 40
+        }
+      ]
+    },
+    "comment_id": "comment_002",
+    "game_id": "game_002",
+    "keywords": [
+      "speedling",
+      "all-in",
+      "defended",
+      "cannons",
+      "speedling",
+      "all-in",
+      "defended",
+      "cannons"
+    ],
+    "comment": "This was a speedling all-in that I defended with cannons",
+    "sample_count": 2,
+    "last_seen": "2025-09-02T11:46:13.034175",
+    "strategy_type": "zerg_aggression",
+    "race": "zerg",
+    "confidence": 0.6000000000000001,
+    "game_data": {
+      "opponent_name": "DKeyAbuser",
+      "opponent_race": "zerg",
+      "map": "Royal Blood LE",
+      "duration": "12m 45s",
+      "date": "2025-09-02 15:30:00",
+      "result": "Victory",
+      "build_order": [
+        {
+          "name": "Drone",
+          "supply": 1,
+          "time": 0
+        },
+        {
+          "name": "Overlord",
+          "supply": 1,
+          "time": 10
+        },
+        {
+          "name": "SpawningPool",
+          "supply": 1,
+          "time": 20
+        },
+        {
+          "name": "Zergling",
+          "supply": 2,
+          "time": 30
+        },
+        {
+          "name": "Zergling",
+          "supply": 3,
+          "time": 35
+        },
+        {
+          "name": "Zergling",
+          "supply": 4,
+          "time": 40
+        }
+      ]
+    },
+    "has_player_comment": true
   }
 }

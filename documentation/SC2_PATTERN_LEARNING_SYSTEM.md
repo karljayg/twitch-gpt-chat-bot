@@ -8,21 +8,143 @@ The SC2 Pattern Learning System is an intelligent build order analysis and patte
 > 
 > The SC2 localhost JSON API now correctly returns `isReplay: false` for real games and `isReplay: true` for replay viewing. The system can now properly distinguish between real games and replay viewing.
 
-## Bug Fixes
+## Complete System Flow
 
-### 🐛 **Player Name Truncation Fix** (v1.0.1)
-- **Issue**: Opponent names were being truncated to single letters in pattern learning system
-  - "eGaliza" became "e"
-  - "Muskul" became "M"  
-  - "TheSenate" became "T"
-- **Root Cause**: String iteration bug in `twitch_bot.py:_prepare_game_data_for_comment()`
-  - Code was iterating over `game_player_names` string character-by-character instead of splitting into player names
-  - `for name in "eGaliza, KJ"` gave `["e", "G", "a", ...]` instead of `["eGaliza", "KJ"]`
-- **Solution**: Added proper string splitting logic
-  - Split by comma: `game_player_names.split(',')`
-  - Strip whitespace: `[name.strip() for name in ...]`
-  - Filter out streamer name: `[name for name in player_names_list if name != STREAMER_NICKNAME]`
-- **Impact**: Pattern learning now correctly captures full opponent names for better strategic analysis
+### 🎮 **Live Game Flow (Your Original System)**
+```
+Game Ends → You Type Comment in Terminal → Comment Saved to Database → Pattern Learning
+```
+
+**This is your existing system and it works perfectly!**
+
+### 🤖 **Auto-Processing Flow (New Addition)**
+```
+Game Ends → No Comment Entered → AI Analyzes Replay → Creates AI Pattern → You Can Add Comment Later
+```
+
+**This is the new system that complements your existing system.**
+
+### 📝 **Post-Game Comment Management (New Addition)**
+```
+Previously Processed Game → Use add_player_comment.py → Add Expert Insight → Upgrade AI Pattern
+```
+
+**This allows you to add expert insights to games that were auto-processed.**
+
+## Data Model & Storage
+
+### 🗄️ **Database Storage (Your Original System)**
+- **Table**: `REPLAYS.Player_Comments`
+- **Method**: `update_player_comments_in_last_replay()`
+- **Purpose**: Stores your expert comments for database queries
+- **Status**: ✅ **Unchanged and working perfectly**
+
+### 📁 **File Storage (Pattern Learning System)**
+```
+data/
+├── patterns.json          # Learned patterns with build signatures
+├── comments.json          # Comment storage with dual format (raw + cleaned)
+└── learning_stats.json    # System statistics and metadata
+```
+
+### 🔄 **Data Flow Architecture**
+```
+Game Data → Pattern Learning System → File Storage → ML Analysis → Strategic Insights
+     ↓
+Database Storage (Your Comments) → Database Queries → Historical Analysis
+```
+
+## How Everything Works Together
+
+### 1. **During Live Games (Your Original System)**
+
+#### Step 1: Game Ends
+When a StarCraft 2 game ends, the system automatically:
+- Extracts game data (opponent, race, result, map, duration, date)
+- Analyzes replay data for build order information
+- Prepares for player comment input
+
+#### Step 2: Comment Prompt
+The system displays a formatted game summary and prompts for input:
+```
+🎮 GAME COMPLETED - ENTER PLAYER COMMENT
+============================================================
+Opponent: PlayerX
+Race: Zerg
+Result: Victory
+Map: Acropolis
+Duration: 8m 32s
+Date: 2024-01-15 14:30:00
+============================================================
+Enter player comment about the game (or press Enter to skip):
+```
+
+#### Step 3: Learning Process
+- **With Comment**: System extracts keywords and creates expert patterns
+- **Without Comment**: AI analyzes replay data and creates learned patterns
+- **Pattern Storage**: All patterns are saved to persistent files
+- **Keyword Association**: Comments are linked to relevant SC2 strategy terms
+
+### 2. **Auto-Processing (New Addition)**
+
+#### When You Don't Enter a Comment
+If you press Enter without typing a comment:
+1. **AI Analysis**: System analyzes the replay data automatically
+2. **Pattern Creation**: Creates an AI-generated pattern with confidence score
+3. **File Storage**: Saves the pattern to `data/patterns.json`
+4. **Later Enhancement**: You can add your expert insight later using the management tools
+
+#### AI Learning Process
+```python
+def process_game_without_comment(self, game_data):
+    # Analyze first 60 supply for strategy indicators
+    strategy_guess = self._guess_strategy_from_build(build_data)
+    
+    # Calculate AI confidence in the guess
+    ai_confidence = self._calculate_ai_confidence(build_data)
+    
+    # Store as AI-learned pattern
+    ai_comment_data = {
+        'has_player_comment': False,  # AI-generated
+        'ai_confidence': ai_confidence
+    }
+```
+
+### 3. **Post-Game Comment Management (New Addition)**
+
+#### Command-Line Interface
+```bash
+# List games that need expert comments
+python add_player_comment.py list
+
+# Add expert comment to a game
+python add_player_comment.py add DKeyAbuser "Royal Blood LE" "2025-09-02 15:30" "This was a speedling all-in that I defended with cannons"
+
+# Replace AI comment with expert insight
+python add_player_comment.py edit DKeyAbuser "Royal Blood LE" "2025-09-02 15:30" "This was actually a roach rush, not speedling"
+```
+
+#### Comment Management Features
+- **List Games**: Shows games that only have AI-generated patterns
+- **Add Comments**: Add expert insights to previously processed games
+- **Edit Comments**: Replace AI comments with your expert insights
+- **Upgrade Patterns**: Convert AI patterns to expert patterns
+
+### 4. **ML Analysis Integration**
+
+#### Pattern Matching
+The ML analysis system uses both:
+- **Expert Patterns**: From your player comments (higher priority)
+- **AI Patterns**: From automatic analysis (lower priority)
+
+#### Priority System
+```python
+# Expert insights get priority boost
+if pattern.get('has_player_comment', False):
+    priority_boost = 1.0  # Expert insight
+else:
+    priority_boost = 0.0  # AI-generated
+```
 
 ## Key Features
 
@@ -84,6 +206,7 @@ class SC2PatternLearner:
     def __init__(self, db, logger):
         self.patterns = defaultdict(list)           # Pattern storage
         self.comment_keywords = defaultdict(set)    # Keyword associations
+        self.all_patterns = []                      # Centralized pattern list
         self.db = db                               # Database connection
         self.logger = logger                       # Logging system
 ```
@@ -110,6 +233,27 @@ signature = {
     ],
     'key_timings': {},     # Critical building timings
     'opening_sequence': [] # First 10 buildings in order (consolidated)
+}
+```
+
+#### 4. Complete Pattern Entry Format
+```python
+pattern_entry = {
+    'signature': pattern_signature,           # Build order signature
+    'comment': 'Expert insight or AI comment', # Human or AI comment
+    'keywords': ['strategy', 'terms'],        # Extracted keywords
+    'game_data': {                           # Complete game information
+        'opponent_name': 'PlayerX',
+        'opponent_race': 'zerg',
+        'map': 'Acropolis',
+        'duration': '8m 32s',
+        'date': '2024-01-15 14:30:00',
+        'result': 'Victory',
+        'build_order': [...]                 # Full build order data
+    },
+    'has_player_comment': True,              # Expert insight vs AI
+    'ai_confidence': 0.8,                    # AI confidence (if applicable)
+    'timestamp': '2024-01-15T14:30:00'      # When pattern was created
 }
 ```
 
@@ -327,7 +471,7 @@ if hasattr(self, 'pattern_learner'):
     timer_thread.start()
 ```
 
-### 2. Adding Player Comments
+### 2. Adding Player Comments (Your Original System)
 After each game:
 1. **Review the game summary** displayed by the system
 2. **Enter your strategic insights** using SC2 terminology
@@ -347,7 +491,19 @@ After each game:
 - **Buildings**: pool, barracks, gateway, forge, factory
 - **Playstyle**: aggressive, defensive, economic, fast, slow
 
-### 4. Viewing Learned Patterns
+### 4. Post-Game Comment Management (New System)
+```bash
+# List games that need expert comments
+python add_player_comment.py list
+
+# Add expert comment to a game
+python add_player_comment.py add DKeyAbuser "Royal Blood LE" "2025-09-02 15:30" "This was a speedling all-in that I defended with cannons"
+
+# Replace AI comment with expert insight
+python add_player_comment.py edit DKeyAbuser "Royal Blood LE" "2025-09-02 15:30" "This was actually a roach rush, not speedling"
+```
+
+### 5. Viewing Learned Patterns
 Check the `data/` directory for:
 - **`patterns.json`**: All learned patterns with build signatures (updated format)
 - **`comments.json`**: Comment storage with dual format (raw + cleaned)
@@ -574,7 +730,7 @@ As you use the system, it will become increasingly valuable, providing deeper in
 
 ---
 
-**Last Updated**: August 2025  
-**Version**: 2.1 (Blizzard API Fix + Pattern Learning Improvements + TDD)  
+**Last Updated**: September 2025  
+**Version**: 2.2 (Complete Player Comment Management System)  
 **Author**: AI Assistant  
 **System**: SC2 Pattern Learning System
