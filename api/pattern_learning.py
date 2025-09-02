@@ -29,42 +29,27 @@ class SC2PatternLearner:
     def prompt_for_player_comment(self, game_data):
         """
         Gracefully prompt for player comment after game ends
-        Shows game details and handles input without blocking
+        In Twitch bot context, automatically processes the game without requiring input
         """
         try:
             # Check if we've already processed this game (prevents duplicate prompts when watching replays)
             game_id = self._generate_game_id(game_data)
             if self._is_game_already_processed(game_id):
                 self.logger.info(f"Game already processed (ID: {game_id}), skipping comment prompt")
-                print(f"⏭️  Game already processed ({game_data.get('opponent_name', 'Unknown')} on {game_data.get('map', 'Unknown')}) - skipping comment prompt")
                 return None
             
-            # Format game summary for the prompt
-            game_summary = self._format_game_summary(game_data)
+            # In Twitch bot context, automatically process the game without requiring user input
+            # This allows the system to learn from all games, not just commented ones
+            self.logger.info(f"Auto-processing game for {game_data.get('opponent_name', 'Unknown')} on {game_data.get('map', 'Unknown')}")
             
-            print("\n" + "="*60)
-            print("🎮 GAME COMPLETED - ENTER PLAYER COMMENT")
-            print("="*60)
-            print(game_summary)
-            print("="*60)
+            # Automatically process the game without comment
+            self.process_game_without_comment(game_data)
             
-            # Non-blocking input with clear instructions
-            comment = input("Enter player comment about the game (or press Enter to skip): ").strip()
-            
-            if comment:
-                print(f"✅ Comment saved: {comment}")
-                self._process_new_comment(game_data, comment)
-                return comment
-            else:
-                print("⏭️  Skipping comment input")
-                return None
+            # Return a placeholder to indicate processing was done
+            return "auto_processed"
                 
-        except (EOFError, KeyboardInterrupt):
-            print("⏭️  Input interrupted, continuing...")
-            return None
         except Exception as e:
-            self.logger.error(f"Error in comment prompt: {e}")
-            print("❌ Error in comment input, continuing...")
+            self.logger.error(f"Error in auto-comment processing: {e}")
             return None
     
     def _format_game_summary(self, game_data):
@@ -156,6 +141,22 @@ class SC2PatternLearner:
                 # Store in patterns
                 keyword = strategy_guess.lower().replace(' ', '_')
                 self.patterns[keyword].append(ai_comment_data)
+                
+                # Also store in all_patterns for proper saving
+                if not hasattr(self, 'all_patterns'):
+                    self.all_patterns = []
+                
+                # Create pattern entry for all_patterns
+                pattern_entry = {
+                    'signature': self._create_pattern_signature(build_data),
+                    'comment': ai_comment_data['comment'],
+                    'keywords': ai_comment_data['keywords'],
+                    'game_data': ai_comment_data['game_data'],
+                    'has_player_comment': False,
+                    'ai_confidence': ai_comment_data['ai_confidence'],
+                    'timestamp': ai_comment_data['timestamp']
+                }
+                self.all_patterns.append(pattern_entry)
                 
                 # Auto-save patterns to file
                 self.save_patterns_to_file()
@@ -689,6 +690,7 @@ class SC2PatternLearner:
     def save_patterns_to_file(self):
         """Save all patterns to JSON files for persistence"""
         try:
+            self.logger.info("Starting pattern learning save process...")
             # Save patterns with efficient structure (no duplication)
             patterns_file = os.path.join(self.data_dir, 'patterns.json')
             
@@ -700,7 +702,8 @@ class SC2PatternLearner:
             seen_signatures = {}
             
             # Process all patterns from the centralized list
-            if hasattr(self, 'all_patterns'):
+            if hasattr(self, 'all_patterns') and self.all_patterns:
+                self.logger.info(f"Processing {len(self.all_patterns)} patterns for saving...")
                 for pattern in self.all_patterns:
                     # Create a hash of the signature to identify duplicates
                     signature_str = json.dumps(pattern['signature'], sort_keys=True)
@@ -733,9 +736,12 @@ class SC2PatternLearner:
                             efficient_patterns[existing_pattern_name]['keywords'] = []
                         efficient_patterns[existing_pattern_name]['keywords'].extend(pattern.get('keywords', []))
                         efficient_patterns[existing_pattern_name]['sample_count'] += 1
+            else:
+                self.logger.warning("No all_patterns found - creating empty patterns file")
             
             with open(patterns_file, 'w') as f:
                 json.dump(efficient_patterns, f, indent=2, default=str)
+            self.logger.info(f"Saved {len(efficient_patterns)} patterns to {patterns_file}")
             
             # Save comments with efficient structure (no duplication)
             comments_file = os.path.join(self.data_dir, 'comments.json')
@@ -777,6 +783,7 @@ class SC2PatternLearner:
             
             with open(comments_file, 'w') as f:
                 json.dump(comments_data, f, indent=2, default=str)
+            self.logger.info(f"Saved {len(comments_data['comments'])} comments to {comments_file}")
             
             # Save learning stats
             stats_file = os.path.join(self.data_dir, 'learning_stats.json')
@@ -784,11 +791,15 @@ class SC2PatternLearner:
             stats['last_saved'] = datetime.now().isoformat()
             with open(stats_file, 'w') as f:
                 json.dump(stats, f, indent=2, default=str)
+            self.logger.info(f"Saved learning stats to {stats_file}")
             
-            self.logger.info(f"Patterns saved to {self.data_dir}/")
+            self.logger.info("Pattern learning save process completed successfully")
             
         except Exception as e:
             self.logger.error(f"Error saving patterns to file: {e}")
+            import traceback
+            self.logger.error(f"Traceback: {traceback.format_exc()}")
+            raise
     
     def _classify_strategy(self, pattern):
         """Classify the strategy type based on pattern data"""
