@@ -199,7 +199,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         self.server = config.HOST
         self.port = config.PORT
         self.ignore = config.IGNORE
-        openai.api_key = config.OPENAI_API_KEY
+        # OpenAI API key is now set per-request in send_prompt_to_openai
+        # openai.api_key = config.OPENAI_API_KEY
 
         self.streamer_nickname = config.STREAMER_NICKNAME
         self.selected_moods = [config.MOOD_OPTIONS[i]
@@ -354,9 +355,14 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                             wavfile.write(extended_filename, fs, extended_audio_data)
 
                         # Use Whisper API for transcription
+                        from openai import OpenAI
+                        client = OpenAI(api_key=config.OPENAI_API_KEY)
                         with open(extended_filename, "rb") as audio_file:
-                            response = openai.Audio.transcribe("whisper-1", audio_file)
-                            partial_command = response.get("text", "").strip().lower()
+                            response = client.audio.transcriptions.create(
+                                model="whisper-1",
+                                file=audio_file
+                            )
+                            partial_command = response.text.strip().lower()
 
                         os.remove(extended_filename)  # Clean up temporary file
 
@@ -393,8 +399,11 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                                     wavfile.write(comment_filename, fs, audio_data)
 
                                     with open(comment_filename, "rb") as comment_audio_file:
-                                        comment_response = openai.Audio.transcribe("whisper-1", comment_audio_file)
-                                        player_comment = comment_response.get("text", "").strip()
+                                        comment_response = client.audio.transcriptions.create(
+                                            model="whisper-1",
+                                            file=comment_audio_file
+                                        )
+                                        player_comment = comment_response.text.strip()
 
                                     os.remove(comment_filename)  # Clean up temporary file
 

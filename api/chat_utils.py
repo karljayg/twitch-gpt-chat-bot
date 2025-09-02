@@ -473,7 +473,10 @@ def send_prompt_to_openai(msg):
     :param msg: The message to send to OpenAI as a prompt.
     :return: The response from OpenAI.
     """
-    completion = openai.ChatCompletion.create(
+    from openai import OpenAI
+    
+    client = OpenAI(api_key=config.OPENAI_API_KEY)
+    completion = client.chat.completions.create(
         model=config.ENGINE,
         messages=[
             {"role": "user", "content": msg}
