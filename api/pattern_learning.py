@@ -45,8 +45,14 @@ class SC2PatternLearner:
             print(game_summary)
             print("="*60)
             
-            # Get player input
-            comment = input("Enter player comment about the game (or press Enter to skip): ").strip()
+            # Try to get player input, but handle cases where input() might not work
+            try:
+                comment = input("Enter player comment about the game (or press Enter to skip): ").strip()
+            except (EOFError, OSError, KeyboardInterrupt):
+                # If input() fails (common in Twitch bot context), auto-process
+                self.logger.info(f"Input not available - auto-processing game for {game_data.get('opponent_name', 'Unknown')} on {game_data.get('map', 'Unknown')}")
+                self.process_game_without_comment(game_data)
+                return "auto_processed"
             
             if comment:
                 # Process the comment
@@ -215,54 +221,30 @@ class SC2PatternLearner:
             self.logger.error(f"Error processing comment: {e}")
     
     def process_game_without_comment(self, game_data):
-        """Process a game without player comment - AI learns from replay data"""
+        """Process a game without player comment - store replay data for later human analysis"""
         try:
+            self.logger.info(f"Processing game without comment for {game_data.get('opponent_name', 'Unknown')} - storing for later human analysis")
+            
             # Extract build order data if available
             build_data = game_data.get('build_order', [])
             
             if build_data:
-                # Create pattern signature
-                pattern_signature = self._create_pattern_signature(build_data)
-                
-                # Try to identify strategy based on learned patterns
-                strategy_guess = self._guess_strategy_from_build(build_data)
-                
-                # Store as AI-learned pattern
-                ai_comment_data = {
-                    'raw_comment': f"AI detected: {strategy_guess}",
-                    'cleaned_comment': f"AI detected: {strategy_guess}",
-                    'comment': f"AI detected: {strategy_guess}",  # Keep for backward compatibility
-                    'keywords': [strategy_guess.lower().replace(' ', '_')],
+                # Store replay data for later human analysis - NO AI commentary
+                replay_data = {
+                    'build_data': build_data,
                     'game_data': game_data,
                     'timestamp': datetime.now().isoformat(),
-                    'has_player_comment': False,  # Mark as AI-generated
-                    'ai_confidence': self._calculate_ai_confidence(build_data)
+                    'needs_human_analysis': True,
+                    'has_player_comment': False
                 }
                 
-                # Store in patterns
-                keyword = strategy_guess.lower().replace(' ', '_')
-                self.patterns[keyword].append(ai_comment_data)
+                # Store in a separate queue for human review
+                if not hasattr(self, 'pending_human_analysis'):
+                    self.pending_human_analysis = []
                 
-                # Also store in all_patterns for proper saving
-                if not hasattr(self, 'all_patterns'):
-                    self.all_patterns = []
+                self.pending_human_analysis.append(replay_data)
                 
-                # Create pattern entry for all_patterns
-                pattern_entry = {
-                    'signature': self._create_pattern_signature(build_data),
-                    'comment': ai_comment_data['comment'],
-                    'keywords': ai_comment_data['keywords'],
-                    'game_data': ai_comment_data['game_data'],
-                    'has_player_comment': False,
-                    'ai_confidence': ai_comment_data['ai_confidence'],
-                    'timestamp': ai_comment_data['timestamp']
-                }
-                self.all_patterns.append(pattern_entry)
-                
-                # Auto-save patterns to file
-                self.save_patterns_to_file()
-                
-                self.logger.info(f"AI learned pattern: {strategy_guess} (confidence: {ai_comment_data['ai_confidence']:.1%})")
+                self.logger.info(f"Stored replay data for {game_data.get('opponent_name', 'Unknown')} - awaiting human analysis")
                 
         except Exception as e:
             self.logger.error(f"Error processing game without comment: {e}")

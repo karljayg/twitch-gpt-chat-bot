@@ -32563,6 +32563,329 @@
     },
     {
       "id": "comment_106",
+      "raw_comment": "stalker harass to blink to collosus",
+      "cleaned_comment": "stalker harass to blink to collosus",
+      "comment": "stalker harass to blink to collosus",
+      "keywords": [
+        "stalker",
+        "harass",
+        "blink",
+        "collosus"
+      ],
+      "game_data": {
+        "opponent_name": "xXxLoLxXx",
+        "result": "Defeat",
+        "duration": "13m 34s",
+        "date": "2025-09-02 17:43:53",
+        "map": "Ley Lines",
+        "build_order": [
+          {
+            "supply": 12,
+            "name": "Probe",
+            "time": 0
+          },
+          {
+            "supply": 13,
+            "name": "Probe",
+            "time": 14
+          },
+          {
+            "supply": 13,
+            "name": "Pylon",
+            "time": 15
+          },
+          {
+            "supply": 14,
+            "name": "Probe",
+            "time": 22
+          },
+          {
+            "supply": 15,
+            "name": "Gateway",
+            "time": 36
+          },
+          {
+            "supply": 15,
+            "name": "Probe",
+            "time": 39
+          },
+          {
+            "supply": 16,
+            "name": "Assimilator",
+            "time": 45
+          },
+          {
+            "supply": 16,
+            "name": "Probe",
+            "time": 51
+          },
+          {
+            "supply": 17,
+            "name": "Probe",
+            "time": 59
+          },
+          {
+            "supply": 18,
+            "name": "Probe",
+            "time": 67
+          },
+          {
+            "supply": 18,
+            "name": "Probe",
+            "time": 78
+          },
+          {
+            "supply": 19,
+            "name": "CyberneticsCore",
+            "time": 84
+          },
+          {
+            "supply": 20,
+            "name": "Nexus",
+            "time": 98
+          },
+          {
+            "supply": 20,
+            "name": "Assimilator",
+            "time": 104
+          },
+          {
+            "supply": 21,
+            "name": "Adept",
+            "time": 112
+          },
+          {
+            "supply": 21,
+            "name": "Pylon",
+            "time": 114
+          },
+          {
+            "supply": 21,
+            "name": "Warp Gate",
+            "time": 121
+          },
+          {
+            "supply": 22,
+            "name": "Probe",
+            "time": 123
+          },
+          {
+            "supply": 23,
+            "name": "Probe",
+            "time": 136
+          },
+          {
+            "supply": 23,
+            "name": "TwilightCouncil",
+            "time": 141
+          },
+          {
+            "supply": 24,
+            "name": "Adept",
+            "time": 143
+          },
+          {
+            "supply": 24,
+            "name": "Probe",
+            "time": 148
+          },
+          {
+            "supply": 27,
+            "name": "Blink",
+            "time": 150
+          },
+          {
+            "supply": 27,
+            "name": "Probe",
+            "time": 162
+          },
+          {
+            "supply": 28,
+            "name": "Probe",
+            "time": 170
+          },
+          {
+            "supply": 28,
+            "name": "Stalker",
+            "time": 170
+          },
+          {
+            "supply": 29,
+            "name": "Probe",
+            "time": 174
+          },
+          {
+            "supply": 32,
+            "name": "Probe",
+            "time": 191
+          },
+          {
+            "supply": 32,
+            "name": "Probe",
+            "time": 192
+          },
+          {
+            "supply": 34,
+            "name": "Probe",
+            "time": 204
+          },
+          {
+            "supply": 34,
+            "name": "Probe",
+            "time": 204
+          },
+          {
+            "supply": 34,
+            "name": "Probe",
+            "time": 216
+          },
+          {
+            "supply": 34,
+            "name": "Probe",
+            "time": 216
+          },
+          {
+            "supply": 36,
+            "name": "Gateway",
+            "time": 225
+          },
+          {
+            "supply": 36,
+            "name": "Gateway",
+            "time": 226
+          },
+          {
+            "supply": 36,
+            "name": "Pylon",
+            "time": 227
+          },
+          {
+            "supply": 36,
+            "name": "Probe",
+            "time": 228
+          },
+          {
+            "supply": 36,
+            "name": "Probe",
+            "time": 228
+          },
+          {
+            "supply": 38,
+            "name": "Stalker",
+            "time": 230
+          },
+          {
+            "supply": 40,
+            "name": "Probe",
+            "time": 240
+          },
+          {
+            "supply": 40,
+            "name": "Probe",
+            "time": 240
+          },
+          {
+            "supply": 42,
+            "name": "RoboticsFacility",
+            "time": 245
+          },
+          {
+            "supply": 42,
+            "name": "Probe",
+            "time": 252
+          },
+          {
+            "supply": 41,
+            "name": "Stalker",
+            "time": 258
+          },
+          {
+            "supply": 42,
+            "name": "Probe",
+            "time": 273
+          },
+          {
+            "supply": 42,
+            "name": "Probe",
+            "time": 277
+          },
+          {
+            "supply": 42,
+            "name": "Charge",
+            "time": 277
+          },
+          {
+            "supply": 44,
+            "name": "Stalker",
+            "time": 280
+          },
+          {
+            "supply": 44,
+            "name": "Stalker",
+            "time": 281
+          },
+          {
+            "supply": 44,
+            "name": "Stalker",
+            "time": 282
+          },
+          {
+            "supply": 44,
+            "name": "Probe",
+            "time": 285
+          },
+          {
+            "supply": 51,
+            "name": "Assimilator",
+            "time": 288
+          },
+          {
+            "supply": 51,
+            "name": "Probe",
+            "time": 289
+          },
+          {
+            "supply": 51,
+            "name": "Assimilator",
+            "time": 291
+          },
+          {
+            "supply": 52,
+            "name": "Probe",
+            "time": 297
+          },
+          {
+            "supply": 47,
+            "name": "Stalker",
+            "time": 308
+          },
+          {
+            "supply": 47,
+            "name": "Stalker",
+            "time": 308
+          },
+          {
+            "supply": 47,
+            "name": "Stalker",
+            "time": 308
+          },
+          {
+            "supply": 47,
+            "name": "Probe",
+            "time": 309
+          },
+          {
+            "supply": 54,
+            "name": "TemplarArchive",
+            "time": 338
+          }
+        ]
+      },
+      "timestamp": "2025-09-02T17:44:04.903323",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_107",
       "raw_comment": "blink stalkers PvP",
       "cleaned_comment": "blink stalkers PvP",
       "comment": "blink stalkers PvP",
@@ -32886,7 +33209,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_107",
+      "id": "comment_108",
       "raw_comment": "35 probe prism stalker zealot all in",
       "cleaned_comment": "35 probe prism stalker zealot all in",
       "comment": "35 probe prism stalker zealot all in",
@@ -33212,7 +33535,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_108",
+      "id": "comment_109",
       "raw_comment": "oracles 2, to stalker/collosus.",
       "cleaned_comment": "oracles 2 to stalker collosus",
       "comment": "oracles 2, to stalker/collosus.",
@@ -33536,7 +33859,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_109",
+      "id": "comment_110",
       "raw_comment": "cannon rush - go ahead and pull 2 drones early ",
       "cleaned_comment": "cannon rush - go ahead and pull 2 drones early",
       "comment": "cannon rush - go ahead and pull 2 drones early ",
@@ -33862,7 +34185,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_110",
+      "id": "comment_111",
       "raw_comment": "cannon rush",
       "cleaned_comment": "cannon rush",
       "comment": "cannon rush",
@@ -34185,7 +34508,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_111",
+      "id": "comment_112",
       "raw_comment": "cannon rush to immortal contain",
       "cleaned_comment": "cannon rush to immortal contain",
       "comment": "cannon rush to immortal contain",
@@ -34510,7 +34833,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_112",
+      "id": "comment_113",
       "raw_comment": "late cannon rush",
       "cleaned_comment": "late cannon rush",
       "comment": "late cannon rush",
@@ -34629,7 +34952,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_113",
+      "id": "comment_114",
       "raw_comment": "cannon rush proxy gate vs random",
       "cleaned_comment": "cannon rush proxy gate vs random",
       "comment": "cannon rush proxy gate vs random",
@@ -34770,7 +35093,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_114",
+      "id": "comment_115",
       "raw_comment": "super cheesy. spine drone rush, anything.",
       "cleaned_comment": "super cheesy spine drone rush anything",
       "comment": "super cheesy. spine drone rush, anything.",
@@ -34901,7 +35224,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_115",
+      "id": "comment_116",
       "raw_comment": "Nydus, roach, or spine rush",
       "cleaned_comment": "Nydus roach or spine rush",
       "comment": "Nydus, roach, or spine rush",
@@ -35226,7 +35549,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_116",
+      "id": "comment_117",
       "raw_comment": "spine rush",
       "cleaned_comment": "spine rush",
       "comment": "spine rush",
@@ -35399,7 +35722,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_117",
+      "id": "comment_118",
       "raw_comment": "chargelots, archon, immortal, void ray, oracle into tempest",
       "cleaned_comment": "chargelots archon immortal void ray oracle into tempest",
       "comment": "chargelots, archon, immortal, void ray, oracle into tempest",
@@ -35725,7 +36048,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_118",
+      "id": "comment_119",
       "raw_comment": "Void ray to carriers",
       "cleaned_comment": "Void ray to carriers",
       "comment": "Void ray to carriers",
@@ -36049,7 +36372,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_119",
+      "id": "comment_120",
       "raw_comment": "oracles, fast expand, to blink stalkers",
       "cleaned_comment": "oracles fast expand to blink stalkers",
       "comment": "oracles, fast expand, to blink stalkers",
@@ -36375,7 +36698,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_120",
+      "id": "comment_121",
       "raw_comment": "blink stalkers to collosus",
       "cleaned_comment": "blink stalkers to collosus",
       "comment": "blink stalkers to collosus",
@@ -36699,7 +37022,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_121",
+      "id": "comment_122",
       "raw_comment": "blink stalkers to storm to contain",
       "cleaned_comment": "blink stalkers to storm to contain",
       "comment": "blink stalkers to storm to contain",
@@ -37024,7 +37347,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_122",
+      "id": "comment_123",
       "raw_comment": "blink stalkers to immortals",
       "cleaned_comment": "blink stalkers to immortals",
       "comment": "blink stalkers to immortals",
@@ -37348,7 +37671,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_123",
+      "id": "comment_124",
       "raw_comment": "reaper 2 rax mass",
       "cleaned_comment": "reaper 2 rax mass",
       "comment": "reaper 2 rax mass",
@@ -37672,7 +37995,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_124",
+      "id": "comment_125",
       "raw_comment": "3 rax reaper abuser",
       "cleaned_comment": "3 rax reaper abuser",
       "comment": "3 rax reaper abuser",
@@ -37846,7 +38169,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_125",
+      "id": "comment_126",
       "raw_comment": "normal reaper expand despiteseeing me as terran",
       "cleaned_comment": "normal reaper expand despiteseeing me as terran",
       "comment": "normal reaper expand despiteseeing me as terran",
@@ -38172,7 +38495,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_126",
+      "id": "comment_127",
       "raw_comment": "cannon rusher",
       "cleaned_comment": "cannon rusher",
       "comment": "cannon rusher",
@@ -38280,7 +38603,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_127",
+      "id": "comment_128",
       "raw_comment": "cannon to DT, to quick prism pressure, to DTs 2 base all in",
       "cleaned_comment": "cannon to DT to quick prism pressure to DTs 2 base all in",
       "comment": "cannon to DT, to quick prism pressure, to DTs 2 base all in",
@@ -38606,7 +38929,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_128",
+      "id": "comment_129",
       "raw_comment": "3-4 proxy rax",
       "cleaned_comment": "3-4 proxy rax",
       "comment": "3-4 proxy rax",
@@ -38930,7 +39253,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_129",
+      "id": "comment_130",
       "raw_comment": "4 rax proxy",
       "cleaned_comment": "4 rax proxy",
       "comment": "4 rax proxy",
@@ -39253,7 +39576,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_130",
+      "id": "comment_131",
       "raw_comment": "find the proxy, DT 4 gate",
       "cleaned_comment": "find the proxy DT 4 gate",
       "comment": "find the proxy, DT 4 gate",
@@ -39538,7 +39861,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_131",
+      "id": "comment_132",
       "raw_comment": "four gate proxy ",
       "cleaned_comment": "four gate proxy",
       "comment": "four gate proxy ",
@@ -39717,7 +40040,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_132",
+      "id": "comment_133",
       "raw_comment": "proxy 4 gate.",
       "cleaned_comment": "proxy 4 gate",
       "comment": "proxy 4 gate.",
@@ -39830,7 +40153,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_133",
+      "id": "comment_134",
       "raw_comment": "TvP: proxy reapers, and gets raven.",
       "cleaned_comment": "TvP proxy reapers and gets raven",
       "comment": "TvP: proxy reapers, and gets raven.",
@@ -40156,7 +40479,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_134",
+      "id": "comment_135",
       "raw_comment": "4 gate proxy",
       "cleaned_comment": "4 gate proxy",
       "comment": "4 gate proxy",
@@ -40269,7 +40592,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_135",
+      "id": "comment_136",
       "raw_comment": "proxy gate",
       "cleaned_comment": "proxy gate",
       "comment": "proxy gate",
@@ -40592,7 +40915,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_136",
+      "id": "comment_137",
       "raw_comment": "4 proxy gateways ",
       "cleaned_comment": "4 proxy gateways",
       "comment": "4 proxy gateways ",
@@ -40725,7 +41048,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_137",
+      "id": "comment_138",
       "raw_comment": "proxy 4 gate",
       "cleaned_comment": "proxy 4 gate",
       "comment": "proxy 4 gate",
@@ -40873,7 +41196,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_138",
+      "id": "comment_139",
       "raw_comment": "proxy four gate",
       "cleaned_comment": "proxy four gate",
       "comment": "proxy four gate",
@@ -40992,7 +41315,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_139",
+      "id": "comment_140",
       "raw_comment": "probe blocks expansion, then goes DT drop.",
       "cleaned_comment": "probe blocks expansion then goes DT drop",
       "comment": "probe blocks expansion, then goes DT drop.",
@@ -41318,7 +41641,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_140",
+      "id": "comment_141",
       "raw_comment": "ZvP: ling, fast expand, roach/hydra push",
       "cleaned_comment": "ZvP ling fast expand roach hydra push",
       "comment": "ZvP: ling, fast expand, roach/hydra push",
@@ -41644,7 +41967,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_141",
+      "id": "comment_142",
       "raw_comment": "3 hatch speedling bane defend to roach",
       "cleaned_comment": "3 hatch speedling bane defend to roach",
       "comment": "3 hatch speedling bane defend to roach",
@@ -41970,7 +42293,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_142",
+      "id": "comment_143",
       "raw_comment": "speedling to roach defense",
       "cleaned_comment": "speedling to roach defense",
       "comment": "speedling to roach defense",
@@ -42294,7 +42617,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_143",
+      "id": "comment_144",
       "raw_comment": "3 hatch ling baneling to roach",
       "cleaned_comment": "3 hatch ling baneling to roach",
       "comment": "3 hatch ling baneling to roach",
@@ -42619,7 +42942,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_144",
+      "id": "comment_145",
       "raw_comment": "3 hatch, mass lings to roach.",
       "cleaned_comment": "3 hatch mass lings to roach",
       "comment": "3 hatch, mass lings to roach.",
@@ -42944,7 +43267,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_145",
+      "id": "comment_146",
       "raw_comment": "12 pool to roach",
       "cleaned_comment": "12 pool to roach",
       "comment": "12 pool to roach",
@@ -43268,7 +43591,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_146",
+      "id": "comment_147",
       "raw_comment": "Speedling All-In or 2-Base Muta.",
       "cleaned_comment": "Speedling All-In or 2-Base Muta",
       "comment": "Speedling All-In or 2-Base Muta.",
@@ -43593,7 +43916,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_147",
+      "id": "comment_148",
       "raw_comment": "random, but as zerg went speedling all in",
       "cleaned_comment": "random but as zerg went speedling all in",
       "comment": "random, but as zerg went speedling all in",
@@ -43919,7 +44242,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_148",
+      "id": "comment_149",
       "raw_comment": "This was a speedling all-in that I defended with cannons",
       "cleaned_comment": "This was a speedling all-in that I defended with cannons",
       "comment": "This was a speedling all-in that I defended with cannons",
@@ -43973,7 +44296,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_149",
+      "id": "comment_150",
       "raw_comment": "fast expand +1 melee",
       "cleaned_comment": "fast expand 1 melee",
       "comment": "fast expand +1 melee",
@@ -44297,7 +44620,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_150",
+      "id": "comment_151",
       "raw_comment": "zealot adept pressure, to secret expand, voidray",
       "cleaned_comment": "zealot adept pressure to secret expand voidray",
       "comment": "zealot adept pressure, to secret expand, voidray",
@@ -44623,7 +44946,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_151",
+      "id": "comment_152",
       "raw_comment": "slow ling pressure, spine/bane for safety, into muta",
       "cleaned_comment": "slow ling pressure spine bane for safety into muta",
       "comment": "slow ling pressure, spine/bane for safety, into muta",
@@ -44949,7 +45272,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_152",
+      "id": "comment_153",
       "raw_comment": "make spine and keep it ,and defend.",
       "cleaned_comment": "make spine and keep it and defend",
       "comment": "make spine and keep it ,and defend.",
@@ -45275,7 +45598,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_153",
+      "id": "comment_154",
       "raw_comment": "this player is a computer who will do random things so dont bother trying to understand.",
       "cleaned_comment": "this player is a computer who will do random things so dont bother trying to understand",
       "comment": "this player is a computer who will do random things so dont bother trying to understand.",
@@ -45306,7 +45629,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_154",
+      "id": "comment_155",
       "raw_comment": "forge to mass voidrays",
       "cleaned_comment": "forge to mass voidrays",
       "comment": "forge to mass voidrays",
@@ -45630,7 +45953,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_155",
+      "id": "comment_156",
       "raw_comment": "fake 6 ling pressure to mutas",
       "cleaned_comment": "fake 6 ling pressure to mutas",
       "comment": "fake 6 ling pressure to mutas",
@@ -45955,7 +46278,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_156",
+      "id": "comment_157",
       "raw_comment": "big map, muta ling",
       "cleaned_comment": "big map muta ling",
       "comment": "big map, muta ling",
@@ -46280,7 +46603,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_157",
+      "id": "comment_158",
       "raw_comment": "ling muta",
       "cleaned_comment": "ling muta",
       "comment": "ling muta",
@@ -46603,7 +46926,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_158",
+      "id": "comment_159",
       "raw_comment": "+1 melee upgrade ling/bane",
       "cleaned_comment": "1 melee upgrade ling bane",
       "comment": "+1 melee upgrade ling/bane",
@@ -46928,7 +47251,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_159",
+      "id": "comment_160",
       "raw_comment": "13/12 ling/bane",
       "cleaned_comment": "13 12 ling bane",
       "comment": "13/12 ling/bane",
@@ -47253,7 +47576,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_160",
+      "id": "comment_161",
       "raw_comment": "ZvZ: 3 hatch ling bane",
       "cleaned_comment": "ZvZ 3 hatch ling bane",
       "comment": "ZvZ: 3 hatch ling bane",
@@ -47578,7 +47901,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_161",
+      "id": "comment_162",
       "raw_comment": "early attack 3 mins, ling/bane",
       "cleaned_comment": "early attack 3 mins ling bane",
       "comment": "early attack 3 mins, ling/bane",
@@ -47904,7 +48227,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_162",
+      "id": "comment_163",
       "raw_comment": "3 hatch ling bane, but greedy transition to lair",
       "cleaned_comment": "3 hatch ling bane but greedy transition to lair",
       "comment": "3 hatch ling bane, but greedy transition to lair",
@@ -48230,7 +48553,45 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_163",
+      "id": "comment_164",
+      "raw_comment": "ling/bane to ultras",
+      "cleaned_comment": "ling bane to ultras",
+      "comment": "ling/bane to ultras",
+      "keywords": [
+        "ling",
+        "bane",
+        "ultras"
+      ],
+      "game_data": {
+        "opponent_name": "htcp",
+        "opponent_race": "zerg",
+        "map": "Tokamak LE",
+        "duration": "15m 45s",
+        "date": "2025-09-02 17:16:04",
+        "result": "Victory",
+        "build_order": [
+          {
+            "name": "SCV",
+            "supply": 12,
+            "time": 0
+          },
+          {
+            "name": "SupplyDepot",
+            "supply": 14,
+            "time": 18
+          },
+          {
+            "name": "Barracks",
+            "supply": 15,
+            "time": 41
+          }
+        ]
+      },
+      "timestamp": "2025-09-02T17:27:39.573891",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_165",
       "raw_comment": "13/12 bane, fake hatch all in",
       "cleaned_comment": "13 12 bane fake hatch all in",
       "comment": "13/12 bane, fake hatch all in",
@@ -48556,7 +48917,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_164",
+      "id": "comment_166",
       "raw_comment": "14 pool lings, then muta. So make 4 lings.",
       "cleaned_comment": "14 pool lings then muta So make 4 lings",
       "comment": "14 pool lings, then muta. So make 4 lings.",
@@ -48882,7 +49243,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_165",
+      "id": "comment_167",
       "raw_comment": "oracle too much damage",
       "cleaned_comment": "oracle too much damage",
       "comment": "oracle too much damage",
@@ -49207,7 +49568,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_166",
+      "id": "comment_168",
       "raw_comment": "glave adepts, close choke!  then void rays.",
       "cleaned_comment": "glave adepts close choke then void rays",
       "comment": "glave adepts, close choke!  then void rays.",
@@ -49533,7 +49894,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_167",
+      "id": "comment_169",
       "raw_comment": "has build, slow zealots, immortal",
       "cleaned_comment": "has build slow zealots immortal",
       "comment": "has build, slow zealots, immortal",
@@ -49858,7 +50219,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_168",
+      "id": "comment_170",
       "raw_comment": "slow zealots +1, non stop",
       "cleaned_comment": "slow zealots 1 non stop",
       "comment": "slow zealots +1, non stop",
@@ -50183,7 +50544,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_169",
+      "id": "comment_171",
       "raw_comment": "DT or chargelot abuse",
       "cleaned_comment": "DT or chargelot abuse",
       "comment": "DT or chargelot abuse",
@@ -50507,7 +50868,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_170",
+      "id": "comment_172",
       "raw_comment": "immortal drop to disruptor, chargelot",
       "cleaned_comment": "immortal drop to disruptor chargelot",
       "comment": "immortal drop to disruptor, chargelot",
@@ -50832,7 +51193,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_171",
+      "id": "comment_173",
       "raw_comment": "12 pool",
       "cleaned_comment": "12 pool",
       "comment": "12 pool",
@@ -51155,7 +51516,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_172",
+      "id": "comment_174",
       "raw_comment": "DT to archon drop, collossus",
       "cleaned_comment": "DT to archon drop collossus",
       "comment": "DT to archon drop, collossus",
@@ -51480,7 +51841,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_173",
+      "id": "comment_175",
       "raw_comment": "DT",
       "cleaned_comment": "DT",
       "comment": "DT",
@@ -51802,7 +52163,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_174",
+      "id": "comment_176",
       "raw_comment": "no banelings just upgraded roaches and lings",
       "cleaned_comment": "no banelings just upgraded roaches and lings",
       "comment": "no banelings just upgraded roaches and lings",
@@ -52128,7 +52489,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_175",
+      "id": "comment_177",
       "raw_comment": "macro zerg controls map with lings and banes to hydra",
       "cleaned_comment": "macro zerg controls map with lings and banes to hydra",
       "comment": "macro zerg controls map with lings and banes to hydra",
@@ -52454,7 +52815,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_176",
+      "id": "comment_178",
       "raw_comment": "glave adepts or chargelots",
       "cleaned_comment": "glave adepts or chargelots",
       "comment": "glave adepts or chargelots",
@@ -52778,7 +53139,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_177",
+      "id": "comment_179",
       "raw_comment": "Yeah, this guy is just a computer.",
       "cleaned_comment": "Yeah this guy is just a computer",
       "comment": "Yeah, this guy is just a computer.",
@@ -52838,7 +53199,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_178",
+      "id": "comment_180",
       "raw_comment": "Just testing",
       "cleaned_comment": "Just testing",
       "comment": "Just testing",
@@ -52896,7 +53257,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_179",
+      "id": "comment_181",
       "raw_comment": "glave adepts to voidrays to carriers",
       "cleaned_comment": "glave adepts to voidrays to carriers",
       "comment": "glave adepts to voidrays to carriers",
@@ -53221,7 +53582,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_180",
+      "id": "comment_182",
       "raw_comment": "glave adepts.",
       "cleaned_comment": "glave adepts",
       "comment": "glave adepts.",
@@ -53544,7 +53905,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_181",
+      "id": "comment_183",
       "raw_comment": "glave adepts",
       "cleaned_comment": "glave adepts",
       "comment": "glave adepts",
@@ -53867,7 +54228,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_182",
+      "id": "comment_184",
       "raw_comment": "Adepts to 2 Stargate Fleet B",
       "cleaned_comment": "Adepts to 2 Stargate Fleet B",
       "comment": "Adepts to 2 Stargate Fleet B",
@@ -54191,7 +54552,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_183",
+      "id": "comment_185",
       "raw_comment": "no wall, adepts to air.",
       "cleaned_comment": "no wall adepts to air",
       "comment": "no wall, adepts to air.",
@@ -54516,7 +54877,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_184",
+      "id": "comment_186",
       "raw_comment": "gateway pressure",
       "cleaned_comment": "gateway pressure",
       "comment": "gateway pressure",
@@ -54839,7 +55200,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_185",
+      "id": "comment_187",
       "raw_comment": "fast speedlings to drop to hydras",
       "cleaned_comment": "fast speedlings to drop to hydras",
       "comment": "fast speedlings to drop to hydras",
@@ -55164,7 +55525,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_186",
+      "id": "comment_188",
       "raw_comment": "Super aggressive.",
       "cleaned_comment": "Super aggressive",
       "comment": "Super aggressive.",
@@ -55272,7 +55633,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_187",
+      "id": "comment_189",
       "raw_comment": "and the rusher.",
       "cleaned_comment": "and the rusher",
       "comment": "and the rusher.",
@@ -55374,7 +55735,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_188",
+      "id": "comment_190",
       "raw_comment": "This is a computer, it'll do whatever I ask.",
       "cleaned_comment": "This is a computer it ll do whatever I ask",
       "comment": "This is a computer, it'll do whatever I ask.",
@@ -55425,7 +55786,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_189",
+      "id": "comment_191",
       "raw_comment": "this is a computer player, so it's unreliable to figure out what it will do. Maybe proxy DT?",
       "cleaned_comment": "this is a computer player so it s unreliable to figure out what it will do Maybe proxy DT",
       "comment": "this is a computer player, so it's unreliable to figure out what it will do. Maybe proxy DT?",
@@ -55466,7 +55827,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_190",
+      "id": "comment_192",
       "raw_comment": "this player is actually a computer who likes to add hidden buildings everywhere.",
       "cleaned_comment": "this player is actually a computer who likes to add hidden buildings everywhere",
       "comment": "this player is actually a computer who likes to add hidden buildings everywhere.",
@@ -55507,7 +55868,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_191",
+      "id": "comment_193",
       "raw_comment": "this computer likes to test my patience.",
       "cleaned_comment": "this computer likes to test my patience",
       "comment": "this computer likes to test my patience.",
@@ -55588,7 +55949,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_192",
+      "id": "comment_194",
       "raw_comment": "this is a computer who likes to joke around, so watch for proxies.",
       "cleaned_comment": "this is a computer who likes to joke around so watch for proxies",
       "comment": "this is a computer who likes to joke around, so watch for proxies.",
@@ -55639,7 +56000,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_193",
+      "id": "comment_195",
       "raw_comment": "No.",
       "cleaned_comment": "No",
       "comment": "No.",
@@ -55666,7 +56027,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_194",
+      "id": "comment_196",
       "raw_comment": "No. No.",
       "cleaned_comment": "No No",
       "comment": "No. No.",
@@ -55988,7 +56349,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_195",
+      "id": "comment_197",
       "raw_comment": "this guy likes to hide a dark templar in the  base to watch.",
       "cleaned_comment": "this guy likes to hide a dark templar in the base to watch",
       "comment": "this guy likes to hide a dark templar in the  base to watch.",
@@ -56064,7 +56425,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_196",
+      "id": "comment_198",
       "raw_comment": "Thank you.",
       "cleaned_comment": "Thank you",
       "comment": "Thank you.",
@@ -56387,7 +56748,7 @@
       "has_player_comment": true
     },
     {
-      "id": "comment_197",
+      "id": "comment_199",
       "raw_comment": "Thanks for watching.",
       "cleaned_comment": "Thanks for watching",
       "comment": "Thanks for watching.",
@@ -56937,18 +57298,20 @@
       "comment_105"
     ],
     "harass": [
-      "comment_012"
+      "comment_012",
+      "comment_106"
     ],
     "pvp": [
       "comment_013",
       "comment_054",
-      "comment_106"
+      "comment_107"
     ],
     "stalker": [
       "comment_013",
       "comment_075",
-      "comment_107",
-      "comment_108"
+      "comment_106",
+      "comment_108",
+      "comment_109"
     ],
     "rush": [
       "comment_013",
@@ -56960,40 +57323,40 @@
       "comment_092",
       "comment_093",
       "comment_103",
-      "comment_109",
       "comment_110",
       "comment_111",
       "comment_112",
       "comment_113",
       "comment_114",
       "comment_115",
-      "comment_116"
+      "comment_116",
+      "comment_117"
     ],
     "void": [
       "comment_014",
       "comment_030",
       "comment_097",
-      "comment_117",
-      "comment_118"
+      "comment_118",
+      "comment_119"
     ],
     "rays": [
       "comment_014"
     ],
     "stalkers": [
       "comment_015",
-      "comment_106",
-      "comment_119",
+      "comment_107",
       "comment_120",
       "comment_121",
-      "comment_122"
+      "comment_122",
+      "comment_123"
     ],
     "reaper": [
       "comment_016",
       "comment_081",
       "comment_104",
-      "comment_123",
       "comment_124",
-      "comment_125"
+      "comment_125",
+      "comment_126"
     ],
     "scv": [
       "comment_016"
@@ -57013,13 +57376,13 @@
       "comment_091",
       "comment_092",
       "comment_093",
-      "comment_109",
       "comment_110",
       "comment_111",
       "comment_112",
       "comment_113",
-      "comment_126",
-      "comment_127"
+      "comment_114",
+      "comment_127",
+      "comment_128"
     ],
     "rushed": [
       "comment_017"
@@ -57036,7 +57399,7 @@
     "go": [
       "comment_019",
       "comment_082",
-      "comment_109"
+      "comment_110"
     ],
     "battlecruiser": [
       "comment_019",
@@ -57051,8 +57414,7 @@
       "comment_076",
       "comment_078",
       "comment_100",
-      "comment_113",
-      "comment_128",
+      "comment_114",
       "comment_129",
       "comment_130",
       "comment_131",
@@ -57062,7 +57424,8 @@
       "comment_135",
       "comment_136",
       "comment_137",
-      "comment_138"
+      "comment_138",
+      "comment_139"
     ],
     "gate": [
       "comment_020",
@@ -57070,21 +57433,21 @@
       "comment_044",
       "comment_075",
       "comment_100",
-      "comment_113",
-      "comment_130",
+      "comment_114",
       "comment_131",
       "comment_132",
-      "comment_134",
+      "comment_133",
       "comment_135",
-      "comment_137",
-      "comment_138"
+      "comment_136",
+      "comment_138",
+      "comment_139"
     ],
     "usually": [
       "comment_020"
     ],
     "goes": [
       "comment_020",
-      "comment_139"
+      "comment_140"
     ],
     "roach": [
       "comment_021",
@@ -57106,13 +57469,13 @@
       "comment_069",
       "comment_070",
       "comment_102",
-      "comment_115",
-      "comment_140",
+      "comment_116",
       "comment_141",
       "comment_142",
       "comment_143",
       "comment_144",
-      "comment_145"
+      "comment_145",
+      "comment_146"
     ],
     "upgrades": [
       "comment_021",
@@ -57131,11 +57494,11 @@
       "comment_065",
       "comment_066",
       "comment_067",
-      "comment_141",
       "comment_142",
-      "comment_146",
+      "comment_143",
       "comment_147",
-      "comment_148"
+      "comment_148",
+      "comment_149"
     ],
     "expand": [
       "comment_022",
@@ -57143,41 +57506,41 @@
       "comment_091",
       "comment_099",
       "comment_100",
-      "comment_119",
-      "comment_125",
-      "comment_140",
-      "comment_149",
-      "comment_150"
+      "comment_120",
+      "comment_126",
+      "comment_141",
+      "comment_150",
+      "comment_151"
     ],
     "spine": [
       "comment_022",
       "comment_023",
       "comment_055",
       "comment_056",
-      "comment_114",
       "comment_115",
       "comment_116",
-      "comment_151",
-      "comment_152"
+      "comment_117",
+      "comment_152",
+      "comment_153"
     ],
     "random": [
       "comment_023",
-      "comment_147",
-      "comment_153"
+      "comment_148",
+      "comment_154"
     ],
     "as": [
       "comment_023",
       "comment_061",
-      "comment_147"
+      "comment_148"
     ],
     "went": [
       "comment_023",
-      "comment_147"
+      "comment_148"
     ],
     "forge": [
       "comment_024",
       "comment_094",
-      "comment_154"
+      "comment_155"
     ],
     "blink": [
       "comment_024",
@@ -57185,10 +57548,11 @@
       "comment_096",
       "comment_099",
       "comment_106",
-      "comment_119",
+      "comment_107",
       "comment_120",
       "comment_121",
-      "comment_122"
+      "comment_122",
+      "comment_123"
     ],
     "hydra": [
       "comment_025",
@@ -57210,17 +57574,18 @@
       "comment_071",
       "comment_072",
       "comment_073",
-      "comment_140",
-      "comment_143",
-      "comment_151",
-      "comment_155",
+      "comment_141",
+      "comment_144",
+      "comment_152",
       "comment_156",
       "comment_157",
       "comment_158",
       "comment_159",
       "comment_160",
       "comment_161",
-      "comment_162"
+      "comment_162",
+      "comment_163",
+      "comment_164"
     ],
     "bane": [
       "comment_026",
@@ -57230,53 +57595,54 @@
       "comment_069",
       "comment_071",
       "comment_072",
-      "comment_141",
-      "comment_151",
-      "comment_158",
+      "comment_142",
+      "comment_152",
       "comment_159",
       "comment_160",
       "comment_161",
       "comment_162",
-      "comment_163"
+      "comment_163",
+      "comment_164",
+      "comment_165"
     ],
     "muta": [
       "comment_027",
       "comment_095",
-      "comment_146",
-      "comment_156",
+      "comment_147",
       "comment_157",
-      "comment_164"
+      "comment_158",
+      "comment_166"
     ],
     "hive": [
       "comment_027"
     ],
     "fake": [
       "comment_028",
-      "comment_155",
-      "comment_163"
+      "comment_156",
+      "comment_165"
     ],
     "mass": [
       "comment_028",
       "comment_079",
-      "comment_123",
-      "comment_144",
-      "comment_154"
+      "comment_124",
+      "comment_145",
+      "comment_155"
     ],
     "oracle": [
       "comment_030",
       "comment_051",
-      "comment_165"
+      "comment_167"
     ],
     "ray": [
       "comment_030",
-      "comment_117",
-      "comment_118"
+      "comment_118",
+      "comment_119"
     ],
     "then": [
       "comment_031",
-      "comment_139",
-      "comment_164",
-      "comment_166"
+      "comment_140",
+      "comment_166",
+      "comment_168"
     ],
     "after": [
       "comment_031"
@@ -57284,9 +57650,9 @@
     "slow": [
       "comment_032",
       "comment_077",
-      "comment_151",
-      "comment_167",
-      "comment_168"
+      "comment_152",
+      "comment_169",
+      "comment_170"
     ],
     "two": [
       "comment_033",
@@ -57307,32 +57673,32 @@
       "comment_037",
       "comment_060",
       "comment_100",
-      "comment_107",
-      "comment_127"
+      "comment_108",
+      "comment_128"
     ],
     "chargelot": [
       "comment_036",
       "comment_051",
       "comment_061",
       "comment_062",
-      "comment_169",
-      "comment_170"
+      "comment_171",
+      "comment_172"
     ],
     "13": [
       "comment_040",
       "comment_071",
       "comment_074",
-      "comment_159",
-      "comment_163"
+      "comment_160",
+      "comment_165"
     ],
     "12": [
       "comment_040",
       "comment_057",
       "comment_074",
-      "comment_145",
-      "comment_159",
-      "comment_163",
-      "comment_171"
+      "comment_146",
+      "comment_160",
+      "comment_165",
+      "comment_173"
     ],
     "need": [
       "comment_043"
@@ -57344,11 +57710,11 @@
       "comment_044",
       "comment_052",
       "comment_093",
-      "comment_127",
-      "comment_130",
-      "comment_169",
-      "comment_172",
-      "comment_173"
+      "comment_128",
+      "comment_131",
+      "comment_171",
+      "comment_174",
+      "comment_175"
     ],
     "30": [
       "comment_046"
@@ -57358,56 +57724,56 @@
     ],
     "upgraded": [
       "comment_046",
-      "comment_174"
+      "comment_176"
     ],
     "early": [
       "comment_047",
-      "comment_161"
+      "comment_162"
     ],
     "lings": [
       "comment_047",
       "comment_077",
-      "comment_144",
-      "comment_164",
-      "comment_175"
+      "comment_145",
+      "comment_166",
+      "comment_177"
     ],
     "nydus": [
       "comment_048",
-      "comment_115"
+      "comment_116"
     ],
     "macro": [
       "comment_050",
-      "comment_175"
+      "comment_177"
     ],
     "archon": [
       "comment_050",
-      "comment_117",
-      "comment_172"
+      "comment_118",
+      "comment_174"
     ],
     "immortal": [
       "comment_050",
       "comment_060",
       "comment_098",
-      "comment_111",
-      "comment_117",
-      "comment_167",
-      "comment_170"
+      "comment_112",
+      "comment_118",
+      "comment_169",
+      "comment_172"
     ],
     "2-3": [
       "comment_051"
     ],
     "storm": [
       "comment_051",
-      "comment_121"
+      "comment_122"
     ],
     "rax": [
       "comment_053",
       "comment_059",
       "comment_081",
-      "comment_123",
       "comment_124",
-      "comment_128",
-      "comment_129"
+      "comment_125",
+      "comment_129",
+      "comment_130"
     ],
     "cc": [
       "comment_053",
@@ -57418,19 +57784,19 @@
     ],
     "gateways": [
       "comment_054",
-      "comment_136"
+      "comment_137"
     ],
     "drone": [
       "comment_055",
-      "comment_114"
+      "comment_115"
     ],
     "pool": [
       "comment_057",
       "comment_071",
       "comment_102",
-      "comment_145",
-      "comment_164",
-      "comment_171"
+      "comment_146",
+      "comment_166",
+      "comment_173"
     ],
     "marinetank": [
       "comment_058"
@@ -57440,21 +57806,21 @@
     ],
     "chargelots": [
       "comment_060",
-      "comment_117",
-      "comment_176"
+      "comment_118",
+      "comment_178"
     ],
     "protoss": [
       "comment_061"
     ],
     "just": [
       "comment_062",
-      "comment_174",
-      "comment_177",
-      "comment_178"
+      "comment_176",
+      "comment_179",
+      "comment_180"
     ],
     "make": [
       "comment_062",
-      "comment_152"
+      "comment_153"
     ],
     "banes": [
       "comment_062",
@@ -57472,11 +57838,11 @@
       "comment_097",
       "comment_098",
       "comment_101",
-      "comment_166",
-      "comment_176",
-      "comment_179",
-      "comment_180",
-      "comment_181"
+      "comment_168",
+      "comment_178",
+      "comment_181",
+      "comment_182",
+      "comment_183"
     ],
     "adepts": [
       "comment_068",
@@ -57484,13 +57850,13 @@
       "comment_097",
       "comment_098",
       "comment_101",
-      "comment_166",
-      "comment_176",
-      "comment_179",
-      "comment_180",
+      "comment_168",
+      "comment_178",
       "comment_181",
       "comment_182",
-      "comment_183"
+      "comment_183",
+      "comment_184",
+      "comment_185"
     ],
     "3-hatch": [
       "comment_069"
@@ -57498,12 +57864,12 @@
     "hatch": [
       "comment_072",
       "comment_077",
-      "comment_141",
-      "comment_143",
+      "comment_142",
       "comment_144",
-      "comment_160",
-      "comment_162",
-      "comment_163"
+      "comment_145",
+      "comment_161",
+      "comment_163",
+      "comment_165"
     ],
     "flood": [
       "comment_073"
@@ -57513,21 +57879,21 @@
     ],
     "gateway": [
       "comment_076",
-      "comment_184"
+      "comment_186"
     ],
     "gates": [
       "comment_078"
     ],
     "abuser": [
       "comment_080",
-      "comment_124"
+      "comment_125"
     ],
     "drop": [
       "comment_082",
       "comment_083",
-      "comment_170",
       "comment_172",
-      "comment_185"
+      "comment_174",
+      "comment_187"
     ],
     "heavy": [
       "comment_083"
@@ -57539,10 +57905,10 @@
       "comment_086",
       "comment_091",
       "comment_099",
-      "comment_119",
-      "comment_140",
-      "comment_149",
-      "comment_185"
+      "comment_120",
+      "comment_141",
+      "comment_150",
+      "comment_187"
     ],
     "medivac": [
       "comment_086"
@@ -57556,52 +57922,53 @@
     ],
     "zvp": [
       "comment_092",
-      "comment_140"
+      "comment_141"
     ],
     "collosus": [
       "comment_093",
-      "comment_108",
-      "comment_120"
+      "comment_106",
+      "comment_109",
+      "comment_121"
     ],
     "not": [
       "comment_094"
     ],
     "too": [
       "comment_094",
-      "comment_165"
+      "comment_167"
     ],
     "aggressive": [
       "comment_094",
-      "comment_186"
+      "comment_188"
     ],
     "lingbane": [
       "comment_095"
     ],
     "all-in": [
       "comment_095",
-      "comment_146",
-      "comment_148"
+      "comment_147",
+      "comment_149"
     ],
     "stargate": [
       "comment_097",
-      "comment_182"
+      "comment_184"
     ],
     "carriers": [
       "comment_101",
-      "comment_118",
-      "comment_179"
+      "comment_119",
+      "comment_181"
     ],
     "14": [
       "comment_102",
-      "comment_164"
+      "comment_166"
     ],
     "pressure": [
       "comment_102",
-      "comment_127",
-      "comment_150",
+      "comment_128",
       "comment_151",
-      "comment_155",
-      "comment_184"
+      "comment_152",
+      "comment_156",
+      "comment_186"
     ],
     "higher": [
       "comment_103"
@@ -57619,318 +57986,321 @@
       "comment_105"
     ],
     "35": [
-      "comment_107"
+      "comment_108"
     ],
     "probe": [
-      "comment_107",
-      "comment_139"
+      "comment_108",
+      "comment_140"
     ],
     "zealot": [
-      "comment_107",
-      "comment_150"
+      "comment_108",
+      "comment_151"
     ],
     "oracles": [
-      "comment_108",
-      "comment_119"
+      "comment_109",
+      "comment_120"
     ],
     "ahead": [
-      "comment_109"
+      "comment_110"
     ],
     "pull": [
-      "comment_109"
+      "comment_110"
     ],
     "contain": [
-      "comment_111",
-      "comment_121"
-    ],
-    "late": [
-      "comment_112"
-    ],
-    "vs": [
-      "comment_113"
-    ],
-    "super": [
-      "comment_114",
-      "comment_186"
-    ],
-    "cheesy": [
-      "comment_114"
-    ],
-    "immortals": [
+      "comment_112",
       "comment_122"
     ],
+    "late": [
+      "comment_113"
+    ],
+    "vs": [
+      "comment_114"
+    ],
+    "super": [
+      "comment_115",
+      "comment_188"
+    ],
+    "cheesy": [
+      "comment_115"
+    ],
+    "immortals": [
+      "comment_123"
+    ],
     "normal": [
-      "comment_125"
+      "comment_126"
     ],
     "despiteseeing": [
-      "comment_125"
+      "comment_126"
     ],
     "me": [
-      "comment_125"
+      "comment_126"
     ],
     "rusher": [
-      "comment_126",
-      "comment_187"
-    ],
-    "quick": [
-      "comment_127"
-    ],
-    "3-4": [
-      "comment_128"
-    ],
-    "find": [
-      "comment_130"
-    ],
-    "four": [
-      "comment_131",
-      "comment_138"
-    ],
-    "tvp": [
-      "comment_133"
-    ],
-    "reapers": [
-      "comment_133"
-    ],
-    "gets": [
-      "comment_133"
-    ],
-    "raven": [
-      "comment_133"
-    ],
-    "blocks": [
-      "comment_139"
-    ],
-    "expansion": [
-      "comment_139"
-    ],
-    "defend": [
-      "comment_141",
-      "comment_152"
-    ],
-    "defense": [
-      "comment_142"
-    ],
-    "baneling": [
-      "comment_143"
-    ],
-    "2-base": [
-      "comment_146"
-    ],
-    "zerg": [
-      "comment_147",
-      "comment_175"
-    ],
-    "defended": [
-      "comment_148"
-    ],
-    "cannons": [
-      "comment_148"
-    ],
-    "melee": [
-      "comment_149",
-      "comment_158"
-    ],
-    "adept": [
-      "comment_150"
-    ],
-    "secret": [
-      "comment_150"
-    ],
-    "keep": [
-      "comment_152"
-    ],
-    "it": [
-      "comment_152",
-      "comment_188",
+      "comment_127",
       "comment_189"
     ],
-    "player": [
-      "comment_153",
-      "comment_189",
-      "comment_190"
+    "quick": [
+      "comment_128"
     ],
-    "computer": [
+    "3-4": [
+      "comment_129"
+    ],
+    "find": [
+      "comment_131"
+    ],
+    "four": [
+      "comment_132",
+      "comment_139"
+    ],
+    "tvp": [
+      "comment_134"
+    ],
+    "reapers": [
+      "comment_134"
+    ],
+    "gets": [
+      "comment_134"
+    ],
+    "raven": [
+      "comment_134"
+    ],
+    "blocks": [
+      "comment_140"
+    ],
+    "expansion": [
+      "comment_140"
+    ],
+    "defend": [
+      "comment_142",
+      "comment_153"
+    ],
+    "defense": [
+      "comment_143"
+    ],
+    "baneling": [
+      "comment_144"
+    ],
+    "2-base": [
+      "comment_147"
+    ],
+    "zerg": [
+      "comment_148",
+      "comment_177"
+    ],
+    "defended": [
+      "comment_149"
+    ],
+    "cannons": [
+      "comment_149"
+    ],
+    "melee": [
+      "comment_150",
+      "comment_159"
+    ],
+    "adept": [
+      "comment_151"
+    ],
+    "secret": [
+      "comment_151"
+    ],
+    "keep": [
+      "comment_153"
+    ],
+    "it": [
       "comment_153",
-      "comment_177",
-      "comment_188",
-      "comment_189",
       "comment_190",
+      "comment_191"
+    ],
+    "player": [
+      "comment_154",
       "comment_191",
       "comment_192"
     ],
-    "who": [
-      "comment_153",
-      "comment_190",
-      "comment_192"
-    ],
-    "things": [
-      "comment_153"
-    ],
-    "voidrays": [
+    "computer": [
       "comment_154",
-      "comment_179"
-    ],
-    "mutas": [
-      "comment_155"
-    ],
-    "big": [
-      "comment_156"
-    ],
-    "map": [
-      "comment_156",
-      "comment_175"
-    ],
-    "upgrade": [
-      "comment_158"
-    ],
-    "zvz": [
-      "comment_160"
-    ],
-    "attack": [
-      "comment_161"
-    ],
-    "mins": [
-      "comment_161"
-    ],
-    "greedy": [
-      "comment_162"
-    ],
-    "transition": [
-      "comment_162"
-    ],
-    "much": [
-      "comment_165"
-    ],
-    "damage": [
-      "comment_165"
-    ],
-    "close": [
-      "comment_166"
-    ],
-    "choke": [
-      "comment_166"
-    ],
-    "build": [
-      "comment_167"
-    ],
-    "zealots": [
-      "comment_167",
-      "comment_168"
-    ],
-    "non": [
-      "comment_168"
-    ],
-    "stop": [
-      "comment_168"
-    ],
-    "abuse": [
-      "comment_169"
-    ],
-    "disruptor": [
-      "comment_170"
-    ],
-    "collossus": [
-      "comment_172"
-    ],
-    "no": [
-      "comment_174",
-      "comment_183",
-      "comment_193",
-      "comment_194"
-    ],
-    "banelings": [
-      "comment_174"
-    ],
-    "roaches": [
-      "comment_174"
-    ],
-    "controls": [
-      "comment_175"
-    ],
-    "yeah": [
-      "comment_177"
-    ],
-    "guy": [
-      "comment_177",
-      "comment_195"
-    ],
-    "testing": [
-      "comment_178"
-    ],
-    "fleet": [
-      "comment_182"
-    ],
-    "wall": [
-      "comment_183"
-    ],
-    "air": [
-      "comment_183"
-    ],
-    "speedlings": [
-      "comment_185"
-    ],
-    "hydras": [
-      "comment_185"
-    ],
-    "ll": [
-      "comment_188"
-    ],
-    "whatever": [
-      "comment_188"
-    ],
-    "ask": [
-      "comment_188"
-    ],
-    "so": [
-      "comment_189"
-    ],
-    "unreliable": [
-      "comment_189"
-    ],
-    "actually": [
-      "comment_190"
-    ],
-    "likes": [
+      "comment_179",
       "comment_190",
       "comment_191",
       "comment_192",
-      "comment_195"
+      "comment_193",
+      "comment_194"
+    ],
+    "who": [
+      "comment_154",
+      "comment_192",
+      "comment_194"
+    ],
+    "things": [
+      "comment_154"
+    ],
+    "voidrays": [
+      "comment_155",
+      "comment_181"
+    ],
+    "mutas": [
+      "comment_156"
+    ],
+    "big": [
+      "comment_157"
+    ],
+    "map": [
+      "comment_157",
+      "comment_177"
+    ],
+    "upgrade": [
+      "comment_159"
+    ],
+    "zvz": [
+      "comment_161"
+    ],
+    "attack": [
+      "comment_162"
+    ],
+    "mins": [
+      "comment_162"
+    ],
+    "greedy": [
+      "comment_163"
+    ],
+    "transition": [
+      "comment_163"
+    ],
+    "ultras": [
+      "comment_164"
+    ],
+    "much": [
+      "comment_167"
+    ],
+    "damage": [
+      "comment_167"
+    ],
+    "close": [
+      "comment_168"
+    ],
+    "choke": [
+      "comment_168"
+    ],
+    "build": [
+      "comment_169"
+    ],
+    "zealots": [
+      "comment_169",
+      "comment_170"
+    ],
+    "non": [
+      "comment_170"
+    ],
+    "stop": [
+      "comment_170"
+    ],
+    "abuse": [
+      "comment_171"
+    ],
+    "disruptor": [
+      "comment_172"
+    ],
+    "collossus": [
+      "comment_174"
+    ],
+    "no": [
+      "comment_176",
+      "comment_185",
+      "comment_195",
+      "comment_196"
+    ],
+    "banelings": [
+      "comment_176"
+    ],
+    "roaches": [
+      "comment_176"
+    ],
+    "controls": [
+      "comment_177"
+    ],
+    "yeah": [
+      "comment_179"
+    ],
+    "guy": [
+      "comment_179",
+      "comment_197"
+    ],
+    "testing": [
+      "comment_180"
+    ],
+    "fleet": [
+      "comment_184"
+    ],
+    "wall": [
+      "comment_185"
+    ],
+    "air": [
+      "comment_185"
+    ],
+    "speedlings": [
+      "comment_187"
+    ],
+    "hydras": [
+      "comment_187"
+    ],
+    "ll": [
+      "comment_190"
+    ],
+    "whatever": [
+      "comment_190"
+    ],
+    "ask": [
+      "comment_190"
+    ],
+    "so": [
+      "comment_191"
+    ],
+    "unreliable": [
+      "comment_191"
+    ],
+    "actually": [
+      "comment_192"
+    ],
+    "likes": [
+      "comment_192",
+      "comment_193",
+      "comment_194",
+      "comment_197"
     ],
     "test": [
-      "comment_191"
+      "comment_193"
     ],
     "my": [
-      "comment_191"
+      "comment_193"
     ],
     "patience": [
-      "comment_191"
+      "comment_193"
     ],
     "joke": [
-      "comment_192"
+      "comment_194"
     ],
     "around": [
-      "comment_192"
+      "comment_194"
     ],
     "hide": [
-      "comment_195"
+      "comment_197"
     ],
     "dark": [
-      "comment_195"
+      "comment_197"
     ],
     "templar": [
-      "comment_195"
+      "comment_197"
     ],
     "thank": [
-      "comment_196"
+      "comment_198"
     ],
     "you": [
-      "comment_196"
+      "comment_198"
     ],
     "thanks": [
-      "comment_197"
+      "comment_199"
     ],
     "watching": [
-      "comment_197"
+      "comment_199"
     ]
   }
 }

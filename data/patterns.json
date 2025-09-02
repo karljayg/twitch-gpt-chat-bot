@@ -101,7 +101,7 @@
     ],
     "comment": "AI detected: Early protoss aggression",
     "sample_count": 1,
-    "last_seen": "2025-09-02T11:46:13.034175",
+    "last_seen": "2025-09-02T17:44:04.905827",
     "strategy_type": "protoss_aggression",
     "race": "protoss",
     "confidence": 0.6000000000000001,
@@ -187,8 +187,8 @@
       "cannons"
     ],
     "comment": "This was a speedling all-in that I defended with cannons",
-    "sample_count": 2,
-    "last_seen": "2025-09-02T11:46:13.034175",
+    "sample_count": 1,
+    "last_seen": "2025-09-02T17:44:04.905827",
     "strategy_type": "zerg_aggression",
     "race": "zerg",
     "confidence": 0.6000000000000001,
@@ -233,5 +233,1355 @@
       ]
     },
     "has_player_comment": true
+  },
+  "pattern_003": {
+    "signature": {
+      "early_game": [
+        {
+          "unit": "Drone",
+          "count": 1,
+          "order": 1,
+          "supply": 12,
+          "time": 0
+        },
+        {
+          "unit": "Overlord",
+          "count": 1,
+          "order": 2,
+          "supply": 13,
+          "time": 13
+        },
+        {
+          "unit": "Drone",
+          "count": 3,
+          "order": 3,
+          "supply": 14,
+          "time": 32
+        },
+        {
+          "unit": "Hatchery",
+          "count": 1,
+          "order": 4,
+          "supply": 16,
+          "time": 50
+        },
+        {
+          "unit": "Drone",
+          "count": 3,
+          "order": 5,
+          "supply": 17,
+          "time": 60
+        },
+        {
+          "unit": "Extractor",
+          "count": 1,
+          "order": 6,
+          "supply": 18,
+          "time": 70
+        },
+        {
+          "unit": "SpawningPool",
+          "count": 1,
+          "order": 7,
+          "supply": 17,
+          "time": 75
+        },
+        {
+          "unit": "Drone",
+          "count": 4,
+          "order": 8,
+          "supply": 19,
+          "time": 100
+        },
+        {
+          "unit": "Overlord",
+          "count": 1,
+          "order": 9,
+          "supply": 20,
+          "time": 115
+        },
+        {
+          "unit": "Queen",
+          "count": 2,
+          "order": 10,
+          "supply": 20,
+          "time": 124
+        },
+        {
+          "unit": "Zergling",
+          "count": 4,
+          "order": 11,
+          "supply": 20,
+          "time": 126
+        },
+        {
+          "unit": "Metabolic Boost",
+          "count": 1,
+          "order": 12,
+          "supply": 26,
+          "time": 131
+        },
+        {
+          "unit": "Hatchery",
+          "count": 1,
+          "order": 13,
+          "supply": 26,
+          "time": 145
+        },
+        {
+          "unit": "Overlord",
+          "count": 1,
+          "order": 14,
+          "supply": 25,
+          "time": 151
+        },
+        {
+          "unit": "Drone",
+          "count": 2,
+          "order": 15,
+          "supply": 25,
+          "time": 159
+        },
+        {
+          "unit": "Queen",
+          "count": 2,
+          "order": 16,
+          "supply": 29,
+          "time": 176
+        },
+        {
+          "unit": "Drone",
+          "count": 4,
+          "order": 17,
+          "supply": 31,
+          "time": 186
+        },
+        {
+          "unit": "Overlord",
+          "count": 2,
+          "order": 18,
+          "supply": 35,
+          "time": 202
+        },
+        {
+          "unit": "Drone",
+          "count": 7,
+          "order": 19,
+          "supply": 36,
+          "time": 212
+        },
+        {
+          "unit": "Queen",
+          "count": 1,
+          "order": 20,
+          "supply": 42,
+          "time": 220
+        },
+        {
+          "unit": "Drone",
+          "count": 5,
+          "order": 21,
+          "supply": 44,
+          "time": 230
+        },
+        {
+          "unit": "Zergling",
+          "count": 2,
+          "order": 22,
+          "supply": 49,
+          "time": 237
+        },
+        {
+          "unit": "Drone",
+          "count": 8,
+          "order": 23,
+          "supply": 54,
+          "time": 256
+        },
+        {
+          "unit": "Extractor",
+          "count": 2,
+          "order": 24,
+          "supply": 58,
+          "time": 259
+        }
+      ],
+      "key_timings": {
+        "SpawningPool": 75
+      },
+      "opening_sequence": [
+        {
+          "unit": "Drone",
+          "count": 1,
+          "order": 1,
+          "supply": 12,
+          "time": 0
+        },
+        {
+          "unit": "Overlord",
+          "count": 1,
+          "order": 2,
+          "supply": 13,
+          "time": 13
+        },
+        {
+          "unit": "Drone",
+          "count": 3,
+          "order": 3,
+          "supply": 14,
+          "time": 32
+        },
+        {
+          "unit": "Hatchery",
+          "count": 1,
+          "order": 4,
+          "supply": 16,
+          "time": 50
+        },
+        {
+          "unit": "Drone",
+          "count": 3,
+          "order": 5,
+          "supply": 17,
+          "time": 60
+        },
+        {
+          "unit": "Extractor",
+          "count": 1,
+          "order": 6,
+          "supply": 18,
+          "time": 70
+        },
+        {
+          "unit": "SpawningPool",
+          "count": 1,
+          "order": 7,
+          "supply": 17,
+          "time": 75
+        },
+        {
+          "unit": "Drone",
+          "count": 4,
+          "order": 8,
+          "supply": 19,
+          "time": 100
+        },
+        {
+          "unit": "Overlord",
+          "count": 1,
+          "order": 9,
+          "supply": 20,
+          "time": 115
+        },
+        {
+          "unit": "Queen",
+          "count": 2,
+          "order": 10,
+          "supply": 20,
+          "time": 124
+        }
+      ]
+    },
+    "comment_id": "comment_003",
+    "game_id": "game_003",
+    "keywords": [
+      "early_zerg_aggression"
+    ],
+    "comment": "AI detected: Early zerg aggression",
+    "sample_count": 1,
+    "last_seen": "2025-09-02T17:44:04.905827",
+    "strategy_type": "economic_expansion",
+    "race": "zerg",
+    "confidence": 0.7999999999999999,
+    "game_data": {
+      "opponent_name": "shifty",
+      "result": "Defeat",
+      "duration": "19m 30s",
+      "date": "2025-09-02 16:49:03",
+      "map": "Tokamak LE",
+      "build_order": [
+        {
+          "supply": 12,
+          "name": "Drone",
+          "time": 0
+        },
+        {
+          "supply": 13,
+          "name": "Overlord",
+          "time": 13
+        },
+        {
+          "supply": 13,
+          "name": "Drone",
+          "time": 18
+        },
+        {
+          "supply": 14,
+          "name": "Drone",
+          "time": 31
+        },
+        {
+          "supply": 14,
+          "name": "Drone",
+          "time": 32
+        },
+        {
+          "supply": 16,
+          "name": "Hatchery",
+          "time": 50
+        },
+        {
+          "supply": 16,
+          "name": "Drone",
+          "time": 52
+        },
+        {
+          "supply": 16,
+          "name": "Drone",
+          "time": 56
+        },
+        {
+          "supply": 17,
+          "name": "Drone",
+          "time": 60
+        },
+        {
+          "supply": 18,
+          "name": "Extractor",
+          "time": 70
+        },
+        {
+          "supply": 17,
+          "name": "SpawningPool",
+          "time": 75
+        },
+        {
+          "supply": 17,
+          "name": "Drone",
+          "time": 76
+        },
+        {
+          "supply": 17,
+          "name": "Drone",
+          "time": 79
+        },
+        {
+          "supply": 18,
+          "name": "Drone",
+          "time": 91
+        },
+        {
+          "supply": 19,
+          "name": "Drone",
+          "time": 100
+        },
+        {
+          "supply": 20,
+          "name": "Overlord",
+          "time": 115
+        },
+        {
+          "supply": 20,
+          "name": "Queen",
+          "time": 124
+        },
+        {
+          "supply": 20,
+          "name": "Queen",
+          "time": 124
+        },
+        {
+          "supply": 20,
+          "name": "Zergling",
+          "time": 126
+        },
+        {
+          "supply": 20,
+          "name": "Zergling",
+          "time": 126
+        },
+        {
+          "supply": 20,
+          "name": "Zergling",
+          "time": 126
+        },
+        {
+          "supply": 20,
+          "name": "Zergling",
+          "time": 126
+        },
+        {
+          "supply": 26,
+          "name": "Metabolic Boost",
+          "time": 131
+        },
+        {
+          "supply": 26,
+          "name": "Hatchery",
+          "time": 145
+        },
+        {
+          "supply": 25,
+          "name": "Overlord",
+          "time": 151
+        },
+        {
+          "supply": 25,
+          "name": "Drone",
+          "time": 158
+        },
+        {
+          "supply": 25,
+          "name": "Drone",
+          "time": 159
+        },
+        {
+          "supply": 27,
+          "name": "Queen",
+          "time": 169
+        },
+        {
+          "supply": 29,
+          "name": "Queen",
+          "time": 176
+        },
+        {
+          "supply": 31,
+          "name": "Drone",
+          "time": 186
+        },
+        {
+          "supply": 31,
+          "name": "Drone",
+          "time": 186
+        },
+        {
+          "supply": 31,
+          "name": "Drone",
+          "time": 186
+        },
+        {
+          "supply": 31,
+          "name": "Drone",
+          "time": 186
+        },
+        {
+          "supply": 31,
+          "name": "Overlord",
+          "time": 191
+        },
+        {
+          "supply": 35,
+          "name": "Overlord",
+          "time": 202
+        },
+        {
+          "supply": 35,
+          "name": "Drone",
+          "time": 205
+        },
+        {
+          "supply": 36,
+          "name": "Drone",
+          "time": 211
+        },
+        {
+          "supply": 36,
+          "name": "Drone",
+          "time": 211
+        },
+        {
+          "supply": 36,
+          "name": "Drone",
+          "time": 211
+        },
+        {
+          "supply": 36,
+          "name": "Drone",
+          "time": 211
+        },
+        {
+          "supply": 36,
+          "name": "Drone",
+          "time": 212
+        },
+        {
+          "supply": 36,
+          "name": "Drone",
+          "time": 212
+        },
+        {
+          "supply": 42,
+          "name": "Queen",
+          "time": 220
+        },
+        {
+          "supply": 44,
+          "name": "Drone",
+          "time": 229
+        },
+        {
+          "supply": 44,
+          "name": "Drone",
+          "time": 229
+        },
+        {
+          "supply": 44,
+          "name": "Drone",
+          "time": 230
+        },
+        {
+          "supply": 44,
+          "name": "Drone",
+          "time": 230
+        },
+        {
+          "supply": 44,
+          "name": "Drone",
+          "time": 230
+        },
+        {
+          "supply": 49,
+          "name": "Zergling",
+          "time": 237
+        },
+        {
+          "supply": 49,
+          "name": "Zergling",
+          "time": 237
+        },
+        {
+          "supply": 49,
+          "name": "Drone",
+          "time": 239
+        },
+        {
+          "supply": 49,
+          "name": "Drone",
+          "time": 239
+        },
+        {
+          "supply": 49,
+          "name": "Drone",
+          "time": 239
+        },
+        {
+          "supply": 49,
+          "name": "Drone",
+          "time": 239
+        },
+        {
+          "supply": 54,
+          "name": "Drone",
+          "time": 256
+        },
+        {
+          "supply": 54,
+          "name": "Drone",
+          "time": 256
+        },
+        {
+          "supply": 54,
+          "name": "Drone",
+          "time": 256
+        },
+        {
+          "supply": 54,
+          "name": "Drone",
+          "time": 256
+        },
+        {
+          "supply": 58,
+          "name": "Extractor",
+          "time": 258
+        },
+        {
+          "supply": 58,
+          "name": "Extractor",
+          "time": 259
+        }
+      ]
+    },
+    "has_player_comment": false
+  },
+  "pattern_004": {
+    "signature": {
+      "early_game": [
+        {
+          "unit": "SCV",
+          "count": 1,
+          "order": 1,
+          "supply": 12,
+          "time": 0
+        },
+        {
+          "unit": "SupplyDepot",
+          "count": 1,
+          "order": 2,
+          "supply": 14,
+          "time": 18
+        },
+        {
+          "unit": "Barracks",
+          "count": 1,
+          "order": 3,
+          "supply": 15,
+          "time": 41
+        }
+      ],
+      "key_timings": {
+        "Barracks": 41
+      },
+      "opening_sequence": [
+        {
+          "unit": "SCV",
+          "count": 1,
+          "order": 1,
+          "supply": 12,
+          "time": 0
+        },
+        {
+          "unit": "SupplyDepot",
+          "count": 1,
+          "order": 2,
+          "supply": 14,
+          "time": 18
+        },
+        {
+          "unit": "Barracks",
+          "count": 1,
+          "order": 3,
+          "supply": 15,
+          "time": 41
+        }
+      ]
+    },
+    "comment_id": "comment_004",
+    "game_id": "game_004",
+    "keywords": [
+      "ling",
+      "bane",
+      "ultras",
+      "insufficient_early_game_data"
+    ],
+    "comment": "ling/bane to ultras",
+    "sample_count": 1,
+    "last_seen": "2025-09-02T17:44:04.905827",
+    "strategy_type": "terran_aggression",
+    "race": "terran",
+    "confidence": 0.8,
+    "game_data": {
+      "opponent_name": "htcp",
+      "opponent_race": "zerg",
+      "map": "Tokamak LE",
+      "duration": "15m 45s",
+      "date": "2025-09-02 17:16:04",
+      "result": "Victory",
+      "build_order": [
+        {
+          "name": "SCV",
+          "supply": 12,
+          "time": 0
+        },
+        {
+          "name": "SupplyDepot",
+          "supply": 14,
+          "time": 18
+        },
+        {
+          "name": "Barracks",
+          "supply": 15,
+          "time": 41
+        }
+      ]
+    },
+    "has_player_comment": false
+  },
+  "pattern_005": {
+    "signature": {
+      "early_game": [
+        {
+          "unit": "Probe",
+          "count": 2,
+          "order": 1,
+          "supply": 13,
+          "time": 14
+        },
+        {
+          "unit": "Pylon",
+          "count": 1,
+          "order": 2,
+          "supply": 13,
+          "time": 15
+        },
+        {
+          "unit": "Probe",
+          "count": 1,
+          "order": 3,
+          "supply": 14,
+          "time": 22
+        },
+        {
+          "unit": "Gateway",
+          "count": 1,
+          "order": 4,
+          "supply": 15,
+          "time": 36
+        },
+        {
+          "unit": "Probe",
+          "count": 1,
+          "order": 5,
+          "supply": 15,
+          "time": 39
+        },
+        {
+          "unit": "Assimilator",
+          "count": 1,
+          "order": 6,
+          "supply": 16,
+          "time": 45
+        },
+        {
+          "unit": "Probe",
+          "count": 4,
+          "order": 7,
+          "supply": 18,
+          "time": 78
+        },
+        {
+          "unit": "CyberneticsCore",
+          "count": 1,
+          "order": 8,
+          "supply": 19,
+          "time": 84
+        },
+        {
+          "unit": "Nexus",
+          "count": 1,
+          "order": 9,
+          "supply": 20,
+          "time": 98
+        },
+        {
+          "unit": "Assimilator",
+          "count": 1,
+          "order": 10,
+          "supply": 20,
+          "time": 104
+        },
+        {
+          "unit": "Adept",
+          "count": 1,
+          "order": 11,
+          "supply": 21,
+          "time": 112
+        },
+        {
+          "unit": "Pylon",
+          "count": 1,
+          "order": 12,
+          "supply": 21,
+          "time": 114
+        },
+        {
+          "unit": "Warp Gate",
+          "count": 1,
+          "order": 13,
+          "supply": 21,
+          "time": 121
+        },
+        {
+          "unit": "Probe",
+          "count": 2,
+          "order": 14,
+          "supply": 23,
+          "time": 136
+        },
+        {
+          "unit": "TwilightCouncil",
+          "count": 1,
+          "order": 15,
+          "supply": 23,
+          "time": 141
+        },
+        {
+          "unit": "Adept",
+          "count": 1,
+          "order": 16,
+          "supply": 24,
+          "time": 143
+        },
+        {
+          "unit": "Probe",
+          "count": 1,
+          "order": 17,
+          "supply": 24,
+          "time": 148
+        },
+        {
+          "unit": "Blink",
+          "count": 1,
+          "order": 18,
+          "supply": 27,
+          "time": 150
+        },
+        {
+          "unit": "Probe",
+          "count": 2,
+          "order": 19,
+          "supply": 28,
+          "time": 170
+        },
+        {
+          "unit": "Stalker",
+          "count": 1,
+          "order": 20,
+          "supply": 28,
+          "time": 170
+        },
+        {
+          "unit": "Probe",
+          "count": 7,
+          "order": 21,
+          "supply": 34,
+          "time": 216
+        },
+        {
+          "unit": "Gateway",
+          "count": 2,
+          "order": 22,
+          "supply": 36,
+          "time": 226
+        },
+        {
+          "unit": "Pylon",
+          "count": 1,
+          "order": 23,
+          "supply": 36,
+          "time": 227
+        },
+        {
+          "unit": "Probe",
+          "count": 2,
+          "order": 24,
+          "supply": 36,
+          "time": 228
+        },
+        {
+          "unit": "Stalker",
+          "count": 1,
+          "order": 25,
+          "supply": 38,
+          "time": 230
+        },
+        {
+          "unit": "Probe",
+          "count": 2,
+          "order": 26,
+          "supply": 40,
+          "time": 240
+        },
+        {
+          "unit": "RoboticsFacility",
+          "count": 1,
+          "order": 27,
+          "supply": 42,
+          "time": 245
+        },
+        {
+          "unit": "Probe",
+          "count": 1,
+          "order": 28,
+          "supply": 42,
+          "time": 252
+        },
+        {
+          "unit": "Stalker",
+          "count": 1,
+          "order": 29,
+          "supply": 41,
+          "time": 258
+        },
+        {
+          "unit": "Probe",
+          "count": 2,
+          "order": 30,
+          "supply": 42,
+          "time": 277
+        },
+        {
+          "unit": "Charge",
+          "count": 1,
+          "order": 31,
+          "supply": 42,
+          "time": 277
+        },
+        {
+          "unit": "Stalker",
+          "count": 3,
+          "order": 32,
+          "supply": 44,
+          "time": 282
+        },
+        {
+          "unit": "Probe",
+          "count": 1,
+          "order": 33,
+          "supply": 44,
+          "time": 285
+        },
+        {
+          "unit": "Assimilator",
+          "count": 1,
+          "order": 34,
+          "supply": 51,
+          "time": 288
+        },
+        {
+          "unit": "Probe",
+          "count": 1,
+          "order": 35,
+          "supply": 51,
+          "time": 289
+        },
+        {
+          "unit": "Assimilator",
+          "count": 1,
+          "order": 36,
+          "supply": 51,
+          "time": 291
+        },
+        {
+          "unit": "Probe",
+          "count": 1,
+          "order": 37,
+          "supply": 52,
+          "time": 297
+        },
+        {
+          "unit": "Stalker",
+          "count": 3,
+          "order": 38,
+          "supply": 47,
+          "time": 308
+        },
+        {
+          "unit": "Probe",
+          "count": 1,
+          "order": 39,
+          "supply": 47,
+          "time": 309
+        },
+        {
+          "unit": "TemplarArchive",
+          "count": 1,
+          "order": 40,
+          "supply": 54,
+          "time": 338
+        }
+      ],
+      "key_timings": {
+        "Gateway": 226,
+        "TwilightCouncil": 141,
+        "RoboticsFacility": 245
+      },
+      "opening_sequence": [
+        {
+          "unit": "Probe",
+          "count": 2,
+          "order": 1,
+          "supply": 13,
+          "time": 14
+        },
+        {
+          "unit": "Pylon",
+          "count": 1,
+          "order": 2,
+          "supply": 13,
+          "time": 15
+        },
+        {
+          "unit": "Probe",
+          "count": 1,
+          "order": 3,
+          "supply": 14,
+          "time": 22
+        },
+        {
+          "unit": "Gateway",
+          "count": 1,
+          "order": 4,
+          "supply": 15,
+          "time": 36
+        },
+        {
+          "unit": "Probe",
+          "count": 1,
+          "order": 5,
+          "supply": 15,
+          "time": 39
+        },
+        {
+          "unit": "Assimilator",
+          "count": 1,
+          "order": 6,
+          "supply": 16,
+          "time": 45
+        },
+        {
+          "unit": "Probe",
+          "count": 4,
+          "order": 7,
+          "supply": 18,
+          "time": 78
+        },
+        {
+          "unit": "CyberneticsCore",
+          "count": 1,
+          "order": 8,
+          "supply": 19,
+          "time": 84
+        },
+        {
+          "unit": "Nexus",
+          "count": 1,
+          "order": 9,
+          "supply": 20,
+          "time": 98
+        },
+        {
+          "unit": "Assimilator",
+          "count": 1,
+          "order": 10,
+          "supply": 20,
+          "time": 104
+        }
+      ]
+    },
+    "comment_id": "comment_005",
+    "game_id": "game_005",
+    "keywords": [
+      "stalker",
+      "harass",
+      "blink",
+      "collosus"
+    ],
+    "comment": "stalker harass to blink to collosus",
+    "sample_count": 1,
+    "last_seen": "2025-09-02T17:44:04.905827",
+    "strategy_type": "protoss_aggression",
+    "race": "protoss",
+    "confidence": 0.8,
+    "game_data": {
+      "opponent_name": "xXxLoLxXx",
+      "result": "Defeat",
+      "duration": "13m 34s",
+      "date": "2025-09-02 17:43:53",
+      "map": "Ley Lines",
+      "build_order": [
+        {
+          "supply": 12,
+          "name": "Probe",
+          "time": 0
+        },
+        {
+          "supply": 13,
+          "name": "Probe",
+          "time": 14
+        },
+        {
+          "supply": 13,
+          "name": "Pylon",
+          "time": 15
+        },
+        {
+          "supply": 14,
+          "name": "Probe",
+          "time": 22
+        },
+        {
+          "supply": 15,
+          "name": "Gateway",
+          "time": 36
+        },
+        {
+          "supply": 15,
+          "name": "Probe",
+          "time": 39
+        },
+        {
+          "supply": 16,
+          "name": "Assimilator",
+          "time": 45
+        },
+        {
+          "supply": 16,
+          "name": "Probe",
+          "time": 51
+        },
+        {
+          "supply": 17,
+          "name": "Probe",
+          "time": 59
+        },
+        {
+          "supply": 18,
+          "name": "Probe",
+          "time": 67
+        },
+        {
+          "supply": 18,
+          "name": "Probe",
+          "time": 78
+        },
+        {
+          "supply": 19,
+          "name": "CyberneticsCore",
+          "time": 84
+        },
+        {
+          "supply": 20,
+          "name": "Nexus",
+          "time": 98
+        },
+        {
+          "supply": 20,
+          "name": "Assimilator",
+          "time": 104
+        },
+        {
+          "supply": 21,
+          "name": "Adept",
+          "time": 112
+        },
+        {
+          "supply": 21,
+          "name": "Pylon",
+          "time": 114
+        },
+        {
+          "supply": 21,
+          "name": "Warp Gate",
+          "time": 121
+        },
+        {
+          "supply": 22,
+          "name": "Probe",
+          "time": 123
+        },
+        {
+          "supply": 23,
+          "name": "Probe",
+          "time": 136
+        },
+        {
+          "supply": 23,
+          "name": "TwilightCouncil",
+          "time": 141
+        },
+        {
+          "supply": 24,
+          "name": "Adept",
+          "time": 143
+        },
+        {
+          "supply": 24,
+          "name": "Probe",
+          "time": 148
+        },
+        {
+          "supply": 27,
+          "name": "Blink",
+          "time": 150
+        },
+        {
+          "supply": 27,
+          "name": "Probe",
+          "time": 162
+        },
+        {
+          "supply": 28,
+          "name": "Probe",
+          "time": 170
+        },
+        {
+          "supply": 28,
+          "name": "Stalker",
+          "time": 170
+        },
+        {
+          "supply": 29,
+          "name": "Probe",
+          "time": 174
+        },
+        {
+          "supply": 32,
+          "name": "Probe",
+          "time": 191
+        },
+        {
+          "supply": 32,
+          "name": "Probe",
+          "time": 192
+        },
+        {
+          "supply": 34,
+          "name": "Probe",
+          "time": 204
+        },
+        {
+          "supply": 34,
+          "name": "Probe",
+          "time": 204
+        },
+        {
+          "supply": 34,
+          "name": "Probe",
+          "time": 216
+        },
+        {
+          "supply": 34,
+          "name": "Probe",
+          "time": 216
+        },
+        {
+          "supply": 36,
+          "name": "Gateway",
+          "time": 225
+        },
+        {
+          "supply": 36,
+          "name": "Gateway",
+          "time": 226
+        },
+        {
+          "supply": 36,
+          "name": "Pylon",
+          "time": 227
+        },
+        {
+          "supply": 36,
+          "name": "Probe",
+          "time": 228
+        },
+        {
+          "supply": 36,
+          "name": "Probe",
+          "time": 228
+        },
+        {
+          "supply": 38,
+          "name": "Stalker",
+          "time": 230
+        },
+        {
+          "supply": 40,
+          "name": "Probe",
+          "time": 240
+        },
+        {
+          "supply": 40,
+          "name": "Probe",
+          "time": 240
+        },
+        {
+          "supply": 42,
+          "name": "RoboticsFacility",
+          "time": 245
+        },
+        {
+          "supply": 42,
+          "name": "Probe",
+          "time": 252
+        },
+        {
+          "supply": 41,
+          "name": "Stalker",
+          "time": 258
+        },
+        {
+          "supply": 42,
+          "name": "Probe",
+          "time": 273
+        },
+        {
+          "supply": 42,
+          "name": "Probe",
+          "time": 277
+        },
+        {
+          "supply": 42,
+          "name": "Charge",
+          "time": 277
+        },
+        {
+          "supply": 44,
+          "name": "Stalker",
+          "time": 280
+        },
+        {
+          "supply": 44,
+          "name": "Stalker",
+          "time": 281
+        },
+        {
+          "supply": 44,
+          "name": "Stalker",
+          "time": 282
+        },
+        {
+          "supply": 44,
+          "name": "Probe",
+          "time": 285
+        },
+        {
+          "supply": 51,
+          "name": "Assimilator",
+          "time": 288
+        },
+        {
+          "supply": 51,
+          "name": "Probe",
+          "time": 289
+        },
+        {
+          "supply": 51,
+          "name": "Assimilator",
+          "time": 291
+        },
+        {
+          "supply": 52,
+          "name": "Probe",
+          "time": 297
+        },
+        {
+          "supply": 47,
+          "name": "Stalker",
+          "time": 308
+        },
+        {
+          "supply": 47,
+          "name": "Stalker",
+          "time": 308
+        },
+        {
+          "supply": 47,
+          "name": "Stalker",
+          "time": 308
+        },
+        {
+          "supply": 47,
+          "name": "Probe",
+          "time": 309
+        },
+        {
+          "supply": 54,
+          "name": "TemplarArchive",
+          "time": 338
+        }
+      ]
+    },
+    "has_player_comment": false
   }
 }
