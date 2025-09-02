@@ -8,6 +8,17 @@ Enhance your StarCraft II Twitch (and Discord) streams with AI-powered commentar
 
 ## 🆕 Recent Updates
 
+### v1.0.2 - ML Analysis System & Pattern Learning Enhancements
+- **Enhanced**: ML opponent analysis system with intelligent pattern matching
+- **Fixed**: Player comment priority system for strategic analysis
+- **Added**: Race-based pattern filtering using comprehensive SC2 terminology
+- **Improved**: Keyword extraction to include 2-character strategic terms (DT, GG, etc.)
+- **Enhanced**: Build order analysis to examine full 60-step sequences
+- **Added**: Comment priority boost system (+100% for exact matches, +50% for keyword overlap)
+- **Fixed**: Strategic conflict detection removed for natural pattern recognition
+- **Added**: Concise summary generation for Twitch chat output
+- **Enhanced**: Test script (`analyze_player.py`) with top 3 pattern display
+
 ### v1.0.1 - Player Name Truncation Fix
 - **Fixed**: Pattern learning system was truncating opponent names to single letters
 - **Issue**: "eGaliza" → "e", "Muskul" → "M" due to string iteration bug
@@ -44,12 +55,22 @@ Enhance your StarCraft II Twitch (and Discord) streams with AI-powered commentar
 - Summaries by opponent, race, and alias
 - Matchup-specific notes and outcomes
 
-### 🧠 **Pattern Learning System** *(NEW)*
+### 🧠 **Pattern Learning System** *(ENHANCED)*
 - **Intelligent Build Order Analysis**: Learns from your SC2 expertise
 - **Strategic Pattern Recognition**: Identifies opponent tendencies
 - **Machine Learning Ready**: Optimized data structure for future ML integration
 - **Test-Driven Development**: Comprehensive test coverage for reliability
 - **Dual Comment Storage**: Preserves authentic input while enabling analysis
+- **Enhanced Keyword Extraction**: Now includes 2-character strategic terms (DT, GG, APM)
+
+### 🤖 **ML Opponent Analysis System** *(NEW)*
+- **Live Game Analysis**: Provides strategic insights at game start via Twitch chat
+- **Pattern Matching Engine**: Matches current opponent builds against learned strategies
+- **Player Comment Priority**: Gives absolute priority to your actual strategy descriptions
+- **Race-Based Filtering**: Uses comprehensive SC2 terminology for accurate race detection
+- **Concise Chat Output**: Generates readable summaries like "ML Analysis: grumpykitten (protoss) - Build: Forge → PhotonCannon → DarkShrine - Strategy: cannon rush into DT to collosus"
+- **Database Integration**: Falls back to replay analysis when no commented games exist
+- **Test Script**: `analyze_player.py` for testing and debugging ML analysis
 
 ---
 
@@ -197,6 +218,7 @@ twitch-gpt-chat-bot/
 │   ├── chat_utils.py
 │   ├── discord_bot.py
 │   ├── game_event_utils.py
+│   ├── ml_opponent_analyzer.py      # 🤖 ML Opponent Analysis System
 │   ├── pattern_learning.py          # 🧠 Pattern Learning System
 │   ├── sc2_game_utils.py
 │   ├── sgreplay_pb2.py
@@ -225,12 +247,19 @@ twitch-gpt-chat-bot/
 │   ├── replays/
 │   ├── SC2_game_result_test.json
 │   └── test_pattern_learning_improvements.py  # 🧪 TDD Test Suite
+├── data/
+│   ├── comments.json                 # 📝 Player comments and keywords
+│   ├── patterns.json                 # 🧠 Learned strategic patterns
+│   ├── learning_stats.json           # 📊 Pattern learning statistics
+│   └── sc2_race_data.json           # 🏆 Comprehensive SC2 terminology
 ├── utils/
 │   ├── emote_utils.py
 │   ├── file_utils.py
+│   ├── load_learning_data.py        # 🔄 Pattern data regeneration
 │   ├── load_replays.py
 │   ├── sc2replaystats.py
 │   └── sound_player_utils.py
+├── analyze_player.py                  # 🧪 ML Analysis Test Script
 ├── app.py
 ├── LICENSE.md
 ├── PATTERN_LEARNING_IMPROVEMENTS.md  # 📚 Pattern Learning Documentation
@@ -269,6 +298,23 @@ open sesame <your message>
 ```
 This triggers a reply from the OpenAI-powered assistant.
 
+### 🤖 ML Analysis Testing
+
+Test the ML opponent analysis system using the test script:
+```bash
+# Test specific opponent
+python analyze_player.py grumpykitten protoss
+
+# Test multiple opponents
+python analyze_player.py all
+```
+
+The script shows:
+- Raw pattern matching data
+- Top 3 strategic patterns found
+- Similarity scores and race filtering
+- What would appear in Twitch chat during live games
+
 ---
 
 ## 🧠 Development Notes
@@ -286,11 +332,25 @@ The pattern learning system was developed using **Test-Driven Development (TDD)*
 - **`PATTERN_LEARNING_IMPROVEMENTS.md`**: Recent improvements and TDD approach
 - **Test files**: Living documentation of intended behavior
 
+### 📊 **Data Files**
+- **`data/comments.json`**: Player comments and extracted keywords
+- **`data/patterns.json`**: Learned strategic patterns from gameplay
+- **`data/learning_stats.json`**: Pattern learning statistics and metrics
+- **`data/sc2_race_data.json`**: Comprehensive SC2 terminology for race filtering
+
 ### 🎯 **Key Improvements Made**
 1. **Build Order Consolidation**: Efficient unit grouping with metadata
 2. **Dual Comment Storage**: Raw + cleaned comment preservation
 3. **Enhanced Keyword Extraction**: Clean, deduplicated strategic terms
 4. **ML Readiness**: Structured data format for future machine learning
+
+### 🚀 **ML Analysis System Features**
+1. **Live Game Integration**: Automatically analyzes opponents at game start
+2. **Pattern Priority System**: Player comments get absolute priority (+100% boost)
+3. **Race-Based Filtering**: Comprehensive SC2 terminology for accurate classification
+4. **Concise Output**: Generates readable summaries for Twitch chat
+5. **Database Fallback**: Works with replay data when no comments exist
+6. **Test-Driven Development**: Comprehensive testing with `analyze_player.py`
 
 Helpful developer reference videos:
 

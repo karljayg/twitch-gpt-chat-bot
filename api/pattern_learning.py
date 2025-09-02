@@ -252,7 +252,8 @@ class SC2PatternLearner:
                 words = comment_lower.split()
                 # Filter out common non-strategic words
                 stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'was', 'are', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'can', 'this', 'that', 'these', 'those'}
-                strategic_words = [word for word in words if word not in stop_words and len(word) > 2]
+                # IMPORTANT: Allow 2-character words for SC2 terms like "DT", "GG", "APM", etc.
+                strategic_words = [word for word in words if word not in stop_words and len(word) >= 2]
                 found_keywords = strategic_words[:5]  # Limit to 5 most relevant words
             
             # Remove duplicates while preserving order

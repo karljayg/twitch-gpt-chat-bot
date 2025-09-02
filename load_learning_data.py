@@ -143,12 +143,28 @@ class LearningDataRegenerator:
         try:
             build_order = []
             
-            # Look for the player's build order section
-            pattern = rf"{re.escape(player_name)}'s Build Order.*?:\n(.*?)(?:\n\n|\n[A-Z]|\n$|$)"
-            build_match = re.search(pattern, replay_summary, re.DOTALL | re.IGNORECASE)
+            # Look for the player's build order section - improved pattern
+            # Try multiple pattern variations to catch different formats
+            patterns = [
+                # Pattern 1: Stop at next player's build order section (most specific)
+                rf"{re.escape(player_name)}'s Build Order.*?:\n(.*?)(?:\n\n[A-Z][a-zA-Z]+.*?'s Build Order)",
+                # Pattern 2: Stop at other major sections starting with capital letters (but not "Time:")
+                rf"{re.escape(player_name)}'s Build Order.*?:\n(.*?)(?:\n\n(?!Time:)[A-Z][a-zA-Z]+)",
+                # Pattern 3: Stop at double newline or end
+                rf"{re.escape(player_name)}'s Build Order.*?:\n(.*?)(?:\n\n|$)",
+            ]
+            
+            build_match = None
+            for i, pattern in enumerate(patterns):
+                build_match = re.search(pattern, replay_summary, re.DOTALL | re.IGNORECASE)
+                if build_match:
+                    print(f"    📍 Pattern {i+1} matched")
+                    break
             
             if build_match:
                 build_text = build_match.group(1)
+                print(f"    📏 Extracted text length: {len(build_text)} chars")
+                print(f"    📄 First 200 chars: {build_text[:200]}...")
                 
                 # Parse each build step: "Time: 0:01, Name: Probe, Supply: 12"
                 step_pattern = r"Time: (\d+):(\d+), Name: ([^,]+), Supply: (\d+)"
@@ -167,6 +183,44 @@ class LearningDataRegenerator:
         except Exception as e:
             print(f"    ⚠️  Error parsing build order: {e}")
             return []
+    
+    def detect_comment_about_opponent(self, comment, opponent_name):
+        """Detect if a comment is describing the opponent's strategy rather than the streamer's"""
+        try:
+            comment_lower = comment.lower()
+            
+            # Keywords that indicate the comment is about the opponent
+            opponent_indicators = [
+                'he ', 'his ', 'she ', 'her ', 'they ', 'their ',
+                'opponent', 'enemy', 'player',
+                'rusher', 'cannon rush', 'proxy', 'all in', 'cheese',
+                'likes to', 'tends to', 'always does', 'usually goes'
+            ]
+            
+            # Direct mention of opponent name
+            if opponent_name.lower() in comment_lower:
+                return True
+            
+            # Check for opponent-describing language
+            for indicator in opponent_indicators:
+                if indicator in comment_lower:
+                    return True
+            
+            # Strategic terms that are typically about what the opponent did to you
+            strategic_terms = [
+                'rush', 'cheese', 'drop', 'harass', 'pressure', 'contain',
+                'proxy', 'hidden', 'surprise', 'fast', 'early'
+            ]
+            
+            # If comment contains strategic terms and is short (likely describing what happened to us)
+            if len(comment.split()) <= 8 and any(term in comment_lower for term in strategic_terms):
+                return True
+            
+            return False
+            
+        except Exception as e:
+            print(f"    ⚠️  Error detecting comment type: {e}")
+            return False
 
     def create_game_data_from_replay(self, replay_record):
         """Create game_data structure from database replay record using FIXED logic"""
@@ -219,17 +273,34 @@ class LearningDataRegenerator:
             game_data['duration'] = replay_record['GameDuration']
             game_data['date'] = str(replay_record['Date_Played'])
             
-            # Extract ACTUAL build order data from replay summary
-            build_order = self.extract_build_order_from_summary(
-                replay_record['Replay_Summary'], 
-                config.STREAMER_NICKNAME
-            )
+            # Determine whose build order to extract based on the comment
+            comment = replay_record.get('Player_Comments', '')
+            is_about_opponent = self.detect_comment_about_opponent(comment, game_data['opponent_name'])
+            
+            if is_about_opponent:
+                # Extract opponent's build order since comment describes their strategy
+                build_order = self.extract_build_order_from_summary(
+                    replay_record['Replay_Summary'], 
+                    game_data['opponent_name']
+                )
+                print(f"    🎯 Comment about opponent - extracting {game_data['opponent_name']}'s build order")
+            else:
+                # Extract streamer's build order for self-analysis
+                build_order = self.extract_build_order_from_summary(
+                    replay_record['Replay_Summary'], 
+                    config.STREAMER_NICKNAME
+                )
+                print(f"    🔄 Comment about own strategy - extracting {config.STREAMER_NICKNAME}'s build order")
+            
             game_data['build_order'] = build_order
+            game_data['is_about_opponent'] = is_about_opponent
             
             if build_order:
-                print(f"    🔨 Extracted {len(build_order)} build steps")
+                target_player = game_data['opponent_name'] if is_about_opponent else config.STREAMER_NICKNAME
+                print(f"    🔨 Extracted {len(build_order)} build steps for {target_player}")
             else:
-                print(f"    ⚠️  No build order found for {config.STREAMER_NICKNAME}")
+                target_player = game_data['opponent_name'] if is_about_opponent else config.STREAMER_NICKNAME
+                print(f"    ⚠️  No build order found for {target_player}")
             
             return game_data
             

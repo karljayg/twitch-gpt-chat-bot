@@ -1,8 +1,6 @@
+#!/usr/bin/env python3
 """
-ML Opponent Analyzer - Lightweight version for live game integration
-
-This module provides real-time strategic intelligence about opponents
-based on learned patterns from the pattern learning system.
+ML Opponent Analyzer - Enhanced version with priority system for player comments
 """
 
 import json
@@ -18,11 +16,11 @@ class MLOpponentAnalyzer:
         self.patterns_data = None
         self.last_load_time = 0
         self.last_patterns_load_time = 0
+        self._current_opponent_comment = None  # Store current opponent's comment for priority
         
     def load_learning_data(self):
         """Load comments data with basic caching"""
         try:
-            # Simple file modification check for caching
             comments_path = 'data/comments.json'
             if not os.path.exists(comments_path):
                 return {"comments": [], "keyword_index": {}}
@@ -141,6 +139,9 @@ class MLOpponentAnalyzer:
                     logger.debug(f"ML Analysis: No database records for opponent '{opponent_name}'")
                 return None
             
+            # Store the opponent's comment for priority matching
+            self._current_opponent_comment = opponent_replay.get('Player_Comments', '')
+            
             # Extract build order from replay summary
             build_order = self._extract_build_order_from_summary(
                 opponent_replay.get('Replay_Summary', ''), opponent_name
@@ -155,12 +156,15 @@ class MLOpponentAnalyzer:
             patterns_data = self.load_patterns_data()
             
             # Match opponent's build against learned patterns
-            matched_patterns = self._match_build_against_patterns(build_order, patterns_data, logger)
+            matched_patterns = self._match_build_against_patterns(build_order, patterns_data, opponent_race, logger)
             
             if not matched_patterns:
                 if logger:
                     logger.debug(f"ML Analysis: No pattern matches for opponent '{opponent_name}'")
                 return None
+            
+            # Generate concise summary instead of raw data
+            summary = self._generate_concise_summary(opponent_name, opponent_race, matched_patterns, build_order)
             
             # Prepare analysis data
             analysis_data = {
@@ -170,7 +174,7 @@ class MLOpponentAnalyzer:
                 'total_games': 1,  # Only have 1 replay
                 'win_rate': 0.0,  # Unknown from single replay
                 'matched_patterns': matched_patterns,
-                'build_order_preview': build_order[:10]  # First 10 steps
+                'summary': summary
             }
             
             if logger:
@@ -193,14 +197,14 @@ class MLOpponentAnalyzer:
             in_build_section = False
             
             for line in lines:
-                # Start of this player's build order section
-                if f"{player_name}'s Build Order" in line:
+                # Start of this player's build order section (case-insensitive)
+                if f"{player_name}'s Build Order".lower() in line.lower():
                     in_build_section = True
                     continue
                 
                 # End of this player's build order (another player's section or empty line)
                 if in_build_section and (
-                    ("'s Build Order" in line and player_name not in line) or
+                    ("'s Build Order" in line and player_name.lower() not in line.lower()) or
                     line.strip() == ""
                 ):
                     break
@@ -221,8 +225,10 @@ class MLOpponentAnalyzer:
         except Exception as e:
             return []
 
-    def _match_build_against_patterns(self, build_order, patterns_data, logger):
-        """Match opponent's build order against learned patterns"""
+    def _match_build_against_patterns(self, build_order, patterns_data, opponent_race, logger):
+        """Match opponent's build order against learned patterns with priority for player comments"""
+        if logger:
+            logger.debug(f"Pattern matching for opponent race: {opponent_race}")
         try:
             # Handle different patterns.json structures
             if 'patterns' in patterns_data:
@@ -233,8 +239,8 @@ class MLOpponentAnalyzer:
             
             matched_patterns = []
             
-            # Extract unit sequence from build order
-            unit_sequence = [step['name'] for step in build_order[:15]]  # First 15 units
+            # Extract complete build order sequence (units AND buildings)
+            unit_sequence = [step['name'] for step in build_order]  # ALL items to catch any strategic elements
             unit_sequence_str = ' '.join(unit_sequence).lower()
             
             # Match against learned patterns using keywords and strategy types
@@ -243,25 +249,92 @@ class MLOpponentAnalyzer:
                 if not pattern_keywords:
                     continue
                 
+                # Skip overly generic patterns that dominate results
+                comment = pattern.get('comment', '').lower()
+                generic_indicators = ['hello world', 'first comment', 'test', 'computer']
+                if any(indicator in comment for indicator in generic_indicators):
+                    continue
+                
+                # Filter patterns by race relevance - check if pattern contains race-specific units
+                pattern_race = self._determine_pattern_race(pattern_keywords)
+                opponent_race_lower = opponent_race.lower() if opponent_race else 'unknown'
+                
+                # Additional comment-based race filtering using existing race unit lists
+                comment_race = self._determine_pattern_race_from_comment(pattern.get('comment', ''))
+                if comment_race != 'unknown' and comment_race != opponent_race_lower:
+                    if logger:
+                        logger.debug(f"Pattern '{pattern.get('comment', '')}' filtered out by comment race: {comment_race} != {opponent_race_lower}")
+                    continue
+                
+                # Original race filtering logic
+                if pattern_race and pattern_race != 'unknown':
+                    if pattern_race != opponent_race_lower:
+                        if logger:
+                            logger.debug(f"Pattern '{pattern.get('comment', '')}' filtered out by pattern race: {pattern_race} != {opponent_race_lower}")
+                        continue
+                
                 # Extract common unit types from opponent's build
                 opponent_units = set(unit_sequence_str.split())
                 
                 # Convert keywords to lowercase for comparison
                 pattern_keywords_lower = [kw.lower() for kw in pattern_keywords if isinstance(kw, str)]
                 
-                # Calculate keyword overlap (unit-based similarity)
-                common_keywords = 0
-                for unit in opponent_units:
-                    if any(unit in kw for kw in pattern_keywords_lower):
-                        common_keywords += 1
+                # Get strategic keywords from actual player comments in database
+                strategic_keywords = self._get_strategic_keywords_from_comments()
                 
-                # Calculate similarity based on keyword overlap
+                # Calculate keyword overlap with strategic weighting
+                common_keywords = 0
+                strategic_matches = 0
+                
+                for unit in opponent_units:
+                    matched = False
+                    for kw in pattern_keywords_lower:
+                        if unit in kw or kw in unit:
+                            common_keywords += 1
+                            # Give extra weight for strategic keywords
+                            if kw in strategic_keywords:
+                                strategic_matches += 1
+                            matched = True
+                            break
+                
+                # Calculate similarity with strategic weighting
                 if len(opponent_units) > 0:
-                    similarity_score = common_keywords / len(opponent_units)
+                    base_similarity = common_keywords / len(opponent_units)
+                    strategic_bonus = strategic_matches * 0.1  # 10% bonus per strategic match
+                    similarity_score = base_similarity + strategic_bonus
                 else:
                     similarity_score = 0
                 
-                if similarity_score > 0.15:  # 15% similarity threshold (more lenient)
+                # PRIORITY BOOST: Give massive bonus to patterns that match the opponent's actual comment
+                # This ensures player comments take absolute priority
+                comment_priority_boost = 0.0
+                if self._current_opponent_comment:
+                    opponent_comment_lower = self._current_opponent_comment.lower()
+                    pattern_comment_lower = pattern.get('comment', '').lower()
+                    
+                    # Check for exact or very close comment matches
+                    if pattern_comment_lower == opponent_comment_lower:
+                        comment_priority_boost = 1.0  # 100% bonus for exact match
+                        if logger:
+                            logger.debug(f"EXACT COMMENT MATCH: '{pattern_comment_lower}' = '{opponent_comment_lower}' - +1.0 boost")
+                    elif any(keyword in opponent_comment_lower for keyword in pattern_keywords_lower):
+                        comment_priority_boost = 0.5  # 50% bonus for keyword overlap
+                        if logger:
+                            logger.debug(f"KEYWORD OVERLAP: '{pattern_keywords_lower}' in '{opponent_comment_lower}' - +0.5 boost")
+                    elif any(keyword in pattern_comment_lower for keyword in opponent_comment_lower.split()):
+                        comment_priority_boost = 0.3  # 30% bonus for reverse keyword match
+                        if logger:
+                            logger.debug(f"REVERSE KEYWORD MATCH: '{opponent_comment_lower.split()}' in '{pattern_comment_lower}' - +0.3 boost")
+                
+                # Apply comment priority boost
+                similarity_score += comment_priority_boost
+                if logger and comment_priority_boost > 0:
+                    logger.debug(f"Pattern '{pattern.get('comment', '')}' got +{comment_priority_boost} boost, final score: {similarity_score}")
+                
+                # No artificial strategic conflict filtering - let pattern matching work naturally
+                # based on what actually exists in the build order and player comments
+                
+                if similarity_score > 0.05:  # 5% similarity threshold (more lenient for strategic patterns like DT)
                     matched_patterns.append({
                         'comment': pattern.get('comment', 'Unknown strategy'),
                         'keywords': pattern_keywords[:10],  # First 10 keywords
@@ -270,8 +343,14 @@ class MLOpponentAnalyzer:
                         'race': pattern.get('race', 'unknown')
                     })
             
-            # Sort by similarity
+            # Sort by similarity (highest first)
             matched_patterns.sort(key=lambda x: x['similarity'], reverse=True)
+            
+            # Debug: Log the top patterns after sorting
+            if logger:
+                logger.debug(f"Top patterns after sorting:")
+                for i, pattern in enumerate(matched_patterns[:5]):
+                    logger.debug(f"  {i+1}. '{pattern['comment']}' - Score: {pattern['similarity']:.4f}")
             
             return matched_patterns[:3]  # Top 3 matches
             
@@ -280,23 +359,190 @@ class MLOpponentAnalyzer:
                 logger.error(f"Error matching patterns: {e}")
             return []
 
-    def _calculate_sequence_similarity(self, seq1, seq2):
-        """Calculate similarity between two unit sequences"""
-        if not seq1 or not seq2:
-            return 0.0
+    def _generate_concise_summary(self, opponent_name, opponent_race, matched_patterns, build_order):
+        """Generate a concise, readable summary for chat"""
+        try:
+            # Get the top pattern (highest priority)
+            top_pattern = matched_patterns[0] if matched_patterns else None
+            
+            if not top_pattern:
+                return f"ML Analysis: {opponent_name} ({opponent_race}) - No strategic patterns detected"
+            
+            # Extract key strategic elements from build order
+            strategic_elements = []
+            for step in build_order[:15]:  # First 15 steps for opening
+                unit = step['name'].lower()
+                if any(keyword in unit for keyword in ['forge', 'cannon', 'darkshrine', 'templar', 'robo', 'stargate']):
+                    strategic_elements.append(step['name'])
+            
+            # Build the summary
+            summary_parts = [f"ML Analysis: {opponent_name} ({opponent_race})"]
+            
+            if strategic_elements:
+                summary_parts.append(f"Build: {' → '.join(strategic_elements[:3])}")
+            
+            if top_pattern:
+                comment = top_pattern['comment']
+                similarity = top_pattern['similarity']
+                if similarity > 0.5:  # High confidence
+                    summary_parts.append(f"Strategy: {comment}")
+                else:
+                    summary_parts.append(f"Similar to: {comment}")
+            
+            return " - ".join(summary_parts)
+            
+        except Exception as e:
+            return f"ML Analysis: {opponent_name} ({opponent_race}) - Analysis available"
+
+    def _get_strategic_keywords_from_comments(self):
+        """Extract strategic keywords from all player comments in database"""
+        try:
+            # Common non-strategic words to filter out
+            common_words = {
+                'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by',
+                'a', 'an', 'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she', 'it',
+                'we', 'they', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has',
+                'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'can', 'may',
+                'then', 'into', 'after', 'vs', 'game', 'player', 'build', 'order', 'base',
+                'first', 'second', 'early', 'late', 'quick', 'fast', 'slow', 'good', 'bad',
+                'big', 'small', 'new', 'old', 'high', 'low', 'long', 'short', 'much', 'many',
+                'some', 'any', 'all', 'no', 'not', 'very', 'too', 'so', 'just', 'only', 'also'
+            }
+            
+            # Extract all unique words from player comments
+            strategic_keywords = set()
+            
+            # Get player comments from patterns data
+            patterns_data = self.load_patterns_data()
+            if patterns_data:
+                pattern_list = [patterns_data[key] for key in patterns_data.keys() if key.startswith('pattern_')]
+                
+                for pattern in pattern_list:
+                    comment = pattern.get('comment', '')
+                    if comment and len(comment) > 10:  # Skip very short comments
+                        # Extract words from comment, clean and filter
+                        words = comment.lower().replace(',', ' ').replace('.', ' ').split()
+                        for word in words:
+                            # Clean word and filter
+                            word = word.strip('.,!?()[]{}":;')
+                            if (len(word) >= 3 and  # At least 3 characters
+                                word.isalpha() and  # Only alphabetic
+                                word not in common_words):  # Not a common word
+                                strategic_keywords.add(word)
+            
+            return list(strategic_keywords)
+            
+        except Exception as e:
+            # Fallback to basic strategic keywords if extraction fails
+            return ['cannon', 'rush', 'drop', 'proxy', 'timing', 'pressure', 'allin']
+
+    def _get_race_units(self):
+        """Get race-specific units and buildings from comprehensive JSON reference"""
+        try:
+            import json
+            import os
+            
+            # Load the comprehensive SC2 race data
+            json_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'sc2_race_data.json')
+            with open(json_path, 'r') as f:
+                race_data = json.load(f)
+            
+            # Combine all categories for each race and normalize to lowercase
+            race_units = {}
+            for race_name, race_info in race_data.items():
+                race_key = race_name.lower()
+                race_units[race_key] = set()
+                
+                # Add all units, buildings, spells/abilities, upgrades, and terminology
+                for category in ['Units', 'Buildings', 'Spells/Abilities', 'Upgrades', 'Terminology']:
+                    if category in race_info:
+                        for item in race_info[category]:
+                            # Normalize item to lowercase and remove spaces/special chars for matching
+                            normalized = item.lower().replace(' ', '').replace('-', '').replace('/', '').replace('(', '').replace(')', '').replace(':', '')
+                            race_units[race_key].add(normalized)
+                            
+                            # Also add individual words for better matching
+                            words = item.lower().split()
+                            for word in words:
+                                clean_word = word.replace('(', '').replace(')', '').replace(',', '').replace(':', '')
+                                if len(clean_word) >= 3:  # Only add meaningful words
+                                    race_units[race_key].add(clean_word)
+            
+            return race_units
+            
+        except Exception as e:
+            # Fallback to basic units if JSON loading fails
+            return {
+                'protoss': {'probe', 'zealot', 'stalker', 'cannon', 'templar', 'dark', 'shrine'},
+                'terran': {'scv', 'marine', 'reaper', 'mech', 'rax', 'banshee'},
+                'zerg': {'drone', 'zergling', 'banes', 'speedling', 'ling'}
+            }
+
+    def _determine_pattern_race(self, pattern_keywords):
+        """Determine the race of a pattern based on its keywords"""
+        if not pattern_keywords:
+            return 'unknown'
         
-        # Simple approach: count common units
-        units1 = set(seq1.split())
-        units2 = set(seq2.split())
+        race_units = self._get_race_units()
         
-        if not units1 or not units2:
-            return 0.0
+        # Convert keywords to lowercase and remove duplicates (fix for corrupted patterns)
+        keywords_lower = list(set([kw.lower() for kw in pattern_keywords if isinstance(kw, str)]))
         
-        common_units = len(units1.intersection(units2))
-        total_units = len(units1.union(units2))
+        # Count race-specific matches using unique keywords only
+        race_matches = {}
+        for race, units in race_units.items():
+            unique_matches = set()
+            for keyword in keywords_lower:
+                if keyword in units:
+                    unique_matches.add(keyword)
+            race_matches[race] = len(unique_matches)
         
-        return common_units / total_units if total_units > 0 else 0.0
-    
+        # Return the race with the most matches, or 'unknown' if no clear winner
+        max_matches = max(race_matches.values())
+        if max_matches == 0:
+            return 'unknown'
+        
+        # Find race(s) with max matches
+        best_races = [race for race, matches in race_matches.items() if matches == max_matches]
+        
+        # If there's a tie, return 'unknown' to be safe
+        if len(best_races) > 1:
+            return 'unknown'
+        
+        return best_races[0]
+
+    def _determine_pattern_race_from_comment(self, comment):
+        """Determine race from pattern comment text using same race unit lists"""
+        if not comment:
+            return 'unknown'
+        
+        race_units = self._get_race_units()
+        
+        comment_lower = comment.lower()
+        
+        # Count race-specific matches in comment
+        race_matches = {}
+        for race, units in race_units.items():
+            matches = 0
+            for unit in units:
+                if unit in comment_lower:
+                    matches += 1
+            race_matches[race] = matches
+        
+        # Return the race with the most matches, or 'unknown' if no clear winner
+        max_matches = max(race_matches.values())
+        if max_matches == 0:
+            return 'unknown'
+        
+        # Find race(s) with max matches
+        best_races = [race for race, matches in race_matches.items() if matches == max_matches]
+        
+        # If there's a tie, return 'unknown' to be safe
+        if len(best_races) > 1:
+            return 'unknown'
+        
+        return best_races[0]
+
     def generate_ml_analysis_message(self, analysis_data, twitch_bot, logger, contextHistory):
         """
         Generate ML analysis message via OpenAI and send to chat
@@ -354,31 +600,14 @@ class MLOpponentAnalyzer:
                 logger.error(f"Error generating ML analysis message: {e}")
 
 
-# Global instance for efficiency
-_ml_analyzer = None
-
 def get_ml_analyzer():
-    """Get or create the global ML analyzer instance"""
-    global _ml_analyzer
-    if _ml_analyzer is None:
-        _ml_analyzer = MLOpponentAnalyzer()
-    return _ml_analyzer
+    """Get or create ML analyzer instance"""
+    return MLOpponentAnalyzer()
 
 
 def analyze_opponent_for_game_start(opponent_name, opponent_race, current_map, twitch_bot, logger, contextHistory):
     """
-    Main entry point for ML opponent analysis during game start
-    
-    Args:
-        opponent_name: Name of the opponent
-        opponent_race: Race of the opponent  
-        current_map: Current map name
-        twitch_bot: TwitchBot instance (has .db attribute) for chat output and database access
-        logger: Logger instance
-        contextHistory: Chat context history
-    
-    Returns:
-        True if analysis was generated, False if skipped
+    Analyze opponent at game start and send ML analysis to chat
     """
     try:
         analyzer = get_ml_analyzer()
@@ -389,20 +618,14 @@ def analyze_opponent_for_game_start(opponent_name, opponent_race, current_map, t
             opponent_name, opponent_race, current_map, logger, db_instance
         )
         
-        # If no data or insufficient data, skip silently
-        if analysis_data is None:
+        if analysis_data:
+            # Generate and send ML analysis message
+            analyzer.generate_ml_analysis_message(analysis_data, twitch_bot, logger, contextHistory)
+            return True
+        else:
             return False
-        
-        # Generate and send ML analysis message
-        analyzer.generate_ml_analysis_message(
-            analysis_data, twitch_bot, logger, contextHistory
-        )
-        
-        if logger:
-            logger.info(f"ML Analysis sent to chat for opponent: {opponent_name}")
-        return True
-        
+            
     except Exception as e:
         if logger:
-            logger.error(f"Error in ML opponent analysis: {e}")
+            logger.error(f"Error in game start ML analysis: {e}")
         return False

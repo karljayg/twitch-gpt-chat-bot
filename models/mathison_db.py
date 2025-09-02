@@ -208,6 +208,7 @@ class Database:
         self.cursor.reset()
         try:
             # Define the query with JOIN to include player names
+            # Prioritize replays with player_comments, then by most recent date
             query = """
                 SELECT 
                     r.*, 
@@ -222,6 +223,7 @@ class Database:
                     OR 
                     p2.SC2_UserId = %s
                 ORDER BY 
+                    (r.Player_Comments IS NOT NULL AND r.Player_Comments != '') DESC,
                     r.Date_Played DESC
                 LIMIT 1;
             """
