@@ -29,7 +29,6 @@ class SC2PatternLearner:
     def prompt_for_player_comment(self, game_data):
         """
         Gracefully prompt for player comment after game ends
-        In Twitch bot context, automatically processes the game without requiring input
         """
         try:
             # Check if we've already processed this game (prevents duplicate prompts when watching replays)
@@ -38,18 +37,30 @@ class SC2PatternLearner:
                 self.logger.info(f"Game already processed (ID: {game_id}), skipping comment prompt")
                 return None
             
-            # In Twitch bot context, automatically process the game without requiring user input
-            # This allows the system to learn from all games, not just commented ones
-            self.logger.info(f"Auto-processing game for {game_data.get('opponent_name', 'Unknown')} on {game_data.get('map', 'Unknown')}")
+            # Display game summary and prompt for comment
+            game_summary = self._format_game_summary(game_data)
+            print("\n" + "="*60)
+            print("🎮 GAME COMPLETED - ENTER PLAYER COMMENT")
+            print("="*60)
+            print(game_summary)
+            print("="*60)
             
-            # Automatically process the game without comment
-            self.process_game_without_comment(game_data)
+            # Get player input
+            comment = input("Enter player comment about the game (or press Enter to skip): ").strip()
             
-            # Return a placeholder to indicate processing was done
-            return "auto_processed"
+            if comment:
+                # Process the comment
+                self._process_new_comment(game_data, comment)
+                self.logger.info(f"Player comment received: {comment}")
+                return comment
+            else:
+                # No comment provided, auto-process with AI
+                self.logger.info(f"No comment provided - auto-processing game for {game_data.get('opponent_name', 'Unknown')} on {game_data.get('map', 'Unknown')}")
+                self.process_game_without_comment(game_data)
+                return "auto_processed"
                 
         except Exception as e:
-            self.logger.error(f"Error in auto-comment processing: {e}")
+            self.logger.error(f"Error in comment prompt: {e}")
             return None
     
     def add_player_comment_later(self, opponent_name, map_name, date, comment):
