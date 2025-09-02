@@ -54,7 +54,7 @@ class MLOpponentAnalyzer:
             print(f"Error loading patterns data: {e}")
             return {"patterns": []}
     
-    def analyze_opponent_for_chat(self, opponent_name, opponent_race, current_map, logger, db=None):
+    def analyze_opponent_for_chat(self, opponent_name, opponent_race, logger, db=None):
         """
         Analyze opponent and generate chat message if enough data exists
         Enhanced: Falls back to database replay analysis with learned pattern matching
@@ -615,7 +615,7 @@ def analyze_opponent_for_game_start(opponent_name, opponent_race, current_map, t
         # Analyze opponent (enhanced with database fallback)
         db_instance = getattr(twitch_bot, 'db', None)
         analysis_data = analyzer.analyze_opponent_for_chat(
-            opponent_name, opponent_race, current_map, logger, db_instance
+            opponent_name, opponent_race, logger, db_instance
         )
         
         if analysis_data:

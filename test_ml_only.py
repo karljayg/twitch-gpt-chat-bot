@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """
-Test script for ML opponent analysis
-Usage: python analyze_player.py <opponent_name> <opponent_race>
-Example: python analyze_player.py grumpykitten protoss
+Simple test script for ML analysis only - bypasses chat system imports
 """
 
 import sys
@@ -19,9 +17,9 @@ class MockLogger:
     def warning(self, msg): print(f"[WARN] {msg}")
     def error(self, msg): print(f"[ERROR] {msg}")
 
-def test_ml_analysis_for_opponent(opponent_name, opponent_race):
-    """Test ML analysis for a specific opponent"""
-    print(f"🧪 Testing ML Analysis for: {opponent_name} ({opponent_race})")
+def test_ml_analysis_only():
+    """Test ML analysis without chat system dependencies"""
+    print("🧪 Testing ML Analysis (ML only)")
     print("=" * 60)
     
     try:
@@ -32,8 +30,8 @@ def test_ml_analysis_for_opponent(opponent_name, opponent_race):
         
         # Test the analysis
         result = analyzer.analyze_opponent_for_chat(
-            opponent_name=opponent_name,
-            opponent_race=opponent_race,
+            opponent_name="grumpykitten",
+            opponent_race="protoss",
             logger=logger,
             db=db
         )
@@ -62,38 +60,5 @@ def test_ml_analysis_for_opponent(opponent_name, opponent_race):
         import traceback
         traceback.print_exc()
 
-def test_multiple_opponents():
-    """Test ML analysis for multiple known opponents"""
-    test_cases = [
-        ("grumpykitten", "protoss"),
-        ("joebobjoe", "protoss"),
-        ("theblob", "protoss"),
-        ("markus", "protoss"),
-        ("braveboy", "zerg"),
-    ]
-    
-    for opponent_name, opponent_race in test_cases:
-        print(f"\n{'='*60}")
-        test_ml_analysis_for_opponent(opponent_name, opponent_race)
-        print(f"{'='*60}")
-
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python analyze_player.py <opponent_name> <opponent_race>")
-        print("Example: python analyze_player.py grumpykitten protoss")
-        print("\nOr run without arguments to test multiple opponents:")
-        print("python analyze_player.py all")
-        sys.exit(1)
-    
-    opponent_name = sys.argv[1]
-    
-    if opponent_name.lower() == "all":
-        test_multiple_opponents()
-    else:
-        if len(sys.argv) < 3:
-            print("Usage: python analyze_player.py <opponent_name> <opponent_race>")
-            print("Example: python analyze_player.py grumpykitten protoss")
-            sys.exit(1)
-        
-        opponent_race = sys.argv[2]
-        test_ml_analysis_for_opponent(opponent_name, opponent_race)
+    test_ml_analysis_only()

@@ -33,6 +33,7 @@ def game_started(self, current_game, contextHistory, logger):
                         # ML Analysis: Generate strategic intelligence if opponent is known
                         try:
                             current_map = getattr(current_game, 'map', 'Unknown')
+                            # Note: current_map is kept for logging but not used in ML analysis
                             analyze_opponent_for_game_start(
                                 player_name, player_current_race, current_map, 
                                 self, logger, contextHistory

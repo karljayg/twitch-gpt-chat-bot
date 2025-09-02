@@ -16,7 +16,10 @@ irc~=20.3.0
 logging~=0.4.9.6
 sc2reader @ git+https://github.com/GraylinKim/sc2reader.git
 spawningtool @ git+https://github.com/StoicLoofah/spawningtool.git
-langchain~=0.0.264
+langchain>=0.1.0
+langchain-community>=0.0.16
+langchain-openai>=0.0.5
+langchain-core>=0.1.17
 wikipedia
 tiktoken
 pygame
