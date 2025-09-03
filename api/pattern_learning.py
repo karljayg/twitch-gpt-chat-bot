@@ -45,9 +45,13 @@ class SC2PatternLearner:
             print(game_summary)
             print("="*60)
             
-            # Try to get player input, but handle cases where input() might not work
+            # Try to get player input with timeout
+            print("Enter player comment about the game (or press Enter to skip)")
+            print("Timeout: 30 seconds...")
             try:
-                comment = input("Enter player comment about the game (or press Enter to skip): ").strip()
+                comment = self._get_input_with_timeout("Comment: ", 30)
+                if comment is not None:
+                    comment = comment.strip()
             except (EOFError, OSError, KeyboardInterrupt):
                 # If input() fails (common in Twitch bot context), auto-process
                 self.logger.info(f"Input not available - auto-processing game for {game_data.get('opponent_name', 'Unknown')} on {game_data.get('map', 'Unknown')}")
@@ -60,10 +64,12 @@ class SC2PatternLearner:
                 self.logger.info(f"Player comment received: {comment}")
                 return comment
             else:
-                # No comment provided, auto-process with AI
-                self.logger.info(f"No comment provided - auto-processing game for {game_data.get('opponent_name', 'Unknown')} on {game_data.get('map', 'Unknown')}")
-                self.process_game_without_comment(game_data)
-                return "auto_processed"
+                # No comment provided (timeout or empty input) - skip processing
+                if comment is None:
+                    self.logger.info(f"Comment prompt timed out - skipping pattern learning for {game_data.get('opponent_name', 'Unknown')} on {game_data.get('map', 'Unknown')}")
+                else:
+                    self.logger.info(f"No comment provided - skipping pattern learning for {game_data.get('opponent_name', 'Unknown')} on {game_data.get('map', 'Unknown')}")
+                return None
                 
         except Exception as e:
             self.logger.error(f"Error in comment prompt: {e}")
@@ -1072,6 +1078,43 @@ class SC2PatternLearner:
             self.logger.error(f"Error getting new game insights: {e}")
             return []
     
+    def _get_input_with_timeout(self, prompt, timeout_seconds):
+        """Get user input with a timeout. Returns None if timeout or no input."""
+        import sys
+        import select
+        import threading
+
+        
+        # For Windows compatibility, use threading approach
+        if sys.platform.startswith('win'):
+            result = [None]
+            
+            def get_input():
+                try:
+                    result[0] = input(prompt)
+                except (EOFError, KeyboardInterrupt):
+                    result[0] = None
+            
+            input_thread = threading.Thread(target=get_input, daemon=True)
+            input_thread.start()
+            input_thread.join(timeout_seconds)
+            
+            if input_thread.is_alive():
+                self.logger.info(f"Input timeout after {timeout_seconds} seconds")
+                return None
+            
+            return result[0]
+        else:
+            # Unix/Linux approach with select
+            print(prompt, end='', flush=True)
+            ready, _, _ = select.select([sys.stdin], [], [], timeout_seconds)
+            
+            if ready:
+                return sys.stdin.readline().rstrip('\n')
+            else:
+                self.logger.info(f"Input timeout after {timeout_seconds} seconds")
+                return None
+
     def _generate_game_id(self, game_data):
         """Generate a unique identifier for a game to detect duplicates"""
         try:

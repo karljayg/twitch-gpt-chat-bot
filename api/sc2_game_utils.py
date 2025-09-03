@@ -26,13 +26,68 @@ def check_SC2_game_status(logger):
                 f"An error occurred while reading the test file: {e}")
             return None
     else:
+        # Enhanced connection handling with health monitoring
         try:
-            response = requests.get("http://localhost:6119/game")
+            # Use configurable timeout to prevent hanging
+            timeout = getattr(config, 'SC2_API_TIMEOUT_SECONDS', 3)
+            response = requests.get("http://localhost:6119/game", timeout=timeout)
             response.raise_for_status()
+            
+            # Track successful connections
+            if not hasattr(check_SC2_game_status, 'consecutive_successes'):
+                check_SC2_game_status.consecutive_successes = 0
+            check_SC2_game_status.consecutive_successes += 1
+            
+            # Reset failure counters on success
+            if hasattr(check_SC2_game_status, 'consecutive_failures'):
+                check_SC2_game_status.consecutive_failures = 0
+            
+            # Log connection health every 100 successful calls (every ~8 minutes) to reduce verbosity
+            if check_SC2_game_status.consecutive_successes % 100 == 0:
+                logger.info(f"SC2 API connection healthy - {check_SC2_game_status.consecutive_successes} consecutive successful polls")
+            
             return GameInfo(response.json())
+            
+        except requests.exceptions.Timeout:
+            # Handle timeout specifically
+            if not hasattr(check_SC2_game_status, 'consecutive_failures'):
+                check_SC2_game_status.consecutive_failures = 0
+            check_SC2_game_status.consecutive_failures += 1
+            
+            logger.debug(f"SC2 API timeout - {check_SC2_game_status.consecutive_failures} consecutive failures")
+            
+            # Log warning after 3 consecutive timeouts
+            if check_SC2_game_status.consecutive_failures >= 3:
+                logger.warning(f"SC2 API experiencing timeouts - {check_SC2_game_status.consecutive_failures} consecutive failures")
+            
+            return GameInfo({"status": "TIMEOUT"})
+            
+        except requests.exceptions.ConnectionError as e:
+            # Handle connection errors specifically
+            if not hasattr(check_SC2_game_status, 'consecutive_failures'):
+                check_SC2_game_status.consecutive_failures = 0
+            check_SC2_game_status.consecutive_failures += 1
+            
+            logger.debug(f"SC2 API connection error - {check_SC2_game_status.consecutive_failures} consecutive failures: {e}")
+            
+            # Log warning after 3 consecutive connection failures
+            if check_SC2_game_status.consecutive_failures >= 3:
+                logger.warning(f"SC2 API connection issues - {check_SC2_game_status.consecutive_failures} consecutive failures")
+            
+            return GameInfo({"status": "CONNECTION_ERROR"})
+            
         except Exception as e:
-            logger.debug(f"Is SC2 on? error: {e}")
-            #return None
+            # Handle other errors
+            if not hasattr(check_SC2_game_status, 'consecutive_failures'):
+                check_SC2_game_status.consecutive_failures = 0
+            check_SC2_game_status.consecutive_failures += 1
+            
+            logger.debug(f"SC2 API error - {check_SC2_game_status.consecutive_failures} consecutive failures: {e}")
+            
+            # Log warning after 3 consecutive failures
+            if check_SC2_game_status.consecutive_failures >= 3:
+                logger.warning(f"SC2 API experiencing errors - {check_SC2_game_status.consecutive_failures} consecutive failures")
+            
             return GameInfo({"status": "ERROR"})
 
 def handle_SC2_game_results(self, previous_game, current_game, contextHistory, logger):
