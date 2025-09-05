@@ -282,6 +282,7 @@ class Database:
         for row in results:
             opponent, wins, losses = row['Opponent'], row['Wins'], row['Losses']
             formatted_result = f"{player_name}, {opponent}, {wins} wins, {losses} losses"
+            self.logger.debug(f"Formatted result: '{formatted_result}' (player_name: '{player_name}', opponent: '{opponent}')")
             formatted_results.append(formatted_result)
 
         self.logger.debug(f"result: \n {formatted_results}")
@@ -598,6 +599,7 @@ class Database:
 
     def get_player_race_matchup_records(self, player_name):
         try:
+            self.logger.debug(f"get_player_race_matchup_records called with player_name: '{player_name}' (length: {len(player_name)})")
 
             query = """
             SELECT 

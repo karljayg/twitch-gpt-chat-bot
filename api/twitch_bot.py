@@ -22,6 +22,14 @@ from collections import defaultdict
 
 from settings import config
 
+# Force shutdown handler to prevent hanging on Ctrl+C
+def force_shutdown(sig, frame):
+    print('\nReceived interrupt signal - forcing immediate exit...')
+    sys.exit(0)
+
+# Register the signal handler
+signal.signal(signal.SIGINT, force_shutdown)
+
 # Initialize basic logger for import warnings
 import logging
 _import_logger = logging.getLogger(__name__)
@@ -139,7 +147,66 @@ logging.getLogger('urllib3').setLevel(logging.WARNING)
 # Suppress Discord gateway debug messages (websocket heartbeats)
 logging.getLogger('discord.gateway').setLevel(logging.INFO)
 
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+# Custom logging handler that tracks when log messages are printed
+# This enables smart spacing between log messages and visual indicators
+class MarkingStreamHandler(logging.StreamHandler):
+    """
+    Custom StreamHandler that tracks when log messages are emitted.
+    
+    This handler calls mark_log_output() after each log record is printed,
+    which allows the print_indicator() function to add proper spacing
+    between log messages and single-character status indicators.
+    """
+    def emit(self, record):
+        super().emit(record)
+        mark_log_output()  # Mark that a log message was just printed
+
+# Configure logging with the marking handler
+handler = MarkingStreamHandler(sys.stdout)
+handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
+logging.basicConfig(level=logging.DEBUG, handlers=[handler])
+
+# Smart indicator spacing system
+# This tracks whether the last output was a log message to provide clean separation
+# between verbose log messages and single-character visual indicators
+_last_output_was_log = False
+
+def mark_log_output():
+    """
+    Track that a log message was just printed.
+    
+    This function is called automatically by MarkingStreamHandler after each
+    log record is emitted. It sets a flag that print_indicator() uses to
+    determine if it needs to add spacing before the next indicator.
+    """
+    global _last_output_was_log
+    _last_output_was_log = True
+
+def print_indicator(indicator):
+    """
+    Print single-character status indicator with smart spacing.
+    
+    Visual indicators provide real-time system status without verbose logging:
+    - '.' = Normal operation (SC2 API working, heartbeat, etc.)
+    - 'o' = Errors or issues (SC2 API failures, speech recognition issues)
+    - '+' = Special events (database heartbeat, successful operations)
+    - 'x' = Speech recognition unknown value
+    - '?' = Speech recognition waiting/unclear state
+    - 'e' = Exception occurred
+    
+    Smart spacing: If the previous output was a log message, this adds a newline
+    before the indicator to visually separate it from the log text. Otherwise,
+    indicators are printed consecutively on the same line.
+    
+    Args:
+        indicator (str): Single character to print as status indicator
+    """
+    global _last_output_was_log
+    if _last_output_was_log:
+        print(f"\n{indicator}", end="", flush=True)  # Add newline before indicator
+        _last_output_was_log = False
+    else:
+        print(indicator, end="", flush=True)  # Normal indicator
 
 # Player names of streamer to check results for
 player_names = config.SC2_PLAYER_ACCOUNTS
@@ -262,12 +329,12 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         if not (getattr(config, 'ENABLE_AUDIO', True) and 
                 getattr(config, 'ENABLE_GAME_SOUNDS', True) and 
                 GAME_SOUNDS_AVAILABLE):
-            logger.debug(f"Game sounds disabled - would have played: {game_event}")
+            logger.debug(f"\nGame sounds disabled - would have played: {game_event}\n")
             return
             
         # Check if sound player was successfully initialized
         if self.sound_player is None:
-            logger.warning(f"Sound player not available - cannot play: {game_event}")
+            logger.warning(f"\nSound player not available - cannot play: {game_event}\n")
             return
             
         if config.PLAYER_INTROS_ENABLED:
@@ -339,7 +406,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
                         temp_filename = tmp_file.name
 
-                    print("o", end="", flush=True)
+                    print_indicator("o")
                     audio_data = sd.rec(int(chunk_duration * fs), samplerate=fs, channels=1, dtype='int16')
                     sd.wait()  # Wait until recording is finished
 
@@ -469,7 +536,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 try:
                     # Listen for the cue word "hey madison"
                     #logger.debug("Listening for 'hey madison' cue...")
-                    print("o", end="", flush=True)
+                    print_indicator("o")
                     audio = recognizer.listen(source, phrase_time_limit=2)  # Limit listening to 2 seconds
 
                     command = recognizer.recognize_google(audio).lower()
@@ -522,20 +589,20 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                             time.sleep(2)
                         except Exception as e:
                             #logger.error(f"Error during speech recognition: {e}")
-                            print("e", end="", flush=True)
+                            print_indicator("e")
                             time.sleep(2)
                     
                     else:
-                        print("?", end="", flush=True)
+                        print_indicator("?")
                         
                 except sr.UnknownValueError:
-                    print("x", end="", flush=True)
+                    print_indicator("x")
                 except sr.RequestError as e:
                     logger.error(f"Request error from speech recognition service: {e}")
                     time.sleep(2)  # Prevent rapid retries
                 except Exception as e:
                     #logger.error(f"Error during speech recognition: {e}")
-                    print("e", end="", flush=True)
+                    print_indicator("e")
                     time.sleep(2)  # Prevent rapid retries
 
     def monitor_game(self):
@@ -553,26 +620,40 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             if sc2_monitoring_enabled:
                 try:
                     current_game = check_SC2_game_status(logger)
-                    if (current_game.get_status() == "MATCH_STARTED" or current_game.get_status() == "REPLAY_STARTED"):
-                        self.conversation_mode = "in_game"
+                    
+                    if current_game and hasattr(current_game, 'get_status'):
+                        if (current_game.get_status() == "MATCH_STARTED" or current_game.get_status() == "REPLAY_STARTED"):
+                            self.conversation_mode = "in_game"
+                        else:
+                            self.conversation_mode = "normal"
                     else:
+                        # If no game data, maintain normal conversation mode
                         self.conversation_mode = "normal"
                     if current_game:
-                        if config.IGNORE_GAME_STATUS_WHILE_WATCHING_REPLAYS and current_game.isReplay:
-                            pass
-                        else:
-                            # wait so abandoned games doesnt result in false data of 0 seconds
-                            time.sleep(2)
-                            # self.handle_SC2_game_results(
-                            #    previous_game, current_game)
-                            handle_SC2_game_results(self, previous_game,
-                                                     current_game, contextHistory, logger)
+                        # Check if this is a replay of someone else's game (not involving the streamer)
+                        try:
+                            # Only skip if watching replays of OTHER people's games
+                            should_skip = False
+                            if hasattr(current_game, 'isReplay') and current_game.isReplay and config.IGNORE_GAME_STATUS_WHILE_WATCHING_REPLAYS:
+                                player_names = current_game.get_player_names()
+                                streamer_is_playing = any(name in config.SC2_PLAYER_ACCOUNTS for name in player_names)
+                                if not streamer_is_playing:
+                                    should_skip = True
+                            
+                            if not should_skip:
+                                # wait so abandoned games doesnt result in false data of 0 seconds
+                                time.sleep(2)
+                                handle_SC2_game_results(self, previous_game, current_game, contextHistory, logger)
+                        except Exception as e:
+                            logger.debug(f"Error processing game status: {e}")
 
                     previous_game = current_game
 
                 except Exception as e:
-                    # Log SC2 connection errors but continue with normal timing
-                    logger.debug(f"Error in monitor_game loop: {e}")
+                    # Only log unexpected errors, not SC2 API connection issues (already handled)
+                    if "isReplay" not in str(e) and "HTTPConnectionPool" not in str(e):
+                        logger.debug(f"Unexpected error in monitor_game loop: {e}")
+                    # SC2 API connection errors are already logged by check_SC2_game_status
             else:
                 # SC2 monitoring disabled - just maintain normal conversation mode
                 self.conversation_mode = "normal"
@@ -589,12 +670,20 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                     self.db.keep_connection_alive()
                     heartbeat_counter = 0  # Reset the counter after sending the heartbeat
                     # heartbeat indicator
-                    print("+", end="", flush=True)                        
+                    print_indicator("+")                        
                 except Exception as e:
                     logger.error(f"Error during database heartbeat call: {e}")                       
             else:
-                # heartbeat indicator
-                print(".", end="", flush=True)
+                # heartbeat indicator - show SC2 API status if monitoring enabled
+                if config.ENABLE_SC2_MONITORING:
+                    # Check if SC2 API has recent failures
+                    from api.sc2_game_utils import check_SC2_game_status
+                    if hasattr(check_SC2_game_status, 'consecutive_failures') and check_SC2_game_status.consecutive_failures > 0:
+                        print_indicator("o")  # SC2 API errors
+                    else:
+                        print_indicator(".")  # SC2 API working
+                else:
+                    print_indicator(".")  # Normal heartbeat when SC2 disabled
 
     # This is a callback method that is invoked when bot successfully connects to an IRC Server
     def on_welcome(self, connection, event):

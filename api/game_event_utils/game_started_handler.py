@@ -221,7 +221,16 @@ def game_started(self, current_game, contextHistory, logger):
                                     msg = f"restate this with all details: This is the first time {config.STREAMER_NICKNAME} played {player_name} in this {streamer_picked_race} versus {player_current_race} matchup."
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
 
-                            msg = f"The CSV is listed as player1, player2, player 1 wins, player 1 losses. Respond with only 10 words with player1's name, and player1's total wins and total losses from the {player_record} \n"
+                            # Ensure we preserve the full player name and don't truncate the data
+                            msg = f"IMPORTANT: The player name is '{player_name}' (exactly {len(player_name)} characters). Do NOT truncate or modify this name.\n\n"
+                            msg += f"The CSV is listed as player1, player2, player 1 wins, player 1 losses. Respond with only 10 words with player1's name, and player1's total wins and total losses from the past results. Use the exact player name '{player_name}'. \n"
+                            msg += f"Past results for {player_name}:\n{player_record}\n"
+                            
+                            # Debug logging to see what's being sent
+                            logger.debug(f"Player name being sent to AI: '{player_name}' (length: {len(player_name)})")
+                            logger.debug(f"Player record length: {len(player_record)}")
+                            logger.debug(f"Full message length: {len(msg)}")
+                            
                             processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
 
                         else:

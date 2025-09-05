@@ -66,9 +66,9 @@ This document explains the reasoning behind data collection, organization, and s
 - **Benefit**: Minimal privacy exposure while maintaining functionality
 
 #### Opponent Build Orders
-- **Why Not**: Focus on improving own gameplay, not scouting opponents
-- **Alternative**: Strategic comments about opponent strategies
-- **Benefit**: Simpler data model, privacy-friendly
+- **Why Yes**: Learning opponent build patterns helps understand their tendencies and improve counter-strategies
+- **Implementation**: Extract and analyze opponent build orders from replays to identify strategic patterns
+- **Benefit**: Data-driven insights for repeat opponents, better strategic preparation
 
 #### Mid/Late Game Micro
 - **Why Not**: Too variable, skill-dependent rather than strategic

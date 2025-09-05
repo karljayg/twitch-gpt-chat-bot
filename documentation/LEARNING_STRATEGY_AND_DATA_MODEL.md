@@ -63,7 +63,7 @@ The SC2 Pattern Learning System operates on the principle that **expert human in
 #### ❌ Excluded Data
 - **Personal Information**: Beyond game usernames
 - **Complete Replays**: Only strategic summaries
-- **Opponent Strategies**: Focus on own build patterns
+- **Opponent Strategies**: Analyze opponent build patterns and strategic tendencies
 - **Micro-management**: Unit control details
 
 ### Collection Rationale

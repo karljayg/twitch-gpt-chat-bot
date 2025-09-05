@@ -30,9 +30,9 @@ class LogOnceWithinIntervalFilter(logging.Filter):
                 similarity = SequenceMatcher(
                     None, self.last_logged_message, record.msg).ratio()
                 if similarity > self.similarity_threshold:
-                    if self.loop_count % self.loops_to_print == 0:  # Check if it's time to print
-                        print(
-                            f"suppressed: {math.floor(time_left.total_seconds())} secs")
+                    # Suppressed message - no need to print since visual indicators show status
+                    # if self.loop_count % self.loops_to_print == 0:  # Check if it's time to print
+                    #     print(f"suppressed: {math.floor(time_left.total_seconds())} secs")
                     return False
 
         self.last_logged_message = record.msg

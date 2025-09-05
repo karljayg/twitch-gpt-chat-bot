@@ -714,6 +714,74 @@ data/
 └── learning_stats.json.backup  # Backup before cleanup
 ```
 
+## ML Opponent Analysis Configuration
+
+The ML Opponent Analysis system uses configurable thresholds to determine when to suggest analysis of previous replays when a game starts. These settings are located in `settings/config.py`:
+
+### **Similarity Thresholds**
+
+```python
+# ML Opponent Analysis Settings
+ENABLE_ML_OPPONENT_ANALYSIS = True  # Enable ML analysis of opponents at game start
+ML_ANALYSIS_SIMILARITY_THRESHOLD = 0.05  # Minimum similarity score (5%) to suggest ML analysis
+ML_ANALYSIS_STRATEGIC_BONUS = 0.1  # 10% bonus per strategic keyword match
+ML_ANALYSIS_COMMENT_EXACT_MATCH_BONUS = 1.0  # 100% bonus for exact comment matches
+ML_ANALYSIS_COMMENT_KEYWORD_BONUS = 0.5  # 50% bonus for keyword overlap with opponent comments
+ML_ANALYSIS_COMMENT_REVERSE_BONUS = 0.3  # 30% bonus for reverse keyword matches
+```
+
+### **How Similarity Scoring Works**
+
+1. **Base Similarity**: Calculated as `common_keywords / total_opponent_units`
+2. **Strategic Bonus**: +10% per strategic keyword match (configurable)
+3. **Comment Priority Boost**:
+   - **Exact Match**: +100% bonus for identical comments
+   - **Keyword Overlap**: +50% bonus for shared keywords
+   - **Reverse Match**: +30% bonus for reverse keyword matches
+
+### **Example Calculation**
+
+If an opponent's build has:
+- 3 units matching learned pattern keywords out of 10 total units = 30% base similarity
+- 2 strategic keyword matches = +20% strategic bonus
+- Exact comment match = +100% comment bonus
+- **Final Score**: 30% + 20% + 100% = 150%
+
+Since 150% > 5% threshold, ML analysis is suggested.
+
+### **Tuning Recommendations**
+
+- **Lower threshold (0.02-0.03)**: More aggressive analysis, catches subtle patterns
+- **Higher threshold (0.08-0.10)**: More conservative, only strong matches
+- **Current (0.05)**: Balanced approach, catches strategic patterns like DT builds
+
+## System Monitoring and Heartbeat Indicators
+
+The application provides real-time status indicators during operation to show system health:
+
+### **Heartbeat Indicators**
+```
+........+........+........+........+
+```
+
+- **"."** = Normal heartbeat (every 5 seconds) - System is running normally
+- **"+"** = Database heartbeat (every 20 iterations = 100 seconds) - Database connection is active
+
+### **Connection Status Indicators**
+```
+ooooooowwwwww
+```
+
+- **"o"** = SC2 API connection error - Replaces repetitive connection error logs
+- **"w"** = Watchdog alert - Only appears when polling has been failing for extended periods (actual connection issues)
+
+### **Log Behavior**
+- **Connection errors**: Only logged once, then uses "o" indicators
+- **Watchdog alerts**: Only alerts on actual polling failures, not normal "no game" states
+- **Critical errors**: Logged every 50 consecutive failures or when exceeding thresholds
+
+This clean indicator system prevents log spam while providing real-time system health visibility. The watchdog only triggers on genuine connection issues, not when no games are active.
+
 ## Conclusion
 
 The SC2 Pattern Learning System represents a significant advancement in automated StarCraft 2 analysis. By combining your expert insights with AI pattern recognition, it creates a powerful tool for understanding opponent tendencies and improving strategic decision-making.
@@ -721,7 +789,7 @@ The SC2 Pattern Learning System represents a significant advancement in automate
 The system is designed to be:
 - **Intelligent**: Learns from your expertise
 - **Persistent**: Maintains knowledge across sessions
-- **Configurable**: Adapts to your preferences
+- **Configurable**: Adapts to your preferences with tunable ML thresholds
 - **Extensible**: Ready for future enhancements
 - **Robust**: Properly distinguishes real games from replays
 - **Efficient**: Prevents duplicate learning and redundant prompts

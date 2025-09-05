@@ -8,6 +8,7 @@ import os
 import re
 from collections import Counter
 from api.chat_utils import processMessageForOpenAI
+import settings.config as config
 
 
 class MLOpponentAnalyzer:
@@ -300,7 +301,7 @@ class MLOpponentAnalyzer:
                 # Calculate similarity with strategic weighting
                 if len(opponent_units) > 0:
                     base_similarity = common_keywords / len(opponent_units)
-                    strategic_bonus = strategic_matches * 0.1  # 10% bonus per strategic match
+                    strategic_bonus = strategic_matches * getattr(config, 'ML_ANALYSIS_STRATEGIC_BONUS', 0.1)  # Configurable bonus per strategic match
                     similarity_score = base_similarity + strategic_bonus
                 else:
                     similarity_score = 0
@@ -314,17 +315,17 @@ class MLOpponentAnalyzer:
                     
                     # Check for exact or very close comment matches
                     if pattern_comment_lower == opponent_comment_lower:
-                        comment_priority_boost = 1.0  # 100% bonus for exact match
+                        comment_priority_boost = getattr(config, 'ML_ANALYSIS_COMMENT_EXACT_MATCH_BONUS', 1.0)  # Configurable exact match bonus
                         if logger:
-                            logger.debug(f"EXACT COMMENT MATCH: '{pattern_comment_lower}' = '{opponent_comment_lower}' - +1.0 boost")
+                            logger.debug(f"EXACT COMMENT MATCH: '{pattern_comment_lower}' = '{opponent_comment_lower}' - +{comment_priority_boost} boost")
                     elif any(keyword in opponent_comment_lower for keyword in pattern_keywords_lower):
-                        comment_priority_boost = 0.5  # 50% bonus for keyword overlap
+                        comment_priority_boost = getattr(config, 'ML_ANALYSIS_COMMENT_KEYWORD_BONUS', 0.5)  # Configurable keyword overlap bonus
                         if logger:
-                            logger.debug(f"KEYWORD OVERLAP: '{pattern_keywords_lower}' in '{opponent_comment_lower}' - +0.5 boost")
+                            logger.debug(f"KEYWORD OVERLAP: '{pattern_keywords_lower}' in '{opponent_comment_lower}' - +{comment_priority_boost} boost")
                     elif any(keyword in pattern_comment_lower for keyword in opponent_comment_lower.split()):
-                        comment_priority_boost = 0.3  # 30% bonus for reverse keyword match
+                        comment_priority_boost = getattr(config, 'ML_ANALYSIS_COMMENT_REVERSE_BONUS', 0.3)  # Configurable reverse keyword bonus
                         if logger:
-                            logger.debug(f"REVERSE KEYWORD MATCH: '{opponent_comment_lower.split()}' in '{pattern_comment_lower}' - +0.3 boost")
+                            logger.debug(f"REVERSE KEYWORD MATCH: '{opponent_comment_lower.split()}' in '{pattern_comment_lower}' - +{comment_priority_boost} boost")
                 
                 # Apply comment priority boost
                 similarity_score += comment_priority_boost
@@ -334,7 +335,7 @@ class MLOpponentAnalyzer:
                 # No artificial strategic conflict filtering - let pattern matching work naturally
                 # based on what actually exists in the build order and player comments
                 
-                if similarity_score > 0.05:  # 5% similarity threshold (more lenient for strategic patterns like DT)
+                if similarity_score > getattr(config, 'ML_ANALYSIS_SIMILARITY_THRESHOLD', 0.05):  # Configurable similarity threshold
                     matched_patterns.append({
                         'comment': pattern.get('comment', 'Unknown strategy'),
                         'keywords': pattern_keywords[:10],  # First 10 keywords

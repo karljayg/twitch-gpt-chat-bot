@@ -13,6 +13,56 @@ from collections import defaultdict
 from settings import config
 from models.game_info import GameInfo
 
+def reset_sc2_connection():
+    """
+    Force a fresh HTTP connection to SC2 API when stuck in bad state.
+    
+    This function is called after 5 consecutive SC2 API failures to attempt
+    connection recovery. It tests multiple connection methods to find one that works:
+    - localhost:6119 (standard local connection)
+    - 127.0.0.1:6119 (IP-based connection, bypasses DNS resolution issues)
+    
+    The function uses completely fresh HTTP sessions to avoid cached connection
+    pool issues that can cause the main requests to remain stuck even when
+    the API is actually available.
+    
+    Returns:
+        bool: True if reset successful and API is reachable, False if API is truly down
+        
+    Side Effects:
+        - Updates reset_sc2_connection.working_url with the successful URL
+        - Sets this URL to None if all connection methods fail
+    """
+    import time
+    
+    # Test URLs to try (localhost can sometimes have resolution issues)
+    test_urls = [
+        "http://localhost:6119/game",
+        "http://127.0.0.1:6119/game"
+    ]
+    
+    for url in test_urls:
+        try:
+            # Create completely fresh session (no connection pooling)
+            with requests.Session() as session:
+                # Try fresh connection with shorter timeout for testing
+                response = session.get(url, timeout=5)
+                if response.status_code == 200:
+                    # Connection successful! Update the working URL for future use
+                    reset_sc2_connection.working_url = url
+                    return True
+                
+        except Exception:
+            # This URL failed, try the next one
+            continue
+    
+    # All connection methods failed
+    reset_sc2_connection.working_url = None
+    return False
+
+# Store the working URL that reset found
+reset_sc2_connection.working_url = None
+
 
 @staticmethod
 def check_SC2_game_status(logger):
@@ -30,7 +80,17 @@ def check_SC2_game_status(logger):
         try:
             # Use configurable timeout to prevent hanging
             timeout = getattr(config, 'SC2_API_TIMEOUT_SECONDS', 10)
-            response = requests.get("http://localhost:6119/game", timeout=timeout)
+            
+            # Use the working URL if reset found one, otherwise default to localhost
+            url = getattr(reset_sc2_connection, 'working_url', None) or "http://localhost:6119/game"
+            
+            # Use fresh session if we just did a successful reset
+            if hasattr(check_SC2_game_status, 'use_fresh_session') and check_SC2_game_status.use_fresh_session:
+                with requests.Session() as session:
+                    response = session.get(url, timeout=timeout)
+                check_SC2_game_status.use_fresh_session = False  # Only use once
+            else:
+                response = requests.get(url, timeout=timeout)
             response.raise_for_status()
             
             # Track successful connections
@@ -55,11 +115,21 @@ def check_SC2_game_status(logger):
                 check_SC2_game_status.consecutive_failures = 0
             check_SC2_game_status.consecutive_failures += 1
             
-            logger.debug(f"SC2 API timeout - {check_SC2_game_status.consecutive_failures} consecutive failures")
-            
-            # Log warning after 3 consecutive timeouts
-            if check_SC2_game_status.consecutive_failures >= 3:
+            # Log full message on first timeout, then use visual indicators for repeats
+            if check_SC2_game_status.consecutive_failures == 1:  # First timeout
+                logger.debug(f"SC2 API timeout: request exceeded {getattr(config, 'SC2_API_TIMEOUT_SECONDS', 10)} seconds")
+            elif check_SC2_game_status.consecutive_failures == 3:  # Escalate to warning after 3 timeouts
                 logger.warning(f"SC2 API experiencing timeouts - {check_SC2_game_status.consecutive_failures} consecutive failures")
+            elif check_SC2_game_status.consecutive_failures == 5:  # Try connection reset after 5 failures
+                logger.info("Attempting SC2 API connection reset (timeouts)...")
+                if reset_sc2_connection():
+                    logger.info("SC2 API connection reset successful!")
+                    check_SC2_game_status.consecutive_failures = 0  # Reset counter
+                    check_SC2_game_status.use_fresh_session = True  # Use fresh session on next call
+                    return check_SC2_game_status(logger)  # Retry immediately
+                else:
+                    logger.warning("SC2 API connection reset failed - API may be down")
+            # All subsequent timeouts just use visual indicators (no log spam)
             
             return GameInfo({"status": "TIMEOUT"})
             
@@ -69,11 +139,21 @@ def check_SC2_game_status(logger):
                 check_SC2_game_status.consecutive_failures = 0
             check_SC2_game_status.consecutive_failures += 1
             
-            logger.debug(f"SC2 API connection error - {check_SC2_game_status.consecutive_failures} consecutive failures: {e}")
-            
-            # Log warning after 3 consecutive connection failures
-            if check_SC2_game_status.consecutive_failures >= 3:
+            # Log full message on first failure, then use visual indicators for repeats
+            if check_SC2_game_status.consecutive_failures == 1:  # First failure
+                logger.debug(f"SC2 API connection error: {e}")
+            elif check_SC2_game_status.consecutive_failures == 3:  # Escalate to warning after 3 failures
                 logger.warning(f"SC2 API connection issues - {check_SC2_game_status.consecutive_failures} consecutive failures")
+            elif check_SC2_game_status.consecutive_failures == 5:  # Try connection reset after 5 failures
+                logger.info("Attempting SC2 API connection reset (connection errors)...")
+                if reset_sc2_connection():
+                    logger.info("SC2 API connection reset successful!")
+                    check_SC2_game_status.consecutive_failures = 0  # Reset counter
+                    check_SC2_game_status.use_fresh_session = True  # Use fresh session on next call
+                    return check_SC2_game_status(logger)  # Retry immediately
+                else:
+                    logger.warning("SC2 API connection reset failed - API may be down")
+            # All subsequent failures just use visual indicators (no log spam)
             
             return GameInfo({"status": "CONNECTION_ERROR"})
             
@@ -83,11 +163,21 @@ def check_SC2_game_status(logger):
                 check_SC2_game_status.consecutive_failures = 0
             check_SC2_game_status.consecutive_failures += 1
             
-            logger.debug(f"SC2 API error - {check_SC2_game_status.consecutive_failures} consecutive failures: {e}")
-            
-            # Log warning after 3 consecutive failures
-            if check_SC2_game_status.consecutive_failures >= 3:
+            # Log full message on first error, then use visual indicators for repeats
+            if check_SC2_game_status.consecutive_failures == 1:  # First error
+                logger.debug(f"SC2 API error: {e}")
+            elif check_SC2_game_status.consecutive_failures == 3:  # Escalate to warning after 3 errors
                 logger.warning(f"SC2 API experiencing errors - {check_SC2_game_status.consecutive_failures} consecutive failures")
+            elif check_SC2_game_status.consecutive_failures == 5:  # Try connection reset after 5 failures
+                logger.info("Attempting SC2 API connection reset...")
+                if reset_sc2_connection():
+                    logger.info("SC2 API connection reset successful!")
+                    check_SC2_game_status.consecutive_failures = 0  # Reset counter
+                    check_SC2_game_status.use_fresh_session = True  # Use fresh session on next call
+                    return check_SC2_game_status(logger)  # Retry immediately
+                else:
+                    logger.warning("SC2 API connection reset failed - API may be down")
+            # All subsequent errors just use visual indicators (no log spam)
             
             return GameInfo({"status": "ERROR"})
 
@@ -109,9 +199,9 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
     actual_previous_game = previous_game
     previous_game = current_game
     if previous_game:
-        logger.debug(f"GAME STATES (2): {previous_game}, {current_game.get_status()}, {previous_game.get_status()} \n")
+        logger.debug(f"GAME STATES (2): {previous_game}, {current_game.get_status()}, {previous_game.get_status()}")
     else:
-        logger.debug(f"GAME STATES (3): {previous_game}, {current_game.get_status()}, {previous_game.get_status()} \n")
+        logger.debug(f"GAME STATES (3): {previous_game}, {current_game.get_status()}, {previous_game.get_status()}")
 
     response = ""
     replay_summary = ""
