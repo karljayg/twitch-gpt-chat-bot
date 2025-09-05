@@ -1,0 +1,14 @@
+[33mb707f8f[m Fix: Integrate pattern learning system with database to save player comments to REPLAYS.Player_Comments table
+[33mb4cbbc9[m improved code structure, and auto text2speech for the player comments
+[33m35b5ebe[m custom comments about player now added to the database. voice command triggered by "mathison" then "player comments", so it will be a note to remember and remind next time u play the opponent again.
+[33m6835af4[m commands will return what mathison will respond to as special functions like getting player records
+[33m956eabd[m career records for a player is now available, including all race vs race matchups
+[33mb735006[m -head to head record for 2 players is now available as a command. It also lists diff race matchups as separate records. -configurable text to speech -smarter "games in last x hours" command -clear contextHistory if larger than 15. This is useful in bot running in regular chat, no game activity. -add message to IRC/twitch chat cleanup function for illegal newline/tab/non-printable characters
+[33mdab6247[m added past results vs the players fixed references for load replays
+[33md868c6b[m when observing 2 players, message is updated
+[33m22980dd[m [update] refactor sound player module
+[33m2f64a87[m [fix] regex to get player name
+[33mbb723ae[m cleanup, bug fixes: cursor issues token max timing issues data type errors logging updates race/issue find player issues etc.
+[33mb3c0aed[m turn on/off the SC2 player intros & other sounds
+[33m14e28ea[m -Tokenizer updates to include tiktoken -in Replay Summary, Units Lost moved to top, above Build Orders -this is in case truncated due to length -on previous results if allowed for first run, msg adjustment as there are no players from prev. results
+[33m76e866d[m cleaned up player/results/game status, fixed ignore user bug, ctrl-C kill signal to aid in ending execution, also fixed bug where monitor_game kept all attention, so put that in a thread.

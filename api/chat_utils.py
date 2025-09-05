@@ -11,7 +11,17 @@ import utils.wiki_utils as wiki_utils
 import utils.tokensArray as tokensArray
 import string
 from models.mathison_db import Database
-from .text2speech import speak_text 
+# Conditional audio imports
+try:
+    if getattr(config, 'ENABLE_AUDIO', True):
+        from api.text2speech import speak_text
+        TTS_AVAILABLE = True
+    else:
+        TTS_AVAILABLE = False
+        speak_text = None
+except (ImportError, AttributeError):
+    TTS_AVAILABLE = False
+    speak_text = None 
 
 # This function logs that the bot is starting with also logs some configurations of th bot
 # This also sends random emoticon to twitch chat room
@@ -130,8 +140,11 @@ def msgToChannel(self, message, logger, text2speech=False, send_to_discord=False
                 response = completion.choices[0].message.content
                 truncated_message_str = response
 
-            # Speak the processed message
-            speak_text(truncated_message_str, mode=1)
+            # Speak the processed message if TTS is available
+            if TTS_AVAILABLE and speak_text is not None:
+                speak_text(truncated_message_str, mode=1)
+            else:
+                logger.debug(f"TTS not available - would have said: {truncated_message_str}")
         except Exception as e:
             logger.error(f"Error in text-to-speech: {e}")
         finally:
@@ -460,7 +473,10 @@ def send_prompt_to_openai(msg):
     :param msg: The message to send to OpenAI as a prompt.
     :return: The response from OpenAI.
     """
-    completion = openai.ChatCompletion.create(
+    from openai import OpenAI
+    
+    client = OpenAI(api_key=config.OPENAI_API_KEY)
+    completion = client.chat.completions.create(
         model=config.ENGINE,
         messages=[
             {"role": "user", "content": msg}
@@ -555,16 +571,21 @@ def process_ai_message(user_message, conversation_mode="normal", contextHistory=
                 contextHistory.clear()
             else:
                 pass
-            # Add custom SC2 viewer perspective
-            msg = (f"As a {mood} acquaintance of {config.STREAMER_NICKNAME}, {perspective}, "
+            # Mathison is an AI bot watching the stream with everyone else, not referencing the streamer
+            msg = (f"As a {mood} AI bot named Mathison watching this StarCraft 2 stream, {perspective}, "
                     + msg)
         else:
             if (conversation_mode == "in_game"):
                 msg = (f"As a {mood} observer of matches in StarCraft 2, {perspective}, comment on this statement: "
                         + msg)
             else:
-                msg = (f"As a {mood} observer of matches in StarCraft 2, {perspective}, "
-                        + msg)
+                if conversation_mode == "replay_analysis":
+                    msg = (f"As a {mood} observer of matches in StarCraft 2, {perspective}. "
+                            + "IMPORTANT: Use ONLY the Winners/Losers data provided - do NOT make assumptions about who won. "
+                            + msg)
+                else:
+                    msg = (f"As a {mood} observer of matches in StarCraft 2, {perspective}, "
+                            + msg)
 
     logger.debug("CONVERSATION MODE: " + conversation_mode)
     logger.debug("sent to OpenAI: %s", msg)
@@ -611,6 +632,36 @@ def process_ai_message(user_message, conversation_mode="normal", contextHistory=
                 contextHistory, 'AI: ' + response + "\n", logger)
 
             logger.debug(f'AI response generated: {response}')
+            
+            # For replay analysis, validate that the response doesn't contradict the actual game results
+            if conversation_mode == "replay_analysis" and "Winners:" in msg and "Losers:" in msg:
+                # Extract winners and losers from the original message
+                winners_line = [line for line in msg.split('\n') if line.startswith('Winners:')]
+                losers_line = [line for line in msg.split('\n') if line.startswith('Losers:')]
+                
+                if winners_line and losers_line:
+                    winners = winners_line[0].replace('Winners:', '').strip()
+                    losers = losers_line[0].replace('Losers:', '').strip()
+                    
+                    # Check if AI response contradicts the actual results
+                    if winners and losers:
+                        response_lower = response.lower()
+                        winners_lower = winners.lower()
+                        losers_lower = losers.lower()
+                        
+                        # If AI says loser won, fix it
+                        if losers_lower in response_lower and "win" in response_lower and "victory" in response_lower:
+                            logger.warning(f"AI hallucinated wrong winner! Said {losers} won when {winners} actually won. Fixing response.")
+                            response = response.replace(f"{losers} won", f"{winners} won")
+                            response = response.replace(f"{losers} victory", f"{winners} victory")
+                            response = response.replace(f"{losers} took", f"{winners} took")
+                        
+                        # If AI says winner lost, fix it  
+                        if winners_lower in response_lower and "loss" in response_lower and "defeat" in response_lower:
+                            logger.warning(f"AI hallucinated wrong loser! Said {winners} lost when {losers} actually lost. Fixing response.")
+                            response = response.replace(f"{winners} lost", f"{losers} lost")
+                            response = response.replace(f"{winners} defeat", f"{losers} defeat")
+            
             logger.debug(
                 f'Conversation in context so far: {tokensArray.get_printed_array("reversed", contextHistory)}')
             

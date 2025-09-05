@@ -1,0 +1,5 @@
+---
+description: machine learning from replays
+globs: do not hard code learning. use replay_summary only, and my comments. Nothing else.
+alwaysApply: true
+---

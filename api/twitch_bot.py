@@ -12,35 +12,111 @@ import math
 import spawningtool.parser
 import tiktoken
 import pytz
-import api.text2speech as ts
-import speech_recognition as sr
 import api.chat_utils as chat_utils
 import tempfile  # For creating temporary files
-import sounddevice as sd  # For audio recording
-import scipy.io.wavfile as wavfile  # For saving audio as WAV
 import os  # For file operations (e.g., removing temporary files)
-import numpy as np  # For numerical operations
 import re
 
 from datetime import datetime
 from collections import defaultdict
 
 from settings import config
+
+# Force shutdown handler to prevent hanging on Ctrl+C
+def force_shutdown(sig, frame):
+    print('\nReceived interrupt signal - forcing immediate exit...')
+    sys.exit(0)
+
+# Register the signal handler
+signal.signal(signal.SIGINT, force_shutdown)
+
+# Initialize basic logger for import warnings
+import logging
+_import_logger = logging.getLogger(__name__)
+
+# Conditional audio imports - only import when audio features are enabled
+# This allows the bot to run on servers without audio libraries installed
+if getattr(config, 'ENABLE_AUDIO', True):
+    try:
+        import api.text2speech as ts
+        AUDIO_IMPORTS_AVAILABLE = True
+    except ImportError as e:
+        _import_logger.warning(f"Text-to-speech imports failed: {e}. TTS will be disabled.")
+        AUDIO_IMPORTS_AVAILABLE = False
+        ts = None
+        
+    if getattr(config, 'ENABLE_SPEECH_TO_TEXT', True):
+        try:
+            import speech_recognition as sr
+            import sounddevice as sd  # For audio recording
+            import scipy.io.wavfile as wavfile  # For saving audio as WAV
+            import numpy as np  # For numerical operations
+            STT_IMPORTS_AVAILABLE = True
+        except ImportError as e:
+            _import_logger.warning(f"Speech-to-text imports failed: {e}. STT will be disabled.")
+            STT_IMPORTS_AVAILABLE = False
+            sr = None
+            sd = None
+            wavfile = None
+            np = None
+    else:
+        STT_IMPORTS_AVAILABLE = False
+        sr = None
+        sd = None 
+        wavfile = None
+        np = None
+else:
+    AUDIO_IMPORTS_AVAILABLE = False
+    STT_IMPORTS_AVAILABLE = False
+    ts = None
+    sr = None
+    sd = None
+    wavfile = None
+    np = None
 import utils.tokensArray as tokensArray
 import utils.wiki_utils as wiki_utils
 from models.mathison_db import Database
 from models.log_once_within_interval_filter import LogOnceWithinIntervalFilter
 from utils.emote_utils import get_random_emote
 from utils.file_utils import find_latest_file
-from utils.sound_player_utils import SoundPlayer
-from .sc2_game_utils import check_SC2_game_status
-from .game_event_utils import game_started_handler
-from .game_event_utils import game_replay_handler
-from .game_event_utils import game_ended_handler
-from .chat_utils import message_on_welcome, process_pubmsg
-from .sc2_game_utils import handle_SC2_game_results
+# Conditional game sound imports
+if getattr(config, 'ENABLE_AUDIO', True) and getattr(config, 'ENABLE_GAME_SOUNDS', True):
+    try:
+        from utils.sound_player_utils import SoundPlayer
+        GAME_SOUNDS_AVAILABLE = True
+    except ImportError as e:
+        _import_logger.warning(f"Game sound imports failed: {e}. Game sounds will be disabled.")
+        GAME_SOUNDS_AVAILABLE = False
+        SoundPlayer = None
+else:
+    GAME_SOUNDS_AVAILABLE = False
+    SoundPlayer = None
+from api.sc2_game_utils import check_SC2_game_status
+from api.game_event_utils import game_started_handler
+from api.game_event_utils import game_replay_handler
+from api.game_event_utils import game_ended_handler
+from api.chat_utils import message_on_welcome, process_pubmsg
+from api.sc2_game_utils import handle_SC2_game_results
 # Ensure database initialization
 from models.mathison_db import Database
+
+# Pattern learning imports
+try:
+    from api.pattern_learning import SC2PatternLearner
+    PATTERN_LEARNING_AVAILABLE = True
+except ImportError as e:
+    _import_logger.warning(f"Pattern learning imports failed: {e}. Pattern learning will be disabled.")
+    PATTERN_LEARNING_AVAILABLE = False
+    SC2PatternLearner = None
+
+# FSL integration imports 
+try:
+    from api.fsl_integration import FSLIntegration
+    FSL_IMPORTS_AVAILABLE = True
+except ImportError as e:
+    _import_logger.warning(f"FSL integration imports failed: {e}. FSL integration will be disabled.")
+    FSL_IMPORTS_AVAILABLE = False
+    FSLIntegration = None
 
 # The contextHistory array is a list of tuples, where each tuple contains two elements: the message string and its
 # corresponding token size. This allows us to keep track of both the message content and its size in the array. When
@@ -67,7 +143,70 @@ logger.addFilter(LogOnceWithinIntervalFilter())
 # Set logging level for urllib3 to WARNING
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 logging.getLogger('urllib3').setLevel(logging.WARNING)
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+
+# Suppress Discord gateway debug messages (websocket heartbeats)
+logging.getLogger('discord.gateway').setLevel(logging.INFO)
+
+# Custom logging handler that tracks when log messages are printed
+# This enables smart spacing between log messages and visual indicators
+class MarkingStreamHandler(logging.StreamHandler):
+    """
+    Custom StreamHandler that tracks when log messages are emitted.
+    
+    This handler calls mark_log_output() after each log record is printed,
+    which allows the print_indicator() function to add proper spacing
+    between log messages and single-character status indicators.
+    """
+    def emit(self, record):
+        super().emit(record)
+        mark_log_output()  # Mark that a log message was just printed
+
+# Configure logging with the marking handler
+handler = MarkingStreamHandler(sys.stdout)
+handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
+logging.basicConfig(level=logging.DEBUG, handlers=[handler])
+
+# Smart indicator spacing system
+# This tracks whether the last output was a log message to provide clean separation
+# between verbose log messages and single-character visual indicators
+_last_output_was_log = False
+
+def mark_log_output():
+    """
+    Track that a log message was just printed.
+    
+    This function is called automatically by MarkingStreamHandler after each
+    log record is emitted. It sets a flag that print_indicator() uses to
+    determine if it needs to add spacing before the next indicator.
+    """
+    global _last_output_was_log
+    _last_output_was_log = True
+
+def print_indicator(indicator):
+    """
+    Print single-character status indicator with smart spacing.
+    
+    Visual indicators provide real-time system status without verbose logging:
+    - '.' = Normal operation (SC2 API working, heartbeat, etc.)
+    - 'o' = Errors or issues (SC2 API failures, speech recognition issues)
+    - '+' = Special events (database heartbeat, successful operations)
+    - 'x' = Speech recognition unknown value
+    - '?' = Speech recognition waiting/unclear state
+    - 'e' = Exception occurred
+    
+    Smart spacing: If the previous output was a log message, this adds a newline
+    before the indicator to visually separate it from the log text. Otherwise,
+    indicators are printed consecutively on the same line.
+    
+    Args:
+        indicator (str): Single character to print as status indicator
+    """
+    global _last_output_was_log
+    if _last_output_was_log:
+        print(f"\n{indicator}", end="", flush=True)  # Add newline before indicator
+        _last_output_was_log = False
+    else:
+        print(indicator, end="", flush=True)  # Normal indicator
 
 # Player names of streamer to check results for
 player_names = config.SC2_PLAYER_ACCOUNTS
@@ -92,13 +231,19 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         monitor_thread.daemon = True
         monitor_thread.start()
 
-        # Start the speech listener thread
-        if config.USE_WHISPER is True:
-            speech_thread = threading.Thread(target=self.listen_for_speech_whisperAI)
+        # Start the speech listener thread only if speech-to-text is enabled and imports are available
+        if (getattr(config, 'ENABLE_AUDIO', True) and 
+            getattr(config, 'ENABLE_SPEECH_TO_TEXT', True) and 
+            STT_IMPORTS_AVAILABLE):
+            _import_logger.info("Starting speech recognition thread...")
+            if getattr(config, 'USE_WHISPER', False) is True:
+                speech_thread = threading.Thread(target=self.listen_for_speech_whisperAI)
+            else:
+                speech_thread = threading.Thread(target=self.listen_for_speech)
+            speech_thread.daemon = True
+            speech_thread.start()
         else:
-            speech_thread = threading.Thread(target=self.listen_for_speech)
-        speech_thread.daemon = True
-        speech_thread.start()        
+            _import_logger.info("Speech recognition disabled - skipping speech thread startup")        
 
         # Generate the current datetime timestamp in the format YYYYMMDD-HHMMSS
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -121,7 +266,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         self.server = config.HOST
         self.port = config.PORT
         self.ignore = config.IGNORE
-        openai.api_key = config.OPENAI_API_KEY
+        # OpenAI API key is now set per-request in send_prompt_to_openai
+        # openai.api_key = config.OPENAI_API_KEY
 
         self.streamer_nickname = config.STREAMER_NICKNAME
         self.selected_moods = [config.MOOD_OPTIONS[i]
@@ -132,31 +278,113 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         # Initialize the IRC bot
         irc.bot.SingleServerIRCBot.__init__(self, [(self.server, self.port, 'oauth:' + self.token)], self.username,
                                             self.username)
-        # # SC2 sounds
-        self.sound_player = SoundPlayer()
+        
+        # Initialize SC2 sounds only if available and enabled
+        if GAME_SOUNDS_AVAILABLE and SoundPlayer is not None:
+            try:
+                self.sound_player = SoundPlayer()
+                _import_logger.info("Game sounds initialized successfully")
+            except Exception as e:
+                _import_logger.error(f"Failed to initialize game sounds: {e}")
+                self.sound_player = None
+        else:
+            self.sound_player = None
+            _import_logger.info("Game sounds disabled - no SoundPlayer initialized")
 
         # Initialize the database
         self.db = Database()
+        
+        # Initialize FSL integration if available and enabled
+        if (getattr(config, 'ENABLE_FSL_INTEGRATION', False) and 
+            FSL_IMPORTS_AVAILABLE and FSLIntegration is not None):
+            try:
+                self.fsl_integration = FSLIntegration(
+                    api_url=config.FSL_API_URL,
+                    api_token=config.FSL_API_TOKEN,
+                    reviewer_weight=config.FSL_REVIEWER_WEIGHT
+                )
+                _import_logger.info("FSL integration initialized successfully")
+            except Exception as e:
+                _import_logger.error(f"Failed to initialize FSL integration: {e}")
+                self.fsl_integration = None
+        else:
+            self.fsl_integration = None
+            _import_logger.info("FSL integration disabled - no FSLIntegration initialized")
+
+        # Initialize pattern learning system if available and enabled
+        if (getattr(config, 'ENABLE_PATTERN_LEARNING', False) and 
+            PATTERN_LEARNING_AVAILABLE and SC2PatternLearner is not None):
+            try:
+                self.pattern_learner = SC2PatternLearner(self.db, logger)
+                _import_logger.info("Pattern learning system initialized successfully")
+            except Exception as e:
+                _import_logger.error(f"Failed to initialize pattern learning: {e}")
+                self.pattern_learner = None
+        else:
+            self.pattern_learner = None
+            _import_logger.info("Pattern learning disabled - no SC2PatternLearner initialized")
 
     def play_SC2_sound(self, game_event):
+        # Check if game sounds are available and enabled
+        if not (getattr(config, 'ENABLE_AUDIO', True) and 
+                getattr(config, 'ENABLE_GAME_SOUNDS', True) and 
+                GAME_SOUNDS_AVAILABLE):
+            logger.debug(f"\nGame sounds disabled - would have played: {game_event}\n")
+            return
+            
+        # Check if sound player was successfully initialized
+        if self.sound_player is None:
+            logger.warning(f"\nSound player not available - cannot play: {game_event}\n")
+            return
+            
         if config.PLAYER_INTROS_ENABLED:
             if config.IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN and self.first_run:
                 logger.debug(
                     "Per config, ignoring previous game on the first run, so no sound will be played")
                 return
-            self.sound_player.play_sound(game_event, logger)
+            try:
+                self.sound_player.play_sound(game_event, logger)
+            except Exception as e:
+                logger.error(f"Error playing SC2 sound '{game_event}': {e}")
         else:
             logger.debug("SC2 player intros and other sounds are disabled")
+    
+    def safe_speak_text(self, text):
+        """Safely call text-to-speech if available and enabled."""
+        if (getattr(config, 'ENABLE_AUDIO', True) and 
+            getattr(config, 'TEXT_TO_SPEECH', True) and 
+            AUDIO_IMPORTS_AVAILABLE and 
+            ts is not None):
+            try:
+                ts.speak_text(text)
+            except Exception as e:
+                logger.error(f"Error in text-to-speech: {e}")
+        else:
+            logger.debug(f"TTS disabled - would have said: {text}")
 
     # incorrect IDE warning here, keep parameters at 3
     def signal_handler(self, signal, frame):
         self.shutdown_flag = True
         logger.debug(
             "================================================SHUTTING DOWN BOT========================================")
-        self.die("Shutdown requested.")
+        
+        # Check if IRC connection exists before trying to disconnect
+        if hasattr(self, 'connection') and self.connection:
+            try:
+                self.die("Shutdown requested.")
+            except Exception as e:
+                logger.error(f"Error during IRC disconnect: {e}")
+        else:
+            logger.info("No IRC connection to disconnect - shutting down directly")
+        
         sys.exit(0)
 
     def listen_for_speech_whisperAI(self):
+        # Safety check - don't run if STT imports aren't available
+        if not STT_IMPORTS_AVAILABLE or sd is None or np is None:
+            logger.warning("Speech-to-text not available - listen_for_speech_whisperAI exiting")
+            return
+            
         def is_audio_silent(audio_data, threshold=0.01):
             """Check if the audio data is silent based on RMS value."""
             rms = np.sqrt(np.mean(audio_data**2))
@@ -178,7 +406,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
                         temp_filename = tmp_file.name
 
-                    print("o", end="", flush=True)
+                    print_indicator("o")
                     audio_data = sd.rec(int(chunk_duration * fs), samplerate=fs, channels=1, dtype='int16')
                     sd.wait()  # Wait until recording is finished
 
@@ -194,9 +422,14 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                             wavfile.write(extended_filename, fs, extended_audio_data)
 
                         # Use Whisper API for transcription
+                        from openai import OpenAI
+                        client = OpenAI(api_key=config.OPENAI_API_KEY)
                         with open(extended_filename, "rb") as audio_file:
-                            response = openai.Audio.transcribe("whisper-1", audio_file)
-                            partial_command = response.get("text", "").strip().lower()
+                            response = client.audio.transcriptions.create(
+                                model="whisper-1",
+                                file=audio_file
+                            )
+                            partial_command = response.text.strip().lower()
 
                         os.remove(extended_filename)  # Clean up temporary file
 
@@ -221,7 +454,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                             # Process the "comments" command directly
                             if "player comments" in command:
                                 logger.debug("Command recognized: 'player comments'")
-                                ts.speak_text("Did you want to give your own comments about that player and last game?")
+                                self.safe_speak_text("Did you want to give your own comments about that player and last game?")
 
                                 # Capture the player's comment
                                 try:
@@ -233,8 +466,11 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                                     wavfile.write(comment_filename, fs, audio_data)
 
                                     with open(comment_filename, "rb") as comment_audio_file:
-                                        comment_response = openai.Audio.transcribe("whisper-1", comment_audio_file)
-                                        player_comment = comment_response.get("text", "").strip()
+                                        comment_response = client.audio.transcriptions.create(
+                                            model="whisper-1",
+                                            file=comment_audio_file
+                                        )
+                                        player_comment = comment_response.text.strip()
 
                                     os.remove(comment_filename)  # Clean up temporary file
 
@@ -248,16 +484,16 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                                     if player_comment and not any(re.search(pattern, player_comment.lower()) for pattern in invalid_phrases):
                                         logger.debug(f"Captured player comment: '{player_comment}'")
                                         if self.db.update_player_comments_in_last_replay(player_comment):
-                                            ts.speak_text("Your comment has been added.")
+                                            self.safe_speak_text("Your comment has been added.")
                                         else:
-                                            ts.speak_text("No recent replays found to update.")
+                                            self.safe_speak_text("No recent replays found to update.")
                                     else:
                                         logger.debug(f"Ignored invalid or declined comment: '{player_comment}'")
-                                        ts.speak_text("Comment not added.")
+                                        self.safe_speak_text("Comment not added.")
 
                                 except Exception as e:
                                     logger.error(f"Error updating player comment in database: {e}")
-                                    ts.speak_text("Failed to add your comment due to a system error.")
+                                    self.safe_speak_text("Failed to add your comment due to a system error.")
                                 continue
 
                             # Process the full command
@@ -285,6 +521,11 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 time.sleep(2)
 
     def listen_for_speech(self):
+        # Safety check - don't run if STT imports aren't available
+        if not STT_IMPORTS_AVAILABLE or sr is None:
+            logger.warning("Speech-to-text not available - listen_for_speech exiting")
+            return
+            
         recognizer = sr.Recognizer()
         mic = sr.Microphone()
         msg = str("")
@@ -295,7 +536,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 try:
                     # Listen for the cue word "hey madison"
                     #logger.debug("Listening for 'hey madison' cue...")
-                    print("o", end="", flush=True)
+                    print_indicator("o")
                     audio = recognizer.listen(source, phrase_time_limit=2)  # Limit listening to 2 seconds
 
                     command = recognizer.recognize_google(audio).lower()
@@ -324,7 +565,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                         break
                     elif "hey madison" in command:
                         #logger.debug("Cue recognized: 'hey madison'. Waiting for command...")
-                        ts.speak_text("yes?")
+                        self.safe_speak_text("yes?")
                         
                         # Listen for the follow-up command
                         try:
@@ -335,79 +576,114 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                             if "smile" in follow_up_command:
                                 logger.debug("Command recognized: 'smile'")
                                 # Add your handling code here
-                                ts.speak_text("I'm smiling!")
+                                self.safe_speak_text("I'm smiling!")
                             else:
                                 logger.debug(f"Unhandled follow-up command: '{follow_up_command}'")
-                                ts.speak_text("I didn't understand that.")
+                                self.safe_speak_text("I didn't understand that.")
 
                         except sr.UnknownValueError:
                             logger.debug("Could not understand the follow-up command.")
-                            ts.speak_text("I didn't catch that.")
+                            self.safe_speak_text("I didn't catch that.")
                         except sr.RequestError as e:
                             logger.error(f"Request error from speech recognition service: {e}")
                             time.sleep(2)
                         except Exception as e:
                             #logger.error(f"Error during speech recognition: {e}")
-                            print("e", end="", flush=True)
+                            print_indicator("e")
                             time.sleep(2)
                     
                     else:
-                        print("?", end="", flush=True)
+                        print_indicator("?")
                         
                 except sr.UnknownValueError:
-                    print("x", end="", flush=True)
+                    print_indicator("x")
                 except sr.RequestError as e:
                     logger.error(f"Request error from speech recognition service: {e}")
                     time.sleep(2)  # Prevent rapid retries
                 except Exception as e:
                     #logger.error(f"Error during speech recognition: {e}")
-                    print("e", end="", flush=True)
+                    print_indicator("e")
                     time.sleep(2)  # Prevent rapid retries
 
     def monitor_game(self):
         previous_game = None
         heartbeat_counter = 0
         heartbeat_interval = config.HEARTBEAT_MYSQL  # Number of iterations before sending a heartbeat for MySQL
+        
+        # Check if SC2 monitoring is enabled
+        sc2_monitoring_enabled = getattr(config, 'ENABLE_SC2_MONITORING', True)
+        if not sc2_monitoring_enabled:
+            logger.info("SC2 monitoring disabled - running in heartbeat-only mode for server deployment")
 
         while not self.shutdown_flag:
-            try:
-                current_game = check_SC2_game_status(logger)
-                if (current_game.get_status() == "MATCH_STARTED" or current_game.get_status() == "REPLAY_STARTED"):
-                    self.conversation_mode = "in_game"
-                else:
-                    self.conversation = "normal"
-                if current_game:
-                    if config.IGNORE_GAME_STATUS_WHILE_WATCHING_REPLAYS and current_game.isReplay:
-                        pass
+            # Only check SC2 status if monitoring is enabled
+            if sc2_monitoring_enabled:
+                try:
+                    current_game = check_SC2_game_status(logger)
+                    
+                    if current_game and hasattr(current_game, 'get_status'):
+                        if (current_game.get_status() == "MATCH_STARTED" or current_game.get_status() == "REPLAY_STARTED"):
+                            self.conversation_mode = "in_game"
+                        else:
+                            self.conversation_mode = "normal"
                     else:
-                        # wait so abandoned games doesnt result in false data of 0 seconds
-                        time.sleep(2)
-                        # self.handle_SC2_game_results(
-                        #    previous_game, current_game)
-                        handle_SC2_game_results(self, previous_game,
-                                                 current_game, contextHistory, logger)
+                        # If no game data, maintain normal conversation mode
+                        self.conversation_mode = "normal"
+                    if current_game:
+                        # Check if this is a replay of someone else's game (not involving the streamer)
+                        try:
+                            # Only skip if watching replays of OTHER people's games
+                            should_skip = False
+                            if hasattr(current_game, 'isReplay') and current_game.isReplay and config.IGNORE_GAME_STATUS_WHILE_WATCHING_REPLAYS:
+                                player_names = current_game.get_player_names()
+                                streamer_is_playing = any(name in config.SC2_PLAYER_ACCOUNTS for name in player_names)
+                                if not streamer_is_playing:
+                                    should_skip = True
+                            
+                            if not should_skip:
+                                # wait so abandoned games doesnt result in false data of 0 seconds
+                                time.sleep(2)
+                                handle_SC2_game_results(self, previous_game, current_game, contextHistory, logger)
+                        except Exception as e:
+                            logger.debug(f"Error processing game status: {e}")
 
-                previous_game = current_game
-                time.sleep(config.MONITOR_GAME_SLEEP_SECONDS)
+                    previous_game = current_game
 
-                # Increment the heartbeat counter
-                heartbeat_counter += 1
+                except Exception as e:
+                    # Only log unexpected errors, not SC2 API connection issues (already handled)
+                    if "isReplay" not in str(e) and "HTTPConnectionPool" not in str(e):
+                        logger.debug(f"Unexpected error in monitor_game loop: {e}")
+                    # SC2 API connection errors are already logged by check_SC2_game_status
+            else:
+                # SC2 monitoring disabled - just maintain normal conversation mode
+                self.conversation_mode = "normal"
+                
+            # Always sleep regardless of success or failure to maintain proper timing
+            time.sleep(config.MONITOR_GAME_SLEEP_SECONDS)
+            
+            # Increment the heartbeat counter
+            heartbeat_counter += 1
 
-                # Check if it's time to send a heartbeat
-                if heartbeat_counter >= heartbeat_interval:
-                    try:
-                        self.db.keep_connection_alive()
-                        heartbeat_counter = 0  # Reset the counter after sending the heartbeat
-                        # heartbeat indicator
-                        print("+", end="", flush=True)                        
-                    except Exception as e:
-                        self.logger.error(f"Error during database heartbeat call: {e}")                       
-                else:
+            # Check if it's time to send a heartbeat
+            if heartbeat_counter >= heartbeat_interval:
+                try:
+                    self.db.keep_connection_alive()
+                    heartbeat_counter = 0  # Reset the counter after sending the heartbeat
                     # heartbeat indicator
-                    print(".", end="", flush=True)
-
-            except Exception as e:
-                pass
+                    print_indicator("+")                        
+                except Exception as e:
+                    logger.error(f"Error during database heartbeat call: {e}")                       
+            else:
+                # heartbeat indicator - show SC2 API status if monitoring enabled
+                if config.ENABLE_SC2_MONITORING:
+                    # Check if SC2 API has recent failures
+                    from api.sc2_game_utils import check_SC2_game_status
+                    if hasattr(check_SC2_game_status, 'consecutive_failures') and check_SC2_game_status.consecutive_failures > 0:
+                        print_indicator("o")  # SC2 API errors
+                    else:
+                        print_indicator(".")  # SC2 API working
+                else:
+                    print_indicator(".")  # Normal heartbeat when SC2 disabled
 
     # This is a callback method that is invoked when bot successfully connects to an IRC Server
     def on_welcome(self, connection, event):
@@ -420,3 +696,120 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         
         #process the message sent by the viewers in the twitch chat room
         process_pubmsg(self, event, logger, contextHistory)
+
+    def _prepare_game_data_for_comment(self, game_player_names, winning_players, losing_players, logger):
+        """Prepare game data for the comment prompt"""
+        try:
+            game_data = {}
+            
+            # Get opponent info
+            if config.STREAMER_NICKNAME in game_player_names:
+                # Split the comma-separated string into a list first
+                player_names_list = [name.strip() for name in game_player_names.split(',')]
+                opponent_names = [name for name in player_names_list if name != config.STREAMER_NICKNAME]
+                if opponent_names:
+                    game_data['opponent_name'] = opponent_names[0]
+                    
+                    # Try to get opponent race from current game
+                    try:
+                        if hasattr(self, 'current_game') and self.current_game:
+                            game_data['opponent_race'] = self.current_game.get_player_race(opponent_names[0])
+                    except:
+                        game_data['opponent_race'] = 'Unknown'
+            
+            # Game result
+            if config.STREAMER_NICKNAME in winning_players:
+                game_data['result'] = 'Victory'
+            elif config.STREAMER_NICKNAME in losing_players:
+                game_data['result'] = 'Defeat'
+            else:
+                game_data['result'] = 'Tie'
+            
+            # Game duration
+            if hasattr(self, 'total_seconds'):
+                game_data['duration'] = f"{int(self.total_seconds // 60)}m {int(self.total_seconds % 60)}s"
+            
+            # Current date/time
+            from datetime import datetime
+            game_data['date'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            
+            # Map info (if available)
+            try:
+                if hasattr(self, 'last_replay_data') and self.last_replay_data:
+                    game_data['map'] = self.last_replay_data.get('map', 'Unknown')
+                elif hasattr(self, 'current_game') and self.current_game:
+                    # This would need to be implemented based on your game data structure
+                    game_data['map'] = 'Unknown'
+            except:
+                game_data['map'] = 'Unknown'
+            
+            # Build order data (if available from replay summary)
+            try:
+                # Check if we have replay summary available
+                if hasattr(self, 'last_replay_data') and self.last_replay_data:
+                    # Try to read the replay summary file for build order data
+                    import os
+                    replay_summary_path = 'temp/replay_summary.txt'
+                    if os.path.exists(replay_summary_path):
+                        with open(replay_summary_path, 'r') as f:
+                            summary_text = f.read()
+                        
+                        # Parse build order from summary text
+                        build_data = []
+                        in_build_order = False
+                        current_player = None
+                        
+                        for line in summary_text.split('\n'):
+                            line = line.strip()
+                            if "Build Order (first set of steps):" in line:
+                                in_build_order = True
+                                current_player = line.split("'s")[0]
+                                continue
+                            elif in_build_order and line.startswith("Time:"):
+                                # Parse: "Time: 0:00, Name: Probe, Supply: 12"
+                                try:
+                                    parts = line.split(", ")
+                                    time_part = parts[0].split(": ")[1]  # "0:00"
+                                    name_part = parts[1].split(": ")[1]  # "Probe"
+                                    supply_part = parts[2].split(": ")[1]  # "12"
+                                    
+                                    # Convert time to seconds
+                                    minutes, seconds = map(int, time_part.split(":"))
+                                    time_seconds = minutes * 60 + seconds
+                                    
+                                    build_data.append({
+                                        'supply': int(supply_part),
+                                        'name': name_part,
+                                        'time': time_seconds
+                                    })
+                                except Exception as e:
+                                    logger.debug(f"Could not parse build order line: {line} - {e}")
+                                    continue
+                            elif in_build_order and not line.startswith("Time:"):
+                                # End of build order section
+                                break
+                        
+                        if build_data:
+                            game_data['build_order'] = build_data
+                            logger.debug(f"Added {len(build_data)} build order steps to game data")
+                        else:
+                            logger.debug("No build order data found in replay summary")
+                    else:
+                        logger.debug("Replay summary file not found")
+                        
+            except Exception as e:
+                logger.debug(f"Could not extract build order data: {e}")
+            
+            # Build order summary (if available)
+            try:
+                if hasattr(self, 'current_game') and self.current_game:
+                    # This would need to be implemented based on your game data structure
+                    game_data['build_order_summary'] = 'Not available'
+            except:
+                game_data['build_order_summary'] = 'Not available'
+            
+            return game_data
+            
+        except Exception as e:
+            logger.error(f"Error preparing game data for comment: {e}")
+            return {}
