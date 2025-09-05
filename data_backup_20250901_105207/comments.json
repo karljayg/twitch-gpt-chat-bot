@@ -1,0 +1,1773 @@
+{
+  "comments": [
+    {
+      "id": "comment_001",
+      "raw_comment": "gateway expand to stalker pressure with blink upgrade",
+      "cleaned_comment": "gateway expand to stalker pressure with blink upgrade",
+      "comment": "gateway expand to stalker pressure with blink upgrade",
+      "keywords": [
+        "gateway",
+        "expand",
+        "stalker",
+        "pressure",
+        "blink"
+      ],
+      "game_data": {
+        "opponent_name": "BurnerAcct",
+        "opponent_race": "Zerg",
+        "result": "Victory",
+        "map": "Incorporeal LE",
+        "duration": "20m 9s",
+        "date": "2025-08-29 21:50:31",
+        "build_order": [
+          {
+            "supply": 12,
+            "name": "Probe",
+            "time": 0
+          },
+          {
+            "supply": 13,
+            "name": "Probe",
+            "time": 12
+          },
+          {
+            "supply": 14,
+            "name": "Pylon",
+            "time": 21
+          },
+          {
+            "supply": 14,
+            "name": "Probe",
+            "time": 24
+          },
+          {
+            "supply": 15,
+            "name": "Probe",
+            "time": 36
+          },
+          {
+            "supply": 15,
+            "name": "Gateway",
+            "time": 39
+          },
+          {
+            "supply": 16,
+            "name": "Probe",
+            "time": 44
+          },
+          {
+            "supply": 17,
+            "name": "Assimilator",
+            "time": 50
+          },
+          {
+            "supply": 17,
+            "name": "Probe",
+            "time": 53
+          },
+          {
+            "supply": 18,
+            "name": "Probe",
+            "time": 65
+          },
+          {
+            "supply": 18,
+            "name": "Assimilator",
+            "time": 68
+          },
+          {
+            "supply": 19,
+            "name": "Pylon",
+            "time": 74
+          },
+          {
+            "supply": 19,
+            "name": "Probe",
+            "time": 77
+          },
+          {
+            "supply": 20,
+            "name": "CyberneticsCore",
+            "time": 86
+          },
+          {
+            "supply": 20,
+            "name": "Probe",
+            "time": 89
+          },
+          {
+            "supply": 21,
+            "name": "Probe",
+            "time": 101
+          },
+          {
+            "supply": 21,
+            "name": "Zealot",
+            "time": 105
+          },
+          {
+            "supply": 24,
+            "name": "Probe",
+            "time": 113
+          },
+          {
+            "supply": 25,
+            "name": "TwilightCouncil",
+            "time": 123
+          },
+          {
+            "supply": 25,
+            "name": "Warp Gate",
+            "time": 124
+          },
+          {
+            "supply": 25,
+            "name": "Probe",
+            "time": 126
+          },
+          {
+            "supply": 26,
+            "name": "Stalker",
+            "time": 128
+          },
+          {
+            "supply": 28,
+            "name": "Probe",
+            "time": 138
+          },
+          {
+            "supply": 29,
+            "name": "Stalker",
+            "time": 151
+          },
+          {
+            "supply": 29,
+            "name": "Charge",
+            "time": 152
+          },
+          {
+            "supply": 29,
+            "name": "Gateway",
+            "time": 154
+          },
+          {
+            "supply": 29,
+            "name": "Pylon",
+            "time": 155
+          },
+          {
+            "supply": 31,
+            "name": "Zealot",
+            "time": 184
+          },
+          {
+            "supply": 31,
+            "name": "Gateway",
+            "time": 185
+          },
+          {
+            "supply": 33,
+            "name": "Pylon",
+            "time": 196
+          },
+          {
+            "supply": 33,
+            "name": "Gateway",
+            "time": 210
+          },
+          {
+            "supply": 33,
+            "name": "Zealot",
+            "time": 234
+          },
+          {
+            "supply": 33,
+            "name": "Zealot",
+            "time": 234
+          },
+          {
+            "supply": 37,
+            "name": "Zealot",
+            "time": 239
+          },
+          {
+            "supply": 39,
+            "name": "Gateway",
+            "time": 250
+          },
+          {
+            "supply": 39,
+            "name": "Gateway",
+            "time": 252
+          },
+          {
+            "supply": 39,
+            "name": "Stalker",
+            "time": 255
+          },
+          {
+            "supply": 39,
+            "name": "Stalker",
+            "time": 255
+          },
+          {
+            "supply": 43,
+            "name": "Stalker",
+            "time": 261
+          },
+          {
+            "supply": 45,
+            "name": "Stalker",
+            "time": 265
+          },
+          {
+            "supply": 47,
+            "name": "Blink",
+            "time": 292
+          },
+          {
+            "supply": 47,
+            "name": "Nexus",
+            "time": 294
+          },
+          {
+            "supply": 47,
+            "name": "Pylon",
+            "time": 298
+          },
+          {
+            "supply": 47,
+            "name": "Pylon",
+            "time": 299
+          },
+          {
+            "supply": 47,
+            "name": "Probe",
+            "time": 317
+          },
+          {
+            "supply": 47,
+            "name": "Sentry",
+            "time": 319
+          },
+          {
+            "supply": 47,
+            "name": "Sentry",
+            "time": 319
+          },
+          {
+            "supply": 47,
+            "name": "Sentry",
+            "time": 320
+          },
+          {
+            "supply": 54,
+            "name": "Probe",
+            "time": 329
+          },
+          {
+            "supply": 55,
+            "name": "RoboticsFacility",
+            "time": 337
+          },
+          {
+            "supply": 55,
+            "name": "RoboticsFacility",
+            "time": 338
+          },
+          {
+            "supply": 55,
+            "name": "Probe",
+            "time": 339
+          },
+          {
+            "supply": 56,
+            "name": "Probe",
+            "time": 347
+          },
+          {
+            "supply": 56,
+            "name": "Probe",
+            "time": 355
+          },
+          {
+            "supply": 57,
+            "name": "Probe",
+            "time": 363
+          },
+          {
+            "supply": 58,
+            "name": "Probe",
+            "time": 367
+          },
+          {
+            "supply": 58,
+            "name": "Probe",
+            "time": 371
+          },
+          {
+            "supply": 61,
+            "name": "Probe",
+            "time": 379
+          },
+          {
+            "supply": 61,
+            "name": "Probe",
+            "time": 380
+          },
+          {
+            "supply": 61,
+            "name": "Forge",
+            "time": 382
+          }
+        ]
+      },
+      "timestamp": "2025-08-29T21:55:47.913224",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_002",
+      "raw_comment": "DT 2 base, all in. Just defend DT, counter with roaches afte.",
+      "cleaned_comment": "DT 2 base, all in. Just defend DT, counter with roaches afte.",
+      "comment": "DT 2 base, all in. Just defend DT, counter with roaches afte.",
+      "keywords": [
+        "base,",
+        "all",
+        "in.",
+        "just",
+        "defend"
+      ],
+      "game_data": {
+        "opponent_name": "K",
+        "result": "Defeat",
+        "duration": "19m 25s",
+        "date": "2025-08-29 22:48:20",
+        "map": "Ley Lines"
+      },
+      "timestamp": "2025-08-29T22:48:36.757135",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_003",
+      "raw_comment": "terran vs terran 1 base all in, tank viking push",
+      "cleaned_comment": "terran vs terran 1 base all in tank viking push",
+      "comment": "terran vs terran 1 base all in, tank viking push",
+      "keywords": [
+        "terran",
+        "base",
+        "all",
+        "tank"
+      ],
+      "game_data": {
+        "opponent_name": "T",
+        "result": "Victory",
+        "duration": "14m 9s",
+        "date": "2025-08-30 21:49:43",
+        "map": "Tokamak LE",
+        "build_order": [
+          {
+            "supply": 12,
+            "name": "SCV",
+            "time": 0
+          },
+          {
+            "supply": 13,
+            "name": "SupplyDepot",
+            "time": 16
+          },
+          {
+            "supply": 13,
+            "name": "SCV",
+            "time": 16
+          },
+          {
+            "supply": 14,
+            "name": "SCV",
+            "time": 28
+          },
+          {
+            "supply": 15,
+            "name": "Barracks",
+            "time": 39
+          },
+          {
+            "supply": 15,
+            "name": "SCV",
+            "time": 42
+          },
+          {
+            "supply": 16,
+            "name": "Refinery",
+            "time": 51
+          },
+          {
+            "supply": 16,
+            "name": "SCV",
+            "time": 54
+          },
+          {
+            "supply": 17,
+            "name": "SCV",
+            "time": 66
+          },
+          {
+            "supply": 18,
+            "name": "SCV",
+            "time": 78
+          },
+          {
+            "supply": 19,
+            "name": "Marine",
+            "time": 87
+          },
+          {
+            "supply": 19,
+            "name": "SCV",
+            "time": 90
+          },
+          {
+            "supply": 21,
+            "name": "SupplyDepot",
+            "time": 95
+          },
+          {
+            "supply": 21,
+            "name": "SCV",
+            "time": 103
+          },
+          {
+            "supply": 21,
+            "name": "Marine",
+            "time": 105
+          },
+          {
+            "supply": 23,
+            "name": "Orbital Command",
+            "time": 115
+          },
+          {
+            "supply": 24,
+            "name": "Refinery",
+            "time": 129
+          },
+          {
+            "supply": 24,
+            "name": "Marine",
+            "time": 129
+          },
+          {
+            "supply": 24,
+            "name": "Factory",
+            "time": 131
+          },
+          {
+            "supply": 24,
+            "name": "SCV",
+            "time": 147
+          },
+          {
+            "supply": 24,
+            "name": "Marine",
+            "time": 149
+          },
+          {
+            "supply": 26,
+            "name": "SCV",
+            "time": 159
+          },
+          {
+            "supply": 27,
+            "name": "CommandCenter",
+            "time": 165
+          },
+          {
+            "supply": 27,
+            "name": "Marine",
+            "time": 168
+          },
+          {
+            "supply": 28,
+            "name": "SCV",
+            "time": 171
+          },
+          {
+            "supply": 28,
+            "name": "SupplyDepot",
+            "time": 176
+          },
+          {
+            "supply": 28,
+            "name": "FactoryTechLab",
+            "time": 176
+          },
+          {
+            "supply": 28,
+            "name": "Starport",
+            "time": 177
+          },
+          {
+            "supply": 29,
+            "name": "SCV",
+            "time": 183
+          },
+          {
+            "supply": 30,
+            "name": "Marine",
+            "time": 186
+          },
+          {
+            "supply": 30,
+            "name": "EngineeringBay",
+            "time": 188
+          },
+          {
+            "supply": 31,
+            "name": "SCV",
+            "time": 198
+          },
+          {
+            "supply": 31,
+            "name": "Siege Tank",
+            "time": 198
+          },
+          {
+            "supply": 35,
+            "name": "Marine",
+            "time": 204
+          },
+          {
+            "supply": 36,
+            "name": "MissileTurret",
+            "time": 215
+          },
+          {
+            "supply": 36,
+            "name": "StarportReactor",
+            "time": 223
+          },
+          {
+            "supply": 36,
+            "name": "MissileTurret",
+            "time": 224
+          },
+          {
+            "supply": 36,
+            "name": "Siege Tank",
+            "time": 230
+          },
+          {
+            "supply": 39,
+            "name": "MissileTurret",
+            "time": 250
+          },
+          {
+            "supply": 39,
+            "name": "Marine",
+            "time": 251
+          },
+          {
+            "supply": 39,
+            "name": "Orbital Command",
+            "time": 253
+          },
+          {
+            "supply": 40,
+            "name": "Siege Tank",
+            "time": 262
+          },
+          {
+            "supply": 40,
+            "name": "Viking",
+            "time": 263
+          },
+          {
+            "supply": 38,
+            "name": "Viking",
+            "time": 264
+          },
+          {
+            "supply": 45,
+            "name": "Marine",
+            "time": 269
+          },
+          {
+            "supply": 48,
+            "name": "SCV",
+            "time": 273
+          },
+          {
+            "supply": 49,
+            "name": "SCV",
+            "time": 281
+          },
+          {
+            "supply": 49,
+            "name": "Refinery",
+            "time": 285
+          },
+          {
+            "supply": 49,
+            "name": "MissileTurret",
+            "time": 292
+          },
+          {
+            "supply": 49,
+            "name": "SCV",
+            "time": 293
+          },
+          {
+            "supply": 49,
+            "name": "Siege Tank",
+            "time": 294
+          },
+          {
+            "supply": 49,
+            "name": "SupplyDepot",
+            "time": 295
+          },
+          {
+            "supply": 53,
+            "name": "SCV",
+            "time": 308
+          },
+          {
+            "supply": 53,
+            "name": "Refinery",
+            "time": 312
+          },
+          {
+            "supply": 54,
+            "name": "Viking",
+            "time": 316
+          },
+          {
+            "supply": 54,
+            "name": "Liberator",
+            "time": 320
+          },
+          {
+            "supply": 54,
+            "name": "SCV",
+            "time": 320
+          },
+          {
+            "supply": 60,
+            "name": "SCV",
+            "time": 333
+          },
+          {
+            "supply": 61,
+            "name": "SCV",
+            "time": 345
+          },
+          {
+            "supply": 62,
+            "name": "CommandCenter",
+            "time": 350
+          }
+        ]
+      },
+      "timestamp": "2025-08-30T21:50:07.230873",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_004",
+      "raw_comment": "all in marinetank viking push",
+      "cleaned_comment": "all in marinetank viking push",
+      "comment": "all in marinetank viking push",
+      "keywords": [
+        "all",
+        "marinetank",
+        "viking",
+        "push"
+      ],
+      "game_data": {
+        "opponent_name": "M",
+        "result": "Victory",
+        "duration": "0m 35s",
+        "date": "2025-08-31 10:26:11",
+        "map": "Ultralove",
+        "build_order": [
+          {
+            "supply": 12,
+            "name": "Drone",
+            "time": 0
+          },
+          {
+            "supply": 13,
+            "name": "Overlord",
+            "time": 12
+          },
+          {
+            "supply": 13,
+            "name": "Drone",
+            "time": 16
+          }
+        ]
+      },
+      "timestamp": "2025-08-31T10:40:14.042506",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_005",
+      "raw_comment": "not much to learn, the zerg here is slow in macroing and upgrades",
+      "cleaned_comment": "not much to learn the zerg here is slow in macroing and upgrades",
+      "comment": "not much to learn, the zerg here is slow in macroing and upgrades",
+      "keywords": [
+        "not",
+        "much",
+        "learn",
+        "zerg",
+        "here"
+      ],
+      "game_data": {
+        "opponent_name": "K",
+        "result": "Victory",
+        "duration": "14m 50s",
+        "date": "2025-08-30 20:48:58",
+        "map": "Ultralove",
+        "build_order": [
+          {
+            "supply": 12,
+            "name": "Drone",
+            "time": 0
+          },
+          {
+            "supply": 13,
+            "name": "Overlord",
+            "time": 12
+          },
+          {
+            "supply": 13,
+            "name": "Drone",
+            "time": 16
+          },
+          {
+            "supply": 14,
+            "name": "Drone",
+            "time": 30
+          },
+          {
+            "supply": 14,
+            "name": "Drone",
+            "time": 30
+          },
+          {
+            "supply": 14,
+            "name": "Drone",
+            "time": 34
+          },
+          {
+            "supply": 17,
+            "name": "Hatchery",
+            "time": 50
+          },
+          {
+            "supply": 17,
+            "name": "Drone",
+            "time": 52
+          },
+          {
+            "supply": 17,
+            "name": "Drone",
+            "time": 56
+          },
+          {
+            "supply": 18,
+            "name": "Extractor",
+            "time": 65
+          },
+          {
+            "supply": 18,
+            "name": "SpawningPool",
+            "time": 71
+          },
+          {
+            "supply": 16,
+            "name": "Drone",
+            "time": 73
+          },
+          {
+            "supply": 16,
+            "name": "Drone",
+            "time": 77
+          },
+          {
+            "supply": 18,
+            "name": "Drone",
+            "time": 87
+          },
+          {
+            "supply": 19,
+            "name": "Drone",
+            "time": 99
+          },
+          {
+            "supply": 20,
+            "name": "Overlord",
+            "time": 112
+          },
+          {
+            "supply": 20,
+            "name": "Queen",
+            "time": 122
+          },
+          {
+            "supply": 20,
+            "name": "Queen",
+            "time": 122
+          },
+          {
+            "supply": 20,
+            "name": "Zergling",
+            "time": 124
+          },
+          {
+            "supply": 20,
+            "name": "Zergling",
+            "time": 124
+          },
+          {
+            "supply": 20,
+            "name": "Zergling",
+            "time": 124
+          },
+          {
+            "supply": 20,
+            "name": "Zergling",
+            "time": 124
+          },
+          {
+            "supply": 26,
+            "name": "Hatchery",
+            "time": 141
+          },
+          {
+            "supply": 26,
+            "name": "Drone",
+            "time": 141
+          },
+          {
+            "supply": 26,
+            "name": "Drone",
+            "time": 141
+          },
+          {
+            "supply": 27,
+            "name": "Overlord",
+            "time": 149
+          },
+          {
+            "supply": 27,
+            "name": "Overlord",
+            "time": 161
+          },
+          {
+            "supply": 27,
+            "name": "Drone",
+            "time": 162
+          },
+          {
+            "supply": 28,
+            "name": "Queen",
+            "time": 167
+          },
+          {
+            "supply": 28,
+            "name": "Drone",
+            "time": 170
+          },
+          {
+            "supply": 28,
+            "name": "Drone",
+            "time": 170
+          },
+          {
+            "supply": 32,
+            "name": "Drone",
+            "time": 172
+          },
+          {
+            "supply": 33,
+            "name": "Drone",
+            "time": 181
+          },
+          {
+            "supply": 33,
+            "name": "Drone",
+            "time": 182
+          },
+          {
+            "supply": 35,
+            "name": "Drone",
+            "time": 191
+          },
+          {
+            "supply": 35,
+            "name": "Drone",
+            "time": 192
+          },
+          {
+            "supply": 35,
+            "name": "Drone",
+            "time": 192
+          },
+          {
+            "supply": 35,
+            "name": "Drone",
+            "time": 192
+          },
+          {
+            "supply": 35,
+            "name": "Drone",
+            "time": 192
+          },
+          {
+            "supply": 35,
+            "name": "Drone",
+            "time": 192
+          },
+          {
+            "supply": 41,
+            "name": "Drone",
+            "time": 195
+          },
+          {
+            "supply": 41,
+            "name": "Drone",
+            "time": 196
+          },
+          {
+            "supply": 43,
+            "name": "Drone",
+            "time": 200
+          },
+          {
+            "supply": 43,
+            "name": "Lair",
+            "time": 205
+          },
+          {
+            "supply": 44,
+            "name": "RoachWarren",
+            "time": 214
+          },
+          {
+            "supply": 44,
+            "name": "Overlord",
+            "time": 216
+          },
+          {
+            "supply": 44,
+            "name": "Drone",
+            "time": 219
+          },
+          {
+            "supply": 44,
+            "name": "Drone",
+            "time": 219
+          },
+          {
+            "supply": 44,
+            "name": "Drone",
+            "time": 219
+          },
+          {
+            "supply": 46,
+            "name": "Overlord",
+            "time": 228
+          },
+          {
+            "supply": 46,
+            "name": "Overlord",
+            "time": 228
+          },
+          {
+            "supply": 46,
+            "name": "Drone",
+            "time": 229
+          },
+          {
+            "supply": 46,
+            "name": "Drone",
+            "time": 229
+          },
+          {
+            "supply": 46,
+            "name": "Drone",
+            "time": 230
+          },
+          {
+            "supply": 46,
+            "name": "Drone",
+            "time": 232
+          },
+          {
+            "supply": 50,
+            "name": "Drone",
+            "time": 240
+          },
+          {
+            "supply": 50,
+            "name": "Drone",
+            "time": 241
+          },
+          {
+            "supply": 50,
+            "name": "Drone",
+            "time": 241
+          },
+          {
+            "supply": 53,
+            "name": "Drone",
+            "time": 254
+          },
+          {
+            "supply": 53,
+            "name": "Drone",
+            "time": 254
+          }
+        ]
+      },
+      "timestamp": "2025-08-30T20:49:11.557321",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_006",
+      "raw_comment": "oracle too much damage",
+      "cleaned_comment": "oracle too much damage",
+      "comment": "oracle too much damage",
+      "keywords": [
+        "oracle",
+        "too",
+        "much",
+        "damage"
+      ],
+      "game_data": {
+        "opponent_name": "H",
+        "result": "Defeat",
+        "duration": "15m 46s",
+        "date": "2025-08-31 11:02:42",
+        "map": "Magannatha LE",
+        "build_order": [
+          {
+            "supply": 12,
+            "name": "Drone",
+            "time": 0
+          },
+          {
+            "supply": 13,
+            "name": "Drone",
+            "time": 7
+          },
+          {
+            "supply": 14,
+            "name": "Extractor",
+            "time": 24
+          },
+          {
+            "supply": 14,
+            "name": "Extractor",
+            "time": 24
+          },
+          {
+            "supply": 14,
+            "name": "Drone",
+            "time": 25
+          },
+          {
+            "supply": 14,
+            "name": "Drone",
+            "time": 25
+          },
+          {
+            "supply": 16,
+            "name": "SpawningPool",
+            "time": 46
+          },
+          {
+            "supply": 15,
+            "name": "Overlord",
+            "time": 54
+          },
+          {
+            "supply": 15,
+            "name": "Hatchery",
+            "time": 62
+          },
+          {
+            "supply": 14,
+            "name": "Drone",
+            "time": 74
+          },
+          {
+            "supply": 14,
+            "name": "Drone",
+            "time": 76
+          },
+          {
+            "supply": 16,
+            "name": "Zergling",
+            "time": 94
+          },
+          {
+            "supply": 16,
+            "name": "Zergling",
+            "time": 94
+          },
+          {
+            "supply": 16,
+            "name": "Zergling",
+            "time": 95
+          },
+          {
+            "supply": 16,
+            "name": "Zergling",
+            "time": 95
+          },
+          {
+            "supply": 16,
+            "name": "Zergling",
+            "time": 95
+          },
+          {
+            "supply": 16,
+            "name": "Zergling",
+            "time": 95
+          },
+          {
+            "supply": 16,
+            "name": "Queen",
+            "time": 96
+          },
+          {
+            "supply": 21,
+            "name": "Hatchery",
+            "time": 122
+          },
+          {
+            "supply": 20,
+            "name": "Zergling",
+            "time": 129
+          },
+          {
+            "supply": 20,
+            "name": "Zergling",
+            "time": 129
+          },
+          {
+            "supply": 20,
+            "name": "Zergling",
+            "time": 129
+          },
+          {
+            "supply": 20,
+            "name": "Zergling",
+            "time": 129
+          },
+          {
+            "supply": 20,
+            "name": "Overlord",
+            "time": 131
+          },
+          {
+            "supply": 22,
+            "name": "Drone",
+            "time": 137
+          },
+          {
+            "supply": 22,
+            "name": "Drone",
+            "time": 159
+          },
+          {
+            "supply": 22,
+            "name": "Drone",
+            "time": 159
+          },
+          {
+            "supply": 22,
+            "name": "Drone",
+            "time": 159
+          },
+          {
+            "supply": 22,
+            "name": "Drone",
+            "time": 159
+          },
+          {
+            "supply": 25,
+            "name": "Zergling",
+            "time": 165
+          },
+          {
+            "supply": 25,
+            "name": "Zergling",
+            "time": 165
+          },
+          {
+            "supply": 25,
+            "name": "Zergling",
+            "time": 165
+          },
+          {
+            "supply": 25,
+            "name": "Zergling",
+            "time": 165
+          },
+          {
+            "supply": 25,
+            "name": "Zergling",
+            "time": 165
+          },
+          {
+            "supply": 25,
+            "name": "Zergling",
+            "time": 165
+          },
+          {
+            "supply": 25,
+            "name": "Drone",
+            "time": 166
+          },
+          {
+            "supply": 28,
+            "name": "Drone",
+            "time": 183
+          },
+          {
+            "supply": 28,
+            "name": "Drone",
+            "time": 184
+          },
+          {
+            "supply": 28,
+            "name": "Hatchery",
+            "time": 184
+          },
+          {
+            "supply": 29,
+            "name": "Drone",
+            "time": 187
+          },
+          {
+            "supply": 29,
+            "name": "Drone",
+            "time": 190
+          },
+          {
+            "supply": 30,
+            "name": "Zergling",
+            "time": 196
+          },
+          {
+            "supply": 30,
+            "name": "Zergling",
+            "time": 196
+          },
+          {
+            "supply": 30,
+            "name": "Zergling",
+            "time": 198
+          },
+          {
+            "supply": 30,
+            "name": "Zergling",
+            "time": 198
+          },
+          {
+            "supply": 30,
+            "name": "Zergling",
+            "time": 198
+          },
+          {
+            "supply": 30,
+            "name": "Zergling",
+            "time": 198
+          },
+          {
+            "supply": 32,
+            "name": "Zergling",
+            "time": 208
+          },
+          {
+            "supply": 32,
+            "name": "Zergling",
+            "time": 208
+          },
+          {
+            "supply": 32,
+            "name": "Drone",
+            "time": 211
+          },
+          {
+            "supply": 32,
+            "name": "Drone",
+            "time": 211
+          },
+          {
+            "supply": 32,
+            "name": "Drone",
+            "time": 211
+          },
+          {
+            "supply": 32,
+            "name": "Drone",
+            "time": 211
+          },
+          {
+            "supply": 32,
+            "name": "Drone",
+            "time": 211
+          },
+          {
+            "supply": 36,
+            "name": "Zergling",
+            "time": 221
+          },
+          {
+            "supply": 36,
+            "name": "Zergling",
+            "time": 221
+          },
+          {
+            "supply": 37,
+            "name": "Extractor",
+            "time": 235
+          },
+          {
+            "supply": 37,
+            "name": "Overlord",
+            "time": 235
+          },
+          {
+            "supply": 34,
+            "name": "Queen",
+            "time": 235
+          },
+          {
+            "supply": 34,
+            "name": "Extractor",
+            "time": 236
+          }
+        ]
+      },
+      "timestamp": "2025-09-01T10:31:50.928889",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_007",
+      "raw_comment": "adepts to oracle control of map, into gateway units upgrade",
+      "cleaned_comment": "adepts to oracle control of map into gateway units upgrade",
+      "comment": "adepts to oracle control of map, into gateway units upgrade",
+      "keywords": [
+        "adepts",
+        "oracle",
+        "control",
+        "map",
+        "into"
+      ],
+      "game_data": {
+        "opponent_name": "K",
+        "result": "Defeat",
+        "duration": "11m 39s",
+        "date": "2025-08-31 10:39:56",
+        "map": "Pylon LE",
+        "build_order": [
+          {
+            "supply": 12,
+            "name": "SCV",
+            "time": 0
+          },
+          {
+            "supply": 13,
+            "name": "SCV",
+            "time": 12
+          },
+          {
+            "supply": 14,
+            "name": "SupplyDepot",
+            "time": 17
+          },
+          {
+            "supply": 14,
+            "name": "SCV",
+            "time": 24
+          },
+          {
+            "supply": 15,
+            "name": "SCV",
+            "time": 38
+          },
+          {
+            "supply": 15,
+            "name": "Barracks",
+            "time": 40
+          },
+          {
+            "supply": 16,
+            "name": "Refinery",
+            "time": 44
+          },
+          {
+            "supply": 16,
+            "name": "SCV",
+            "time": 52
+          },
+          {
+            "supply": 17,
+            "name": "SCV",
+            "time": 64
+          },
+          {
+            "supply": 18,
+            "name": "SCV",
+            "time": 76
+          },
+          {
+            "supply": 19,
+            "name": "Refinery",
+            "time": 85
+          },
+          {
+            "supply": 19,
+            "name": "Reaper",
+            "time": 88
+          },
+          {
+            "supply": 20,
+            "name": "Orbital Command",
+            "time": 96
+          },
+          {
+            "supply": 20,
+            "name": "CommandCenter",
+            "time": 118
+          },
+          {
+            "supply": 20,
+            "name": "SCV",
+            "time": 122
+          },
+          {
+            "supply": 20,
+            "name": "Factory",
+            "time": 126
+          },
+          {
+            "supply": 20,
+            "name": "BarracksReactor",
+            "time": 131
+          },
+          {
+            "supply": 20,
+            "name": "SupplyDepot",
+            "time": 138
+          },
+          {
+            "supply": 20,
+            "name": "SCV",
+            "time": 141
+          },
+          {
+            "supply": 21,
+            "name": "SCV",
+            "time": 153
+          },
+          {
+            "supply": 22,
+            "name": "SCV",
+            "time": 165
+          },
+          {
+            "supply": 22,
+            "name": "Marine",
+            "time": 168
+          },
+          {
+            "supply": 22,
+            "name": "Marine",
+            "time": 168
+          },
+          {
+            "supply": 22,
+            "name": "Starport",
+            "time": 170
+          },
+          {
+            "supply": 22,
+            "name": "FactoryTechLab",
+            "time": 170
+          },
+          {
+            "supply": 25,
+            "name": "SCV",
+            "time": 177
+          },
+          {
+            "supply": 26,
+            "name": "Marine",
+            "time": 186
+          },
+          {
+            "supply": 26,
+            "name": "Marine",
+            "time": 186
+          },
+          {
+            "supply": 26,
+            "name": "Orbital Command",
+            "time": 189
+          },
+          {
+            "supply": 26,
+            "name": "SCV",
+            "time": 189
+          },
+          {
+            "supply": 29,
+            "name": "Siege Tank",
+            "time": 197
+          },
+          {
+            "supply": 32,
+            "name": "SCV",
+            "time": 206
+          },
+          {
+            "supply": 33,
+            "name": "StarportReactor",
+            "time": 215
+          },
+          {
+            "supply": 33,
+            "name": "SupplyDepot",
+            "time": 216
+          },
+          {
+            "supply": 33,
+            "name": "SCV",
+            "time": 216
+          },
+          {
+            "supply": 33,
+            "name": "Marine",
+            "time": 218
+          },
+          {
+            "supply": 33,
+            "name": "SCV",
+            "time": 219
+          },
+          {
+            "supply": 33,
+            "name": "Marine",
+            "time": 220
+          },
+          {
+            "supply": 36,
+            "name": "SCV",
+            "time": 229
+          },
+          {
+            "supply": 36,
+            "name": "Siege Tank",
+            "time": 231
+          },
+          {
+            "supply": 36,
+            "name": "SCV",
+            "time": 232
+          },
+          {
+            "supply": 41,
+            "name": "Marine",
+            "time": 236
+          },
+          {
+            "supply": 41,
+            "name": "Marine",
+            "time": 238
+          },
+          {
+            "supply": 41,
+            "name": "SupplyDepot",
+            "time": 238
+          },
+          {
+            "supply": 43,
+            "name": "SCV",
+            "time": 250
+          },
+          {
+            "supply": 43,
+            "name": "SCV",
+            "time": 250
+          },
+          {
+            "supply": 43,
+            "name": "Viking",
+            "time": 252
+          },
+          {
+            "supply": 43,
+            "name": "Viking",
+            "time": 254
+          },
+          {
+            "supply": 49,
+            "name": "SupplyDepot",
+            "time": 259
+          },
+          {
+            "supply": 49,
+            "name": "Orbital Command",
+            "time": 261
+          },
+          {
+            "supply": 49,
+            "name": "Marine",
+            "time": 261
+          },
+          {
+            "supply": 49,
+            "name": "SCV",
+            "time": 263
+          },
+          {
+            "supply": 51,
+            "name": "Siege Tank",
+            "time": 273
+          },
+          {
+            "supply": 51,
+            "name": "Marine",
+            "time": 274
+          },
+          {
+            "supply": 51,
+            "name": "SCV",
+            "time": 275
+          },
+          {
+            "supply": 56,
+            "name": "Marine",
+            "time": 279
+          },
+          {
+            "supply": 56,
+            "name": "SupplyDepot",
+            "time": 284
+          },
+          {
+            "supply": 57,
+            "name": "SCV",
+            "time": 287
+          },
+          {
+            "supply": 57,
+            "name": "SCV",
+            "time": 290
+          },
+          {
+            "supply": 57,
+            "name": "Marine",
+            "time": 292
+          }
+        ]
+      },
+      "timestamp": "2025-08-31T11:02:58.144143",
+      "has_player_comment": true
+    }
+  ],
+  "keyword_index": {
+    "gateway": [
+      "comment_001"
+    ],
+    "expand": [
+      "comment_001"
+    ],
+    "stalker": [
+      "comment_001"
+    ],
+    "pressure": [
+      "comment_001"
+    ],
+    "blink": [
+      "comment_001"
+    ],
+    "base,": [
+      "comment_002"
+    ],
+    "all": [
+      "comment_002",
+      "comment_003",
+      "comment_004"
+    ],
+    "in.": [
+      "comment_002"
+    ],
+    "just": [
+      "comment_002"
+    ],
+    "defend": [
+      "comment_002"
+    ],
+    "terran": [
+      "comment_003"
+    ],
+    "base": [
+      "comment_003"
+    ],
+    "tank": [
+      "comment_003"
+    ],
+    "marinetank": [
+      "comment_004"
+    ],
+    "viking": [
+      "comment_004"
+    ],
+    "push": [
+      "comment_004"
+    ],
+    "not": [
+      "comment_005"
+    ],
+    "much": [
+      "comment_005",
+      "comment_006"
+    ],
+    "learn": [
+      "comment_005"
+    ],
+    "zerg": [
+      "comment_005"
+    ],
+    "here": [
+      "comment_005"
+    ],
+    "oracle": [
+      "comment_006",
+      "comment_007"
+    ],
+    "too": [
+      "comment_006"
+    ],
+    "damage": [
+      "comment_006"
+    ],
+    "adepts": [
+      "comment_007"
+    ],
+    "control": [
+      "comment_007"
+    ],
+    "map": [
+      "comment_007"
+    ],
+    "into": [
+      "comment_007"
+    ]
+  }
+}

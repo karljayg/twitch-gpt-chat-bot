@@ -1,0 +1,5526 @@
+{
+  "comments": [
+    {
+      "id": "comment_001",
+      "raw_comment": "This is the first comment. Hello world.",
+      "cleaned_comment": "This is the first comment Hello world",
+      "comment": "This is the first comment. Hello world.",
+      "keywords": [
+        "first",
+        "comment",
+        "hello",
+        "world"
+      ],
+      "game_data": {
+        "opponent_name": "Solstice",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Ley Lines",
+        "duration": "16m 58s",
+        "date": "2024-12-19 23:14:01",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:07.910560",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_002",
+      "raw_comment": "turtle mech - banshee first",
+      "cleaned_comment": "turtle mech - banshee first",
+      "comment": "turtle mech - banshee first",
+      "keywords": [
+        "turtle",
+        "mech",
+        "banshee",
+        "first"
+      ],
+      "game_data": {
+        "opponent_name": "lllllllllll",
+        "opponent_race": "Terran",
+        "result": "Lose",
+        "map": "Amygdala",
+        "duration": "16m 48s",
+        "date": "2025-01-05 20:49:39",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.616728",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_003",
+      "raw_comment": "pylon block to Nexus first. he gg'd after seeing my pool first.",
+      "cleaned_comment": "pylon block to Nexus first he gg d after seeing my pool first",
+      "comment": "pylon block to Nexus first. he gg'd after seeing my pool first.",
+      "keywords": [
+        "pylon",
+        "block",
+        "nexus",
+        "first",
+        "after"
+      ],
+      "game_data": {
+        "opponent_name": "Darkblade",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "Ley Lines",
+        "duration": "1m 18s",
+        "date": "2025-01-07 17:30:37",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.767552",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_004",
+      "raw_comment": "and the rusher.",
+      "cleaned_comment": "and the rusher",
+      "comment": "and the rusher.",
+      "keywords": [
+        "rusher"
+      ],
+      "game_data": {
+        "opponent_name": "SWPro",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "King's Cove LE",
+        "duration": "2m 4s",
+        "date": "2024-12-20 10:28:41",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:07.915588",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_005",
+      "raw_comment": "cannon rusher",
+      "cleaned_comment": "cannon rusher",
+      "comment": "cannon rusher",
+      "keywords": [
+        "cannon",
+        "rusher"
+      ],
+      "game_data": {
+        "opponent_name": "Blacktrust",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Tokamak LE",
+        "duration": "2m 52s",
+        "date": "2025-06-22 13:03:38",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.960148",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_006",
+      "raw_comment": "Super aggressive.",
+      "cleaned_comment": "Super aggressive",
+      "comment": "Super aggressive.",
+      "keywords": [
+        "super",
+        "aggressive"
+      ],
+      "game_data": {
+        "opponent_name": "Nyanyanya",
+        "opponent_race": "Terran",
+        "result": "Win",
+        "map": "Amygdala",
+        "duration": "2m 14s",
+        "date": "2024-12-20 12:40:38",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:07.918740",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_007",
+      "raw_comment": "super cheesy. spine drone rush, anything.",
+      "cleaned_comment": "super cheesy spine drone rush anything",
+      "comment": "super cheesy. spine drone rush, anything.",
+      "keywords": [
+        "super",
+        "cheesy",
+        "spine",
+        "drone",
+        "rush"
+      ],
+      "game_data": {
+        "opponent_name": "ProLife",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Whispers of Gold",
+        "duration": "5m 4s",
+        "date": "2024-12-30 19:57:01",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.371402",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_008",
+      "raw_comment": "forge, but not too aggressive, into voidrays. Then double ground upgrades..",
+      "cleaned_comment": "forge but not too aggressive into voidrays Then double ground upgrades",
+      "comment": "forge, but not too aggressive, into voidrays. Then double ground upgrades..",
+      "keywords": [
+        "forge",
+        "not",
+        "too",
+        "aggressive",
+        "into"
+      ],
+      "game_data": {
+        "opponent_name": "Guandal",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Frostline LE",
+        "duration": "26m 25s",
+        "date": "2024-12-26 12:43:18",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.108378",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_009",
+      "raw_comment": "heavy bio drop in",
+      "cleaned_comment": "heavy bio drop in",
+      "comment": "heavy bio drop in",
+      "keywords": [
+        "heavy",
+        "bio",
+        "drop"
+      ],
+      "game_data": {
+        "opponent_name": "Vanish",
+        "opponent_race": "Terran",
+        "result": "Win",
+        "map": "Frostline LE",
+        "duration": "14m 40s",
+        "date": "2024-12-20 14:23:29",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:07.921740",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_010",
+      "raw_comment": "bio/drop, to ghost, BC. go roach, corruptor, infestor,. Then contain, swarmhost harass.",
+      "cleaned_comment": "bio drop to ghost BC go roach corruptor infestor Then contain swarmhost harass",
+      "comment": "bio/drop, to ghost, BC. go roach, corruptor, infestor,. Then contain, swarmhost harass.",
+      "keywords": [
+        "bio",
+        "drop",
+        "ghost",
+        "roach",
+        "corruptor"
+      ],
+      "game_data": {
+        "opponent_name": "AngryCactus",
+        "opponent_race": "Terran",
+        "result": "Lose",
+        "map": "King's Cove LE",
+        "duration": "38m 37s",
+        "date": "2024-12-24 00:59:50",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.061531",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_011",
+      "raw_comment": "bio drops",
+      "cleaned_comment": "bio drops",
+      "comment": "bio drops",
+      "keywords": [
+        "bio",
+        "drops"
+      ],
+      "game_data": {
+        "opponent_name": "PwTelivolts",
+        "opponent_race": "Terran",
+        "result": "Lose",
+        "map": "King's Cove LE",
+        "duration": "15m 50s",
+        "date": "2024-12-31 15:54:04",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.527441",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_012",
+      "raw_comment": "bio, then push after 3 base",
+      "cleaned_comment": "bio then push after 3 base",
+      "comment": "bio, then push after 3 base",
+      "keywords": [
+        "bio",
+        "then",
+        "push",
+        "after",
+        "base"
+      ],
+      "game_data": {
+        "opponent_name": "llllllllllll",
+        "opponent_race": "Terran",
+        "result": "Lose",
+        "map": "Neon Violet Square LE",
+        "duration": "9m 14s",
+        "date": "2024-12-31 18:17:05",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.549652",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_013",
+      "raw_comment": "banshee to bio drops",
+      "cleaned_comment": "banshee to bio drops",
+      "comment": "banshee to bio drops",
+      "keywords": [
+        "banshee",
+        "bio",
+        "drops"
+      ],
+      "game_data": {
+        "opponent_name": "Breadmachine",
+        "opponent_race": "Terran",
+        "result": "Lose",
+        "map": "El Dorado",
+        "duration": "15m 19s",
+        "date": "2025-01-05 23:12:15",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.663527",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_014",
+      "raw_comment": "banshee to bio push",
+      "cleaned_comment": "banshee to bio push",
+      "comment": "banshee to bio push",
+      "keywords": [
+        "banshee",
+        "bio",
+        "push"
+      ],
+      "game_data": {
+        "opponent_name": "BloodyNine",
+        "opponent_race": "Terran",
+        "result": "Lose",
+        "map": "Neon Violet Square LE",
+        "duration": "11m 55s",
+        "date": "2025-01-07 17:47:00",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.781755",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_015",
+      "raw_comment": "2 rax reaper expand, to bio push.",
+      "cleaned_comment": "2 rax reaper expand to bio push",
+      "comment": "2 rax reaper expand, to bio push.",
+      "keywords": [
+        "rax",
+        "reaper",
+        "expand",
+        "bio",
+        "push"
+      ],
+      "game_data": {
+        "opponent_name": "bmwNick",
+        "opponent_race": "Terran",
+        "result": "Lose",
+        "map": "El Dorado",
+        "duration": "14m 31s",
+        "date": "2025-01-17 23:27:14",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.829056",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_016",
+      "raw_comment": "DT to archon drop, collossus",
+      "cleaned_comment": "DT to archon drop collossus",
+      "comment": "DT to archon drop, collossus",
+      "keywords": [
+        "archon",
+        "drop",
+        "collossus"
+      ],
+      "game_data": {
+        "opponent_name": "TheMaher",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Neon Violet Square LE",
+        "duration": "18m 33s",
+        "date": "2024-12-30 19:05:47",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.357032",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_017",
+      "raw_comment": "immortal drop to disruptor, chargelot",
+      "cleaned_comment": "immortal drop to disruptor chargelot",
+      "comment": "immortal drop to disruptor, chargelot",
+      "keywords": [
+        "immortal",
+        "drop",
+        "disruptor",
+        "chargelot"
+      ],
+      "game_data": {
+        "opponent_name": "SECRET\u00d8aiur",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "Frostline LE",
+        "duration": "7m 14s",
+        "date": "2024-12-30 21:29:36",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.406401",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_018",
+      "raw_comment": "fast speedlings to drop to hydras",
+      "cleaned_comment": "fast speedlings to drop to hydras",
+      "comment": "fast speedlings to drop to hydras",
+      "keywords": [
+        "fast",
+        "speedlings",
+        "drop",
+        "hydras"
+      ],
+      "game_data": {
+        "opponent_name": "ReGiCiDe",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Persephone LE",
+        "duration": "7m 26s",
+        "date": "2025-06-22 16:03:12",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.967655",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_019",
+      "raw_comment": "Lingbane all-in into Muta.",
+      "cleaned_comment": "Lingbane all-in into Muta",
+      "comment": "Lingbane all-in into Muta.",
+      "keywords": [
+        "lingbane",
+        "all-in",
+        "into",
+        "muta"
+      ],
+      "game_data": {
+        "opponent_name": "DakkoN",
+        "opponent_race": "Zerg",
+        "result": "Win",
+        "map": "Frostline LE",
+        "duration": "19m 50s",
+        "date": "2024-12-20 15:40:37",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:07.924866",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_020",
+      "raw_comment": "Speedling All-In or 2-Base Muta.",
+      "cleaned_comment": "Speedling All-In or 2-Base Muta",
+      "comment": "Speedling All-In or 2-Base Muta.",
+      "keywords": [
+        "speedling",
+        "all-in",
+        "2-base",
+        "muta"
+      ],
+      "game_data": {
+        "opponent_name": "BmF",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Ultralove",
+        "duration": "7m 37s",
+        "date": "2024-12-23 13:04:32",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:07.958522",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_021",
+      "raw_comment": "glave adepts into blink.",
+      "cleaned_comment": "glave adepts into blink",
+      "comment": "glave adepts into blink.",
+      "keywords": [
+        "glave",
+        "adepts",
+        "into",
+        "blink"
+      ],
+      "game_data": {
+        "opponent_name": "LyriC",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "El Dorado",
+        "duration": "10m 14s",
+        "date": "2024-12-21 22:55:41",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:07.940822",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_022",
+      "raw_comment": "speedling into Hydra Lurker 2 base",
+      "cleaned_comment": "speedling into Hydra Lurker 2 base",
+      "comment": "speedling into Hydra Lurker 2 base",
+      "keywords": [
+        "speedling",
+        "into",
+        "hydra",
+        "lurker",
+        "base"
+      ],
+      "game_data": {
+        "opponent_name": "WiseGuy",
+        "opponent_race": "Zerg",
+        "result": "Win",
+        "map": "Whispers of Gold",
+        "duration": "9m 14s",
+        "date": "2024-12-23 13:24:38",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:07.962523",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_023",
+      "raw_comment": "cannon rush into Tempest.",
+      "cleaned_comment": "cannon rush into Tempest",
+      "comment": "cannon rush into Tempest.",
+      "keywords": [
+        "cannon",
+        "rush",
+        "into",
+        "tempest"
+      ],
+      "game_data": {
+        "opponent_name": "jas",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "Ultralove",
+        "duration": "15m 16s",
+        "date": "2024-12-23 15:06:32",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:07.975048",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_024",
+      "raw_comment": "glave adepts into 2 stargate void rays, then carriers.",
+      "cleaned_comment": "glave adepts into 2 stargate void rays then carriers",
+      "comment": "glave adepts into 2 stargate void rays, then carriers.",
+      "keywords": [
+        "glave",
+        "adepts",
+        "into",
+        "stargate",
+        "void"
+      ],
+      "game_data": {
+        "opponent_name": "DroneKing",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "Frostline LE",
+        "duration": "12m 41s",
+        "date": "2024-12-23 15:19:31",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:07.979557",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_025",
+      "raw_comment": "3 base ling bane, into roach",
+      "cleaned_comment": "3 base ling bane into roach",
+      "comment": "3 base ling bane, into roach",
+      "keywords": [
+        "base",
+        "ling",
+        "bane",
+        "into",
+        "roach"
+      ],
+      "game_data": {
+        "opponent_name": "JudyAlvarez",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Frostline LE",
+        "duration": "18m 57s",
+        "date": "2024-12-23 21:00:33",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.035649",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_026",
+      "raw_comment": "2 base muta upgrades into hive viper",
+      "cleaned_comment": "2 base muta upgrades into hive viper",
+      "comment": "2 base muta upgrades into hive viper",
+      "keywords": [
+        "base",
+        "muta",
+        "upgrades",
+        "into",
+        "hive"
+      ],
+      "game_data": {
+        "opponent_name": "HeIdErN",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Whispers of Gold",
+        "duration": "14m 56s",
+        "date": "2024-12-24 00:15:09",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.056026",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_027",
+      "raw_comment": "cannon rush into voidray",
+      "cleaned_comment": "cannon rush into voidray",
+      "comment": "cannon rush into voidray",
+      "keywords": [
+        "cannon",
+        "rush",
+        "into",
+        "voidray"
+      ],
+      "game_data": {
+        "opponent_name": "cuttr",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "Ley Lines",
+        "duration": "8m 6s",
+        "date": "2024-12-26 12:05:15",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.102836",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_028",
+      "raw_comment": "this time he cannon rushed into immortal, void ray",
+      "cleaned_comment": "this time he cannon rushed into immortal void ray",
+      "comment": "this time he cannon rushed into immortal, void ray",
+      "keywords": [
+        "time",
+        "cannon",
+        "rushed",
+        "into",
+        "immortal"
+      ],
+      "game_data": {
+        "opponent_name": "Crusher",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "Frostline LE",
+        "duration": "11m 39s",
+        "date": "2024-12-26 13:05:48",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.117892",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_029",
+      "raw_comment": "12 pool into roach all in",
+      "cleaned_comment": "12 pool into roach all in",
+      "comment": "12 pool into roach all in",
+      "keywords": [
+        "pool",
+        "into",
+        "roach",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "PerharK",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Amygdala",
+        "duration": "6m 14s",
+        "date": "2024-12-26 13:54:41",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.138139",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_030",
+      "raw_comment": "glave adepts into charge/immortal/collosus. Go muta vs this after defending.",
+      "cleaned_comment": "glave adepts into charge immortal collosus Go muta vs this after defending",
+      "comment": "glave adepts into charge/immortal/collosus. Go muta vs this after defending.",
+      "keywords": [
+        "glave",
+        "adepts",
+        "into",
+        "charge",
+        "immortal"
+      ],
+      "game_data": {
+        "opponent_name": "BabySCV",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "Frostline LE",
+        "duration": "11m 28s",
+        "date": "2024-12-26 14:14:48",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.147657",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_031",
+      "raw_comment": "cannon rush into blink",
+      "cleaned_comment": "cannon rush into blink",
+      "comment": "cannon rush into blink",
+      "keywords": [
+        "cannon",
+        "rush",
+        "into",
+        "blink"
+      ],
+      "game_data": {
+        "opponent_name": "peepeepoopoo",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Neon Violet Square LE",
+        "duration": "10m 4s",
+        "date": "2024-12-28 21:20:14",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.187481",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_032",
+      "raw_comment": "cannon rush into fast expand",
+      "cleaned_comment": "cannon rush into fast expand",
+      "comment": "cannon rush into fast expand",
+      "keywords": [
+        "cannon",
+        "rush",
+        "into",
+        "fast",
+        "expand"
+      ],
+      "game_data": {
+        "opponent_name": "peepeepoopoo",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "King's Cove LE",
+        "duration": "4m 33s",
+        "date": "2024-12-28 21:25:48",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.192485",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_033",
+      "raw_comment": "fast expand into blink",
+      "cleaned_comment": "fast expand into blink",
+      "comment": "fast expand into blink",
+      "keywords": [
+        "fast",
+        "expand",
+        "into",
+        "blink"
+      ],
+      "game_data": {
+        "opponent_name": "peepeepoopoo",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Neon Violet Square LE",
+        "duration": "9m 51s",
+        "date": "2024-12-28 21:36:31",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.198328",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_034",
+      "raw_comment": "2 base fake roach, into mass lings, to muta",
+      "cleaned_comment": "2 base fake roach into mass lings to muta",
+      "comment": "2 base fake roach, into mass lings, to muta",
+      "keywords": [
+        "base",
+        "fake",
+        "roach",
+        "into",
+        "mass"
+      ],
+      "game_data": {
+        "opponent_name": "gtCheticus",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Frostline LE",
+        "duration": "9m 46s",
+        "date": "2024-12-30 12:41:54",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.271273",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_035",
+      "raw_comment": "proxy 3 gate into expand prism/immortal",
+      "cleaned_comment": "proxy 3 gate into expand prism immortal",
+      "comment": "proxy 3 gate into expand prism/immortal",
+      "keywords": [
+        "proxy",
+        "gate",
+        "into",
+        "expand",
+        "prism"
+      ],
+      "game_data": {
+        "opponent_name": "BabySCV",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "El Dorado",
+        "duration": "11m 29s",
+        "date": "2024-12-30 20:58:13",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.386134",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_036",
+      "raw_comment": "ZvP, cannon rush, into voidray",
+      "cleaned_comment": "ZvP cannon rush into voidray",
+      "comment": "ZvP, cannon rush, into voidray",
+      "keywords": [
+        "zvp",
+        "cannon",
+        "rush",
+        "into",
+        "voidray"
+      ],
+      "game_data": {
+        "opponent_name": "IIIIIIIIIIII",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Amygdala",
+        "duration": "9m 58s",
+        "date": "2024-12-30 21:21:15",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.399691",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_037",
+      "raw_comment": "glave adepts into carriers",
+      "cleaned_comment": "glave adepts into carriers",
+      "comment": "glave adepts into carriers",
+      "keywords": [
+        "glave",
+        "adepts",
+        "into",
+        "carriers"
+      ],
+      "game_data": {
+        "opponent_name": "SECRET\u00d8aiur",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "Frostline LE",
+        "duration": "9m 52s",
+        "date": "2024-12-30 21:40:40",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.413196",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_038",
+      "raw_comment": "reaper, scv block 3rd, into banshees. then bio tank push.",
+      "cleaned_comment": "reaper scv block 3rd into banshees then bio tank push",
+      "comment": "reaper, scv block 3rd, into banshees. then bio tank push.",
+      "keywords": [
+        "reaper",
+        "scv",
+        "block",
+        "3rd",
+        "into"
+      ],
+      "game_data": {
+        "opponent_name": "RngBlossom",
+        "opponent_race": "Terran",
+        "result": "Lose",
+        "map": "Whispers of Gold",
+        "duration": "10m 53s",
+        "date": "2024-12-30 23:14:45",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.433700",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_039",
+      "raw_comment": "cannon rush into DT to collosus",
+      "cleaned_comment": "cannon rush into DT to collosus",
+      "comment": "cannon rush into DT to collosus",
+      "keywords": [
+        "cannon",
+        "rush",
+        "into",
+        "collosus"
+      ],
+      "game_data": {
+        "opponent_name": "GrumpyKitten",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "Amygdala",
+        "duration": "15m 25s",
+        "date": "2024-12-30 23:31:11",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.441209",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_040",
+      "raw_comment": "1 base speedling into expand spine mutas",
+      "cleaned_comment": "1 base speedling into expand spine mutas",
+      "comment": "1 base speedling into expand spine mutas",
+      "keywords": [
+        "base",
+        "speedling",
+        "into",
+        "expand",
+        "spine"
+      ],
+      "game_data": {
+        "opponent_name": "BmF",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "King's Cove LE",
+        "duration": "27m 33s",
+        "date": "2024-12-31 13:03:26",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.455022",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_041",
+      "raw_comment": "14 pool pressure into roach",
+      "cleaned_comment": "14 pool pressure into roach",
+      "comment": "14 pool pressure into roach",
+      "keywords": [
+        "pool",
+        "pressure",
+        "into",
+        "roach"
+      ],
+      "game_data": {
+        "opponent_name": "DonShot",
+        "opponent_race": "Zerg",
+        "result": "Win",
+        "map": "Ultralove",
+        "duration": "9m 2s",
+        "date": "2024-12-31 13:22:22",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.462531",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_042",
+      "raw_comment": "forge, into 2 base blink all in.",
+      "cleaned_comment": "forge into 2 base blink all in",
+      "comment": "forge, into 2 base blink all in.",
+      "keywords": [
+        "forge",
+        "into",
+        "base",
+        "blink",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "LewisKiniski",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "Ley Lines",
+        "duration": "6m 8s",
+        "date": "2024-12-31 18:27:35",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.563585",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_043",
+      "raw_comment": "lots of hellions, into banshee, BC",
+      "cleaned_comment": "lots of hellions into banshee BC",
+      "comment": "lots of hellions, into banshee, BC",
+      "keywords": [
+        "lots",
+        "hellions",
+        "into",
+        "banshee"
+      ],
+      "game_data": {
+        "opponent_name": "StimpackPapi",
+        "opponent_race": "Terran",
+        "result": "Lose",
+        "map": "King's Cove LE",
+        "duration": "12m 50s",
+        "date": "2025-01-06 22:56:47",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.744549",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_044",
+      "raw_comment": "3 base ling bane into roach",
+      "cleaned_comment": "3 base ling bane into roach",
+      "comment": "3 base ling bane into roach",
+      "keywords": [
+        "base",
+        "ling",
+        "bane",
+        "into",
+        "roach"
+      ],
+      "game_data": {
+        "opponent_name": "SwarmTV",
+        "opponent_race": "Zerg",
+        "result": "Win",
+        "map": "King's Cove LE",
+        "duration": "10m 17s",
+        "date": "2025-01-07 11:26:14",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.752054",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_045",
+      "raw_comment": "hellion into banshee harass into massive bio push",
+      "cleaned_comment": "hellion into banshee harass into massive bio push",
+      "comment": "hellion into banshee harass into massive bio push",
+      "keywords": [
+        "hellion",
+        "into",
+        "banshee",
+        "harass"
+      ],
+      "game_data": {
+        "opponent_name": "Wither",
+        "opponent_race": "Terran",
+        "result": "Lose",
+        "map": "Frostline LE",
+        "duration": "10m 18s",
+        "date": "2025-01-17 12:47:23",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.797787",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_046",
+      "raw_comment": "oracle, void ray into 3 base chargelot, immortal, archon timing.",
+      "cleaned_comment": "oracle void ray into 3 base chargelot immortal archon timing",
+      "comment": "oracle, void ray into 3 base chargelot, immortal, archon timing.",
+      "keywords": [
+        "oracle",
+        "void",
+        "ray",
+        "into",
+        "base"
+      ],
+      "game_data": {
+        "opponent_name": "Darkblade",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "Frostline LE",
+        "duration": "8m 25s",
+        "date": "2025-01-20 13:28:02",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.892882",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_047",
+      "raw_comment": "big map, muta ling",
+      "cleaned_comment": "big map muta ling",
+      "comment": "big map, muta ling",
+      "keywords": [
+        "big",
+        "map",
+        "muta",
+        "ling"
+      ],
+      "game_data": {
+        "opponent_name": "DonShot",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Neon Violet Square LE",
+        "duration": "10m 41s",
+        "date": "2025-01-06 17:49:12",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.691491",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_048",
+      "raw_comment": "14 pool lings, then muta. So make 4 lings.",
+      "cleaned_comment": "14 pool lings then muta So make 4 lings",
+      "comment": "14 pool lings, then muta. So make 4 lings.",
+      "keywords": [
+        "pool",
+        "lings",
+        "then",
+        "muta",
+        "make"
+      ],
+      "game_data": {
+        "opponent_name": "DonShot",
+        "opponent_race": "Zerg",
+        "result": "Win",
+        "map": "Amygdala",
+        "duration": "12m 46s",
+        "date": "2025-01-06 21:45:13",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.712844",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_049",
+      "raw_comment": "ling muta",
+      "cleaned_comment": "ling muta",
+      "comment": "ling muta",
+      "keywords": [
+        "ling",
+        "muta"
+      ],
+      "game_data": {
+        "opponent_name": "NWARexius",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Frostline LE",
+        "duration": "11m 32s",
+        "date": "2025-01-17 23:55:47",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.836562",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_050",
+      "raw_comment": "He does mech, hides what he's doing with...",
+      "cleaned_comment": "He does mech hides what he s doing with",
+      "comment": "He does mech, hides what he's doing with...",
+      "keywords": [
+        "mech",
+        "hides",
+        "what",
+        "doing"
+      ],
+      "game_data": {
+        "opponent_name": "Karma",
+        "opponent_race": "Terran",
+        "result": "Lose",
+        "map": "Neon Violet Square LE",
+        "duration": "13m 15s",
+        "date": "2024-12-20 15:56:15",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:07.927865",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_051",
+      "raw_comment": "ghost to hellbat mech",
+      "cleaned_comment": "ghost to hellbat mech",
+      "comment": "ghost to hellbat mech",
+      "keywords": [
+        "ghost",
+        "hellbat",
+        "mech"
+      ],
+      "game_data": {
+        "opponent_name": "llllllllllll",
+        "opponent_race": "Terran",
+        "result": "Lose",
+        "map": "Whispers of Gold",
+        "duration": "19m 11s",
+        "date": "2024-12-30 18:46:35",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.349773",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_052",
+      "raw_comment": "1 base all in or turtle mech",
+      "cleaned_comment": "1 base all in or turtle mech",
+      "comment": "1 base all in or turtle mech",
+      "keywords": [
+        "base",
+        "all",
+        "turtle",
+        "mech"
+      ],
+      "game_data": {
+        "opponent_name": "Boreau",
+        "opponent_race": "Terran",
+        "result": "Lose",
+        "map": "Ultralove",
+        "duration": "8m 59s",
+        "date": "2025-08-07 00:44:36",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:09.105797",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_053",
+      "raw_comment": "Mech to BC to Mech",
+      "cleaned_comment": "Mech to BC to Mech",
+      "comment": "Mech to BC to Mech",
+      "keywords": [
+        "mech"
+      ],
+      "game_data": {
+        "opponent_name": "Magicbattery",
+        "opponent_race": "Terran",
+        "result": "Lose",
+        "map": "Last Fantasy LE",
+        "duration": "22m 10s",
+        "date": "2025-08-14 20:32:37",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:09.149646",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_054",
+      "raw_comment": "35 probe prism stalker zealot all in",
+      "cleaned_comment": "35 probe prism stalker zealot all in",
+      "comment": "35 probe prism stalker zealot all in",
+      "keywords": [
+        "probe",
+        "prism",
+        "stalker",
+        "zealot",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "Early",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Whispers of Gold",
+        "duration": "6m 7s",
+        "date": "2024-12-21 16:21:38",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:07.931133",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_055",
+      "raw_comment": "probe blocks expansion, then goes DT drop.",
+      "cleaned_comment": "probe blocks expansion then goes DT drop",
+      "comment": "probe blocks expansion, then goes DT drop.",
+      "keywords": [
+        "probe",
+        "blocks",
+        "expansion",
+        "then",
+        "goes"
+      ],
+      "game_data": {
+        "opponent_name": "markus",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "Amygdala",
+        "duration": "6m 59s",
+        "date": "2025-01-06 14:35:46",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.677678",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_056",
+      "raw_comment": "Two base charge slot prism.",
+      "cleaned_comment": "Two base charge slot prism",
+      "comment": "Two base charge slot prism.",
+      "keywords": [
+        "two",
+        "base",
+        "charge",
+        "slot",
+        "prism"
+      ],
+      "game_data": {
+        "opponent_name": "Beni",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Whispers of Gold",
+        "duration": "11m 51s",
+        "date": "2024-12-24 11:58:41",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.070550",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_057",
+      "raw_comment": "prism chargelot 2 base all in",
+      "cleaned_comment": "prism chargelot 2 base all in",
+      "comment": "prism chargelot 2 base all in",
+      "keywords": [
+        "prism",
+        "chargelot",
+        "base",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "Crusher",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "El Dorado",
+        "duration": "6m 30s",
+        "date": "2024-12-30 13:40:19",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.288300",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_058",
+      "raw_comment": "1 base prism 4 gate all in",
+      "cleaned_comment": "1 base prism 4 gate all in",
+      "comment": "1 base prism 4 gate all in",
+      "keywords": [
+        "base",
+        "prism",
+        "gate",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "Zhanox",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Amygdala",
+        "duration": "7m 51s",
+        "date": "2024-12-31 12:35:14",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.448807",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_059",
+      "raw_comment": "chargelots prism immortal all in",
+      "cleaned_comment": "chargelots prism immortal all in",
+      "comment": "chargelots prism immortal all in",
+      "keywords": [
+        "chargelots",
+        "prism",
+        "immortal",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "First",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Whispers of Gold",
+        "duration": "10m 31s",
+        "date": "2024-12-31 17:05:51",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.533815",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_060",
+      "raw_comment": "cannon to DT, to quick prism pressure, to DTs 2 base all in",
+      "cleaned_comment": "cannon to DT to quick prism pressure to DTs 2 base all in",
+      "comment": "cannon to DT, to quick prism pressure, to DTs 2 base all in",
+      "keywords": [
+        "cannon",
+        "quick",
+        "prism",
+        "pressure",
+        "dts"
+      ],
+      "game_data": {
+        "opponent_name": "lllllllllll",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "Ultralove",
+        "duration": "8m 16s",
+        "date": "2025-08-28 17:56:19",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:09.175730",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_061",
+      "raw_comment": "PvP, pylon block, stalker rush. He has no defense to Oracle.",
+      "cleaned_comment": "PvP pylon block stalker rush He has no defense to Oracle",
+      "comment": "PvP, pylon block, stalker rush. He has no defense to Oracle.",
+      "keywords": [
+        "pvp",
+        "pylon",
+        "block",
+        "stalker",
+        "rush"
+      ],
+      "game_data": {
+        "opponent_name": "sensay",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "King's Cove LE",
+        "duration": "22m 53s",
+        "date": "2024-12-29 18:34:53",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.228876",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_062",
+      "raw_comment": "oracles 2, to stalker/collosus.",
+      "cleaned_comment": "oracles 2 to stalker collosus",
+      "comment": "oracles 2, to stalker/collosus.",
+      "keywords": [
+        "oracles",
+        "stalker",
+        "collosus"
+      ],
+      "game_data": {
+        "opponent_name": "NioOfIda",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Ultralove",
+        "duration": "10m 22s",
+        "date": "2025-01-20 13:00:55",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.868223",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_063",
+      "raw_comment": "proxy robo 3 gate stalker all in",
+      "cleaned_comment": "proxy robo 3 gate stalker all in",
+      "comment": "proxy robo 3 gate stalker all in",
+      "keywords": [
+        "proxy",
+        "robo",
+        "gate",
+        "stalker",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "IIIBarCodIII",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Ultralove",
+        "duration": "4m 51s",
+        "date": "2025-06-22 18:06:11",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.992222",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_064",
+      "raw_comment": "zealot adept pressure, to secret expand, voidray",
+      "cleaned_comment": "zealot adept pressure to secret expand voidray",
+      "comment": "zealot adept pressure, to secret expand, voidray",
+      "keywords": [
+        "zealot",
+        "adept",
+        "pressure",
+        "secret",
+        "expand"
+      ],
+      "game_data": {
+        "opponent_name": "DarkPrelate",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "Neon Violet Square LE",
+        "duration": "13m 8s",
+        "date": "2024-12-31 14:03:53",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.477591",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_065",
+      "raw_comment": "speedling all in.",
+      "cleaned_comment": "speedling all in",
+      "comment": "speedling all in.",
+      "keywords": [
+        "speedling",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "BmF",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "El Dorado",
+        "duration": "3m 27s",
+        "date": "2024-12-21 22:29:03",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:07.934643",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_066",
+      "raw_comment": "speedling roach all in.",
+      "cleaned_comment": "speedling roach all in",
+      "comment": "speedling roach all in.",
+      "keywords": [
+        "speedling",
+        "roach",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "TiGerG",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Whispers of Gold",
+        "duration": "6m 51s",
+        "date": "2024-12-21 22:36:58",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:07.937646",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_067",
+      "raw_comment": "Drone Spine Ling All In",
+      "cleaned_comment": "Drone Spine Ling All In",
+      "comment": "Drone Spine Ling All In",
+      "keywords": [
+        "drone",
+        "spine",
+        "ling",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "WOOFWOOFBARK",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Ultralove",
+        "duration": "3m 21s",
+        "date": "2024-12-22 16:14:32",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:07.944908",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_068",
+      "raw_comment": "He will all in if he's behind.",
+      "cleaned_comment": "He will all in if he s behind",
+      "comment": "He will all in if he's behind.",
+      "keywords": [
+        "all",
+        "behind"
+      ],
+      "game_data": {
+        "opponent_name": "LittleReaper",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "Abyssal Reef LE",
+        "duration": "10m 56s",
+        "date": "2024-12-23 17:54:19",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.016055",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_069",
+      "raw_comment": "2 base roach all in",
+      "cleaned_comment": "2 base roach all in",
+      "comment": "2 base roach all in",
+      "keywords": [
+        "base",
+        "roach",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "Grimm",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Frostline LE",
+        "duration": "6m 41s",
+        "date": "2024-12-23 21:07:52",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.039162",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_070",
+      "raw_comment": "proxy 4 gateway all in",
+      "cleaned_comment": "proxy 4 gateway all in",
+      "comment": "proxy 4 gateway all in",
+      "keywords": [
+        "proxy",
+        "gateway",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "hyuneee",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "King's Cove LE",
+        "duration": "14m 54s",
+        "date": "2024-12-23 23:17:11",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.047684",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_071",
+      "raw_comment": "3-hatch Ling Bane in roach all in",
+      "cleaned_comment": "3-hatch Ling Bane in roach all in",
+      "comment": "3-hatch Ling Bane in roach all in",
+      "keywords": [
+        "3-hatch",
+        "ling",
+        "bane",
+        "roach",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "Fleshspawn",
+        "opponent_race": "Zerg",
+        "result": "Win",
+        "map": "Amygdala",
+        "duration": "11m 3s",
+        "date": "2024-12-23 23:54:51",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.052687",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_072",
+      "raw_comment": "spine ling rush all in",
+      "cleaned_comment": "spine ling rush all in",
+      "comment": "spine ling rush all in",
+      "keywords": [
+        "spine",
+        "ling",
+        "rush",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "kailiu",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Frostline LE",
+        "duration": "8m 45s",
+        "date": "2024-12-26 12:53:59",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.112387",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_073",
+      "raw_comment": "2 base speedling all in",
+      "cleaned_comment": "2 base speedling all in",
+      "comment": "2 base speedling all in",
+      "keywords": [
+        "base",
+        "speedling",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "hamzah",
+        "opponent_race": "Zerg",
+        "result": "Win",
+        "map": "Ley Lines",
+        "duration": "5m 0s",
+        "date": "2024-12-26 17:45:27",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.153661",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_074",
+      "raw_comment": "speedling all in",
+      "cleaned_comment": "speedling all in",
+      "comment": "speedling all in",
+      "keywords": [
+        "speedling",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "HappyFeet",
+        "opponent_race": "Zerg",
+        "result": "Win",
+        "map": "King's Cove LE",
+        "duration": "5m 59s",
+        "date": "2024-12-27 14:27:08",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.181466",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_075",
+      "raw_comment": "3 hatch, slow lings all in",
+      "cleaned_comment": "3 hatch slow lings all in",
+      "comment": "3 hatch, slow lings all in",
+      "keywords": [
+        "hatch",
+        "slow",
+        "lings",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "Sephirolisk",
+        "opponent_race": "Zerg",
+        "result": "Win",
+        "map": "Ley Lines",
+        "duration": "10m 27s",
+        "date": "2024-12-28 21:51:04",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.202335",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_076",
+      "raw_comment": "PvP: proxy gateways, cannon all in.",
+      "cleaned_comment": "PvP proxy gateways cannon all in",
+      "comment": "PvP: proxy gateways, cannon all in.",
+      "keywords": [
+        "pvp",
+        "proxy",
+        "gateways",
+        "cannon",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "BabySCV",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Ley Lines",
+        "duration": "3m 52s",
+        "date": "2024-12-29 17:46:45",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.212889",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_077",
+      "raw_comment": "roach/ling all in",
+      "cleaned_comment": "roach ling all in",
+      "comment": "roach/ling all in",
+      "keywords": [
+        "roach",
+        "ling",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "DKeyAbuser",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Ultralove",
+        "duration": "6m 35s",
+        "date": "2024-12-30 00:08:18",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.239891",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_078",
+      "raw_comment": "1 base, 13/12 all in",
+      "cleaned_comment": "1 base 13 12 all in",
+      "comment": "1 base, 13/12 all in",
+      "keywords": [
+        "base",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "Tatagiba",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Frostline LE",
+        "duration": "5m 42s",
+        "date": "2024-12-30 16:56:37",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.311596",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_079",
+      "raw_comment": "2 base ling bane all in",
+      "cleaned_comment": "2 base ling bane all in",
+      "comment": "2 base ling bane all in",
+      "keywords": [
+        "base",
+        "ling",
+        "bane",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "AJarOfLoam",
+        "opponent_race": "Zerg",
+        "result": "Win",
+        "map": "El Dorado",
+        "duration": "5m 55s",
+        "date": "2024-12-31 19:05:50",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.570600",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_080",
+      "raw_comment": "glave adepts all in",
+      "cleaned_comment": "glave adepts all in",
+      "comment": "glave adepts all in",
+      "keywords": [
+        "glave",
+        "adepts",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "majti",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Ley Lines",
+        "duration": "13m 45s",
+        "date": "2025-01-05 22:25:41",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.637893",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_081",
+      "raw_comment": "speedling all in, very cheesey all in player",
+      "cleaned_comment": "speedling all in very cheesey all in player",
+      "comment": "speedling all in, very cheesey all in player",
+      "keywords": [
+        "speedling",
+        "all",
+        "very",
+        "cheesey"
+      ],
+      "game_data": {
+        "opponent_name": "Sephirolisk",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Frostline LE",
+        "duration": "4m 48s",
+        "date": "2025-01-05 22:49:23",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.656021",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_082",
+      "raw_comment": "2 base, 5:30 min upgraded roach all in",
+      "cleaned_comment": "2 base 5 30 min upgraded roach all in",
+      "comment": "2 base, 5:30 min upgraded roach all in",
+      "keywords": [
+        "base",
+        "min",
+        "upgraded",
+        "roach",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "Warthorshore",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Ultralove",
+        "duration": "7m 45s",
+        "date": "2025-01-06 16:57:12",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.683917",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_083",
+      "raw_comment": "proxy gates all in",
+      "cleaned_comment": "proxy gates all in",
+      "comment": "proxy gates all in",
+      "keywords": [
+        "proxy",
+        "gates",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "TheProfessor",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Amygdala",
+        "duration": "4m 6s",
+        "date": "2025-01-17 13:44:19",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.805969",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_084",
+      "raw_comment": "as Protoss, chargelot all in",
+      "cleaned_comment": "as Protoss chargelot all in",
+      "comment": "as Protoss, chargelot all in",
+      "keywords": [
+        "protoss",
+        "chargelot",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "llllllllll",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "King's Cove LE",
+        "duration": "10m 27s",
+        "date": "2025-01-18 00:45:50",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.843819",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_085",
+      "raw_comment": "13 pool ling bane all in",
+      "cleaned_comment": "13 pool ling bane all in",
+      "comment": "13 pool ling bane all in",
+      "keywords": [
+        "pool",
+        "ling",
+        "bane",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "ThumbInBumb",
+        "opponent_race": "Zerg",
+        "result": "Win",
+        "map": "Ley Lines",
+        "duration": "10m 11s",
+        "date": "2025-01-20 13:17:08",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.884767",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_086",
+      "raw_comment": "random, but as zerg went speedling all in",
+      "cleaned_comment": "random but as zerg went speedling all in",
+      "comment": "random, but as zerg went speedling all in",
+      "keywords": [
+        "random",
+        "zerg",
+        "went",
+        "speedling",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "Hamburglar",
+        "opponent_race": "Zerg",
+        "result": "Win",
+        "map": "Ultralove",
+        "duration": "13m 12s",
+        "date": "2025-01-20 13:43:07",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.900555",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_087",
+      "raw_comment": "roach +1 2 base all in",
+      "cleaned_comment": "roach 1 2 base all in",
+      "comment": "roach +1 2 base all in",
+      "keywords": [
+        "roach",
+        "base",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "asuka",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Whispers of Gold",
+        "duration": "7m 32s",
+        "date": "2025-02-27 13:59:31",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.929873",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_088",
+      "raw_comment": "roach 2 base all in +1. Need 3 gases and full pump of units.",
+      "cleaned_comment": "roach 2 base all in 1 Need 3 gases and full pump of units",
+      "comment": "roach 2 base all in +1. Need 3 gases and full pump of units.",
+      "keywords": [
+        "roach",
+        "base",
+        "all",
+        "need",
+        "gases"
+      ],
+      "game_data": {
+        "opponent_name": "asuka",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Whispers of Gold",
+        "duration": "6m 57s",
+        "date": "2025-02-27 14:07:26",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.936377",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_089",
+      "raw_comment": "all in, speedling, banes",
+      "cleaned_comment": "all in speedling banes",
+      "comment": "all in, speedling, banes",
+      "keywords": [
+        "all",
+        "speedling",
+        "banes"
+      ],
+      "game_data": {
+        "opponent_name": "SbR",
+        "opponent_race": "Zerg",
+        "result": "Win",
+        "map": "Ley Lines",
+        "duration": "9m 38s",
+        "date": "2025-06-21 22:35:42",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.951528",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_090",
+      "raw_comment": "3 hatch ling bane all in",
+      "cleaned_comment": "3 hatch ling bane all in",
+      "comment": "3 hatch ling bane all in",
+      "keywords": [
+        "hatch",
+        "ling",
+        "bane",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "IIIIIIIIIIII",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Ultralove",
+        "duration": "5m 31s",
+        "date": "2025-06-25 11:34:16",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:09.000237",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_091",
+      "raw_comment": "13/12 all in",
+      "cleaned_comment": "13 12 all in",
+      "comment": "13/12 all in",
+      "keywords": [
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "SigmaBoy",
+        "opponent_race": "Zerg",
+        "result": "Win",
+        "map": "Persephone LE",
+        "duration": "6m 13s",
+        "date": "2025-06-27 18:33:51",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:09.008244",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_092",
+      "raw_comment": "1 base 4 gate charge all in, to DT/archon",
+      "cleaned_comment": "1 base 4 gate charge all in to DT archon",
+      "comment": "1 base 4 gate charge all in, to DT/archon",
+      "keywords": [
+        "base",
+        "gate",
+        "charge",
+        "all",
+        "archon"
+      ],
+      "game_data": {
+        "opponent_name": "IIIIIIIIIIII",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "Magannatha LE",
+        "duration": "6m 57s",
+        "date": "2025-06-27 19:26:34",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:09.015751",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_093",
+      "raw_comment": "13/12 bane, fake hatch all in",
+      "cleaned_comment": "13 12 bane fake hatch all in",
+      "comment": "13/12 bane, fake hatch all in",
+      "keywords": [
+        "bane",
+        "fake",
+        "hatch",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "Fartblast",
+        "opponent_race": "Zerg",
+        "result": "Win",
+        "map": "Magannatha LE",
+        "duration": "5m 42s",
+        "date": "2025-08-04 14:17:47",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:09.072217",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_094",
+      "raw_comment": "4 rax proxy all in",
+      "cleaned_comment": "4 rax proxy all in",
+      "comment": "4 rax proxy all in",
+      "keywords": [
+        "rax",
+        "proxy",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "GenoMinion",
+        "opponent_race": "Terran",
+        "result": "Win",
+        "map": "Last Fantasy LE",
+        "duration": "6m 39s",
+        "date": "2025-08-04 21:29:37",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:09.097736",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_095",
+      "raw_comment": "chargelot all in, just make banes",
+      "cleaned_comment": "chargelot all in just make banes",
+      "comment": "chargelot all in, just make banes",
+      "keywords": [
+        "chargelot",
+        "all",
+        "just",
+        "make",
+        "banes"
+      ],
+      "game_data": {
+        "opponent_name": "AniketosMav",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Incorporeal LE",
+        "duration": "9m 53s",
+        "date": "2025-08-15 17:37:10",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:09.157656",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_096",
+      "raw_comment": "ling flood all in",
+      "cleaned_comment": "ling flood all in",
+      "comment": "ling flood all in",
+      "keywords": [
+        "ling",
+        "flood",
+        "all"
+      ],
+      "game_data": {
+        "opponent_name": "CrasT",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Torches LE",
+        "duration": "3m 35s",
+        "date": "2025-08-15 17:45:02",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:09.166163",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_097",
+      "raw_comment": "all in marinetank viking push",
+      "cleaned_comment": "all in marinetank viking push",
+      "comment": "all in marinetank viking push",
+      "keywords": [
+        "all",
+        "marinetank",
+        "viking",
+        "push"
+      ],
+      "game_data": {
+        "opponent_name": "eGaliza",
+        "opponent_race": "Terran",
+        "result": "Lose",
+        "map": "Pylon LE",
+        "duration": "11m 39s",
+        "date": "2025-08-31 10:39:35",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:09.249959",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_098",
+      "raw_comment": "3 hatch speedling bane defend to roach",
+      "cleaned_comment": "3 hatch speedling bane defend to roach",
+      "comment": "3 hatch speedling bane defend to roach",
+      "keywords": [
+        "hatch",
+        "speedling",
+        "bane",
+        "defend",
+        "roach"
+      ],
+      "game_data": {
+        "opponent_name": "DonShot",
+        "opponent_race": "Zerg",
+        "result": "Win",
+        "map": "Whispers of Gold",
+        "duration": "11m 36s",
+        "date": "2024-12-26 20:07:57",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.175959",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_099",
+      "raw_comment": "speedling to roach defense",
+      "cleaned_comment": "speedling to roach defense",
+      "comment": "speedling to roach defense",
+      "keywords": [
+        "speedling",
+        "roach",
+        "defense"
+      ],
+      "game_data": {
+        "opponent_name": "llllllllllll",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Pylon LE",
+        "duration": "7m 32s",
+        "date": "2025-08-04 12:57:21",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:09.056131",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_100",
+      "raw_comment": "2 base slow Roach Hydra push.",
+      "cleaned_comment": "2 base slow Roach Hydra push",
+      "comment": "2 base slow Roach Hydra push.",
+      "keywords": [
+        "base",
+        "slow",
+        "roach",
+        "hydra",
+        "push"
+      ],
+      "game_data": {
+        "opponent_name": "TheG",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Ultralove",
+        "duration": "7m 48s",
+        "date": "2024-12-22 16:23:19",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:07.947910",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_101",
+      "raw_comment": "Nydus, roach, or spine rush",
+      "cleaned_comment": "Nydus roach or spine rush",
+      "comment": "Nydus, roach, or spine rush",
+      "keywords": [
+        "nydus",
+        "roach",
+        "spine",
+        "rush"
+      ],
+      "game_data": {
+        "opponent_name": "Pistola",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Ultralove",
+        "duration": "6m 49s",
+        "date": "2024-12-22 23:53:44",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:07.951982",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_102",
+      "raw_comment": "2 base roach",
+      "cleaned_comment": "2 base roach",
+      "comment": "2 base roach",
+      "keywords": [
+        "base",
+        "roach"
+      ],
+      "game_data": {
+        "opponent_name": "Civil",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Whispers of Gold",
+        "duration": "14m 34s",
+        "date": "2024-12-23 13:44:20",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:07.966032",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_103",
+      "raw_comment": "two base roach push",
+      "cleaned_comment": "two base roach push",
+      "comment": "two base roach push",
+      "keywords": [
+        "two",
+        "base",
+        "roach",
+        "push"
+      ],
+      "game_data": {
+        "opponent_name": "Fexx",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Whispers of Gold",
+        "duration": "10m 21s",
+        "date": "2024-12-23 14:30:43",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:07.971540",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_104",
+      "raw_comment": "3 hatch, mass lings to roach.",
+      "cleaned_comment": "3 hatch mass lings to roach",
+      "comment": "3 hatch, mass lings to roach.",
+      "keywords": [
+        "hatch",
+        "mass",
+        "lings",
+        "roach"
+      ],
+      "game_data": {
+        "opponent_name": "HappyFeet",
+        "opponent_race": "Zerg",
+        "result": "Win",
+        "map": "Frostline LE",
+        "duration": "5m 14s",
+        "date": "2024-12-26 18:07:09",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.159194",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_105",
+      "raw_comment": "Random, as Z went spine to 2 base roach push",
+      "cleaned_comment": "Random as Z went spine to 2 base roach push",
+      "comment": "Random, as Z went spine to 2 base roach push",
+      "keywords": [
+        "random",
+        "went",
+        "spine",
+        "base",
+        "roach"
+      ],
+      "game_data": {
+        "opponent_name": "GutyECUADOR",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Frostline LE",
+        "duration": "10m 13s",
+        "date": "2024-12-26 19:55:02",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.169854",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_106",
+      "raw_comment": "ZvP: ling, fast expand, roach/hydra push",
+      "cleaned_comment": "ZvP ling fast expand roach hydra push",
+      "comment": "ZvP: ling, fast expand, roach/hydra push",
+      "keywords": [
+        "zvp",
+        "ling",
+        "fast",
+        "expand",
+        "roach"
+      ],
+      "game_data": {
+        "opponent_name": "poonsIayer",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "El Dorado",
+        "duration": "12m 17s",
+        "date": "2024-12-29 18:12:02",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.223498",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_107",
+      "raw_comment": "3 hatch ling baneling to roach",
+      "cleaned_comment": "3 hatch ling baneling to roach",
+      "comment": "3 hatch ling baneling to roach",
+      "keywords": [
+        "hatch",
+        "ling",
+        "baneling",
+        "roach"
+      ],
+      "game_data": {
+        "opponent_name": "llllllllllll",
+        "opponent_race": "Zerg",
+        "result": "Win",
+        "map": "Frostline LE",
+        "duration": "9m 5s",
+        "date": "2024-12-30 12:51:17",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.276781",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_108",
+      "raw_comment": "2 base roach upgrades, burrow. he gets 3rd base before attacking.",
+      "cleaned_comment": "2 base roach upgrades burrow he gets 3rd base before attacking",
+      "comment": "2 base roach upgrades, burrow. he gets 3rd base before attacking.",
+      "keywords": [
+        "base",
+        "roach",
+        "upgrades",
+        "burrow",
+        "gets"
+      ],
+      "game_data": {
+        "opponent_name": "yeaitshuge",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Frostline LE",
+        "duration": "11m 0s",
+        "date": "2024-12-30 22:29:23",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.419570",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_109",
+      "raw_comment": "early lings, to roach/hydra, 3 base",
+      "cleaned_comment": "early lings to roach hydra 3 base",
+      "comment": "early lings, to roach/hydra, 3 base",
+      "keywords": [
+        "early",
+        "lings",
+        "roach",
+        "hydra",
+        "base"
+      ],
+      "game_data": {
+        "opponent_name": "DonShot",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Ley Lines",
+        "duration": "9m 27s",
+        "date": "2025-01-06 22:17:01",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.736920",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_110",
+      "raw_comment": "2 base roach nydus",
+      "cleaned_comment": "2 base roach nydus",
+      "comment": "2 base roach nydus",
+      "keywords": [
+        "base",
+        "roach",
+        "nydus"
+      ],
+      "game_data": {
+        "opponent_name": "TheGladiator",
+        "opponent_race": "Zerg",
+        "result": "Win",
+        "map": "El Dorado",
+        "duration": "13m 28s",
+        "date": "2025-01-21 00:32:13",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.922164",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_111",
+      "raw_comment": "roach 2 base upgrades push",
+      "cleaned_comment": "roach 2 base upgrades push",
+      "comment": "roach 2 base upgrades push",
+      "keywords": [
+        "roach",
+        "base",
+        "upgrades",
+        "push"
+      ],
+      "game_data": {
+        "opponent_name": "Tendo",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Ultralove",
+        "duration": "12m 20s",
+        "date": "2025-02-28 17:23:19",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.943883",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_112",
+      "raw_comment": "12 pool to roach",
+      "cleaned_comment": "12 pool to roach",
+      "comment": "12 pool to roach",
+      "keywords": [
+        "pool",
+        "roach"
+      ],
+      "game_data": {
+        "opponent_name": "WalUjie",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Tokamak LE",
+        "duration": "7m 24s",
+        "date": "2025-08-04 12:47:55",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:09.047473",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_113",
+      "raw_comment": "glave adepts to voidrays to carriers",
+      "cleaned_comment": "glave adepts to voidrays to carriers",
+      "comment": "glave adepts to voidrays to carriers",
+      "keywords": [
+        "glave",
+        "adepts",
+        "voidrays",
+        "carriers"
+      ],
+      "game_data": {
+        "opponent_name": "DroneKing",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "King's Cove LE",
+        "duration": "13m 51s",
+        "date": "2024-12-26 11:47:54",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.097832",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_114",
+      "raw_comment": "glave adepts or chargelots",
+      "cleaned_comment": "glave adepts or chargelots",
+      "comment": "glave adepts or chargelots",
+      "keywords": [
+        "glave",
+        "adepts",
+        "chargelots"
+      ],
+      "game_data": {
+        "opponent_name": "BabySCV",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "Frostline LE",
+        "duration": "7m 53s",
+        "date": "2024-12-30 20:05:41",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.379282",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_115",
+      "raw_comment": "glave adepts.",
+      "cleaned_comment": "glave adepts",
+      "comment": "glave adepts.",
+      "keywords": [
+        "glave",
+        "adepts"
+      ],
+      "game_data": {
+        "opponent_name": "BabySCV",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "Neon Violet Square LE",
+        "duration": "13m 36s",
+        "date": "2024-12-30 22:43:58",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.426699",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_116",
+      "raw_comment": "glave adepts",
+      "cleaned_comment": "glave adepts",
+      "comment": "glave adepts",
+      "keywords": [
+        "glave",
+        "adepts"
+      ],
+      "game_data": {
+        "opponent_name": "Jamie",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Frostline LE",
+        "duration": "16m 42s",
+        "date": "2024-12-31 23:11:08",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.577612",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_117",
+      "raw_comment": "glave adepts, close choke!  then void rays.",
+      "cleaned_comment": "glave adepts close choke then void rays",
+      "comment": "glave adepts, close choke!  then void rays.",
+      "keywords": [
+        "glave",
+        "adepts",
+        "close",
+        "choke",
+        "then"
+      ],
+      "game_data": {
+        "opponent_name": "SpiderDonuts",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "King's Cove LE",
+        "duration": "14m 9s",
+        "date": "2025-01-17 22:55:49",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.813983",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_118",
+      "raw_comment": "Adepts to 2 Stargate Fleet B",
+      "cleaned_comment": "Adepts to 2 Stargate Fleet B",
+      "comment": "Adepts to 2 Stargate Fleet B",
+      "keywords": [
+        "adepts",
+        "stargate",
+        "fleet"
+      ],
+      "game_data": {
+        "opponent_name": "ClumsyMicro",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "King's Cove LE",
+        "duration": "5m 57s",
+        "date": "2024-12-24 12:05:18",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.079569",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_119",
+      "raw_comment": "no wall, adepts to air.",
+      "cleaned_comment": "no wall adepts to air",
+      "comment": "no wall, adepts to air.",
+      "keywords": [
+        "wall",
+        "adepts",
+        "air"
+      ],
+      "game_data": {
+        "opponent_name": "Link",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "El Dorado",
+        "duration": "20m 4s",
+        "date": "2025-01-07 14:12:27",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.760044",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_120",
+      "raw_comment": "blink stalkers PvP",
+      "cleaned_comment": "blink stalkers PvP",
+      "comment": "blink stalkers PvP",
+      "keywords": [
+        "blink",
+        "stalkers",
+        "pvp"
+      ],
+      "game_data": {
+        "opponent_name": "WalUjie",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "El Dorado",
+        "duration": "28m 46s",
+        "date": "2024-12-28 22:48:12",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.207843",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_121",
+      "raw_comment": "oracles, fast expand, to blink stalkers",
+      "cleaned_comment": "oracles fast expand to blink stalkers",
+      "comment": "oracles, fast expand, to blink stalkers",
+      "keywords": [
+        "oracles",
+        "fast",
+        "expand",
+        "blink",
+        "stalkers"
+      ],
+      "game_data": {
+        "opponent_name": "Jadek",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "King's Cove LE",
+        "duration": "9m 20s",
+        "date": "2025-01-05 20:59:23",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.624377",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_122",
+      "raw_comment": "blink stalkers to collosus",
+      "cleaned_comment": "blink stalkers to collosus",
+      "comment": "blink stalkers to collosus",
+      "keywords": [
+        "blink",
+        "stalkers",
+        "collosus"
+      ],
+      "game_data": {
+        "opponent_name": "Bond",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Ultralove",
+        "duration": "15m 38s",
+        "date": "2025-08-29 16:10:26",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:09.194318",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_123",
+      "raw_comment": "blink stalkers to storm to contain",
+      "cleaned_comment": "blink stalkers to storm to contain",
+      "comment": "blink stalkers to storm to contain",
+      "keywords": [
+        "blink",
+        "stalkers",
+        "storm",
+        "contain"
+      ],
+      "game_data": {
+        "opponent_name": "Hoshoryu",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Persephone LE",
+        "duration": "12m 11s",
+        "date": "2025-08-29 17:07:05",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:09.221400",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_124",
+      "raw_comment": "blink stalkers to immortals",
+      "cleaned_comment": "blink stalkers to immortals",
+      "comment": "blink stalkers to immortals",
+      "keywords": [
+        "blink",
+        "stalkers",
+        "immortals"
+      ],
+      "game_data": {
+        "opponent_name": "Vavin",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Incorporeal LE",
+        "duration": "16m 12s",
+        "date": "2025-08-29 17:27:02",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:09.230414",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_125",
+      "raw_comment": "slow ling pressure, spine/bane for safety, into muta",
+      "cleaned_comment": "slow ling pressure spine bane for safety into muta",
+      "comment": "slow ling pressure, spine/bane for safety, into muta",
+      "keywords": [
+        "slow",
+        "ling",
+        "pressure",
+        "spine",
+        "bane"
+      ],
+      "game_data": {
+        "opponent_name": "BmF",
+        "opponent_race": "Zerg",
+        "result": "Win",
+        "map": "El Dorado",
+        "duration": "11m 15s",
+        "date": "2024-12-24 16:05:32",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.083567",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_126",
+      "raw_comment": "spine rush",
+      "cleaned_comment": "spine rush",
+      "comment": "spine rush",
+      "keywords": [
+        "spine",
+        "rush"
+      ],
+      "game_data": {
+        "opponent_name": "Esper",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "El Dorado",
+        "duration": "3m 40s",
+        "date": "2025-01-05 22:11:15",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.630886",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_127",
+      "raw_comment": "make spine and keep it ,and defend.",
+      "cleaned_comment": "make spine and keep it and defend",
+      "comment": "make spine and keep it ,and defend.",
+      "keywords": [
+        "make",
+        "spine",
+        "keep",
+        "defend"
+      ],
+      "game_data": {
+        "opponent_name": "DKeyAbuser",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "King's Cove LE",
+        "duration": "11m 29s",
+        "date": "2025-01-06 21:57:24",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.720860",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_128",
+      "raw_comment": "3 base ling bane",
+      "cleaned_comment": "3 base ling bane",
+      "comment": "3 base ling bane",
+      "keywords": [
+        "base",
+        "ling",
+        "bane"
+      ],
+      "game_data": {
+        "opponent_name": "SpikeSpiegel",
+        "opponent_race": "Zerg",
+        "result": "Win",
+        "map": "Amygdala",
+        "duration": "10m 45s",
+        "date": "2024-12-23 20:02:22",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.030582",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_129",
+      "raw_comment": "+1 melee upgrade ling/bane",
+      "cleaned_comment": "1 melee upgrade ling bane",
+      "comment": "+1 melee upgrade ling/bane",
+      "keywords": [
+        "melee",
+        "upgrade",
+        "ling",
+        "bane"
+      ],
+      "game_data": {
+        "opponent_name": "theodoyal",
+        "opponent_race": "Zerg",
+        "result": "Win",
+        "map": "El Dorado",
+        "duration": "14m 12s",
+        "date": "2024-12-26 13:33:25",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.128129",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_130",
+      "raw_comment": "13/12 ling/bane",
+      "cleaned_comment": "13 12 ling bane",
+      "comment": "13/12 ling/bane",
+      "keywords": [
+        "ling",
+        "bane"
+      ],
+      "game_data": {
+        "opponent_name": "DKeyAbuser",
+        "opponent_race": "Zerg",
+        "result": "Win",
+        "map": "Neon Violet Square LE",
+        "duration": "5m 24s",
+        "date": "2024-12-30 00:14:10",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.244901",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_131",
+      "raw_comment": "ZvZ: 3 hatch ling bane",
+      "cleaned_comment": "ZvZ 3 hatch ling bane",
+      "comment": "ZvZ: 3 hatch ling bane",
+      "keywords": [
+        "zvz",
+        "hatch",
+        "ling",
+        "bane"
+      ],
+      "game_data": {
+        "opponent_name": "IIIIIIIIIIII",
+        "opponent_race": "Zerg",
+        "result": "Win",
+        "map": "Frostline LE",
+        "duration": "7m 44s",
+        "date": "2024-12-30 16:01:28",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.306076",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_132",
+      "raw_comment": "early attack 3 mins, ling/bane",
+      "cleaned_comment": "early attack 3 mins ling bane",
+      "comment": "early attack 3 mins, ling/bane",
+      "keywords": [
+        "early",
+        "attack",
+        "mins",
+        "ling",
+        "bane"
+      ],
+      "game_data": {
+        "opponent_name": "Rare",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Ley Lines",
+        "duration": "11m 11s",
+        "date": "2024-12-30 21:10:00",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.392316",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_133",
+      "raw_comment": "3 hatch ling bane, but greedy transition to lair",
+      "cleaned_comment": "3 hatch ling bane but greedy transition to lair",
+      "comment": "3 hatch ling bane, but greedy transition to lair",
+      "keywords": [
+        "hatch",
+        "ling",
+        "bane",
+        "greedy",
+        "transition"
+      ],
+      "game_data": {
+        "opponent_name": "Spartansold",
+        "opponent_race": "Zerg",
+        "result": "Win",
+        "map": "Ley Lines",
+        "duration": "5m 13s",
+        "date": "2024-12-31 14:54:08",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.498888",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_134",
+      "raw_comment": "fake 6 ling pressure to mutas",
+      "cleaned_comment": "fake 6 ling pressure to mutas",
+      "comment": "fake 6 ling pressure to mutas",
+      "keywords": [
+        "fake",
+        "ling",
+        "pressure",
+        "mutas"
+      ],
+      "game_data": {
+        "opponent_name": "Erodius",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Frostline LE",
+        "duration": "13m 46s",
+        "date": "2025-01-21 00:17:59",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.914660",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_135",
+      "raw_comment": "macro 3 base, archon/immortal charge",
+      "cleaned_comment": "macro 3 base archon immortal charge",
+      "comment": "macro 3 base, archon/immortal charge",
+      "keywords": [
+        "macro",
+        "base",
+        "archon",
+        "immortal",
+        "charge"
+      ],
+      "game_data": {
+        "opponent_name": "DcNewEX",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Ultralove",
+        "duration": "10m 43s",
+        "date": "2024-12-30 12:31:19",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.265770",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_136",
+      "raw_comment": "2-3 base chargelot storm oracle",
+      "cleaned_comment": "2-3 base chargelot storm oracle",
+      "comment": "2-3 base chargelot storm oracle",
+      "keywords": [
+        "2-3",
+        "base",
+        "chargelot",
+        "storm",
+        "oracle"
+      ],
+      "game_data": {
+        "opponent_name": "Beni",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Frostline LE",
+        "duration": "18m 4s",
+        "date": "2024-12-30 17:15:11",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.317810",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_137",
+      "raw_comment": "1 base DT proxy",
+      "cleaned_comment": "1 base DT proxy",
+      "comment": "1 base DT proxy",
+      "keywords": [
+        "base",
+        "proxy"
+      ],
+      "game_data": {
+        "opponent_name": "IIIIIIIIIIII",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Ley Lines",
+        "duration": "7m 10s",
+        "date": "2025-01-06 18:39:12",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.698820",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_138",
+      "raw_comment": "3 rax and CC hidden in base",
+      "cleaned_comment": "3 rax and CC hidden in base",
+      "comment": "3 rax and CC hidden in base",
+      "keywords": [
+        "rax",
+        "hidden",
+        "base"
+      ],
+      "game_data": {
+        "opponent_name": "kmcMcbailz",
+        "opponent_race": "Terran",
+        "result": "Lose",
+        "map": "Incorporeal LE",
+        "duration": "9m 51s",
+        "date": "2025-07-24 17:54:59",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:09.031454",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_139",
+      "raw_comment": "has build, slow zealots, immortal",
+      "cleaned_comment": "has build slow zealots immortal",
+      "comment": "has build, slow zealots, immortal",
+      "keywords": [
+        "build",
+        "slow",
+        "zealots",
+        "immortal"
+      ],
+      "game_data": {
+        "opponent_name": "IIIIIIIIIIII",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Whispers of Gold",
+        "duration": "8m 7s",
+        "date": "2025-01-06 18:48:06",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.706335",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_140",
+      "raw_comment": "slow zealots +1, non stop",
+      "cleaned_comment": "slow zealots 1 non stop",
+      "comment": "slow zealots +1, non stop",
+      "keywords": [
+        "slow",
+        "zealots",
+        "non",
+        "stop"
+      ],
+      "game_data": {
+        "opponent_name": "Squid",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Ultralove",
+        "duration": "8m 51s",
+        "date": "2025-01-20 22:58:43",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.908155",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_141",
+      "raw_comment": "turtle to cyclone push",
+      "cleaned_comment": "turtle to cyclone push",
+      "comment": "turtle to cyclone push",
+      "keywords": [
+        "turtle",
+        "cyclone",
+        "push"
+      ],
+      "game_data": {
+        "opponent_name": "TerranYOUup",
+        "opponent_race": "Terran",
+        "result": "Lose",
+        "map": "Frostline LE",
+        "duration": "13m 11s",
+        "date": "2025-01-05 20:31:39",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.609679",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_142",
+      "raw_comment": "cannon rush - go ahead and pull 2 drones early ",
+      "cleaned_comment": "cannon rush - go ahead and pull 2 drones early",
+      "comment": "cannon rush - go ahead and pull 2 drones early ",
+      "keywords": [
+        "cannon",
+        "rush",
+        "ahead",
+        "pull",
+        "drones"
+      ],
+      "game_data": {
+        "opponent_name": "JoeBobJoe",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Ley Lines",
+        "duration": "15m 53s",
+        "date": "2024-12-31 13:48:09",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.469804",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_143",
+      "raw_comment": "hellion rush, higher ground CC",
+      "cleaned_comment": "hellion rush higher ground CC",
+      "comment": "hellion rush, higher ground CC",
+      "keywords": [
+        "hellion",
+        "rush",
+        "higher",
+        "ground"
+      ],
+      "game_data": {
+        "opponent_name": "cayaty",
+        "opponent_race": "Terran",
+        "result": "Lose",
+        "map": "Whispers of Gold",
+        "duration": "4m 14s",
+        "date": "2024-12-31 14:38:11",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.490869",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_144",
+      "raw_comment": "cannon rush",
+      "cleaned_comment": "cannon rush",
+      "comment": "cannon rush",
+      "keywords": [
+        "cannon",
+        "rush"
+      ],
+      "game_data": {
+        "opponent_name": "bernard",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "El Dorado",
+        "duration": "12m 3s",
+        "date": "2024-12-31 15:31:50",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.520430",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_145",
+      "raw_comment": "cannon rush to immortal contain",
+      "cleaned_comment": "cannon rush to immortal contain",
+      "comment": "cannon rush to immortal contain",
+      "keywords": [
+        "cannon",
+        "rush",
+        "immortal",
+        "contain"
+      ],
+      "game_data": {
+        "opponent_name": "Mectojic",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "Ley Lines",
+        "duration": "11m 22s",
+        "date": "2025-01-05 22:43:20",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.647970",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_146",
+      "raw_comment": "late cannon rush",
+      "cleaned_comment": "late cannon rush",
+      "comment": "late cannon rush",
+      "keywords": [
+        "late",
+        "cannon",
+        "rush"
+      ],
+      "game_data": {
+        "opponent_name": "IIIIIIIIIIII",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "El Dorado",
+        "duration": "2m 15s",
+        "date": "2025-01-07 17:33:58",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.774563",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_147",
+      "raw_comment": "cannon rush proxy gate vs random",
+      "cleaned_comment": "cannon rush proxy gate vs random",
+      "comment": "cannon rush proxy gate vs random",
+      "keywords": [
+        "cannon",
+        "rush",
+        "proxy",
+        "gate",
+        "random"
+      ],
+      "game_data": {
+        "opponent_name": "Emperor",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "Incorporeal LE",
+        "duration": "3m 42s",
+        "date": "2025-08-29 16:32:45",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:09.202824",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_148",
+      "raw_comment": "This is a computer, it'll do whatever I ask.",
+      "cleaned_comment": "This is a computer it ll do whatever I ask",
+      "comment": "This is a computer, it'll do whatever I ask.",
+      "keywords": [
+        "computer",
+        "whatever",
+        "ask"
+      ],
+      "game_data": {
+        "opponent_name": "A.I. 1 (Elite)",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Abyssal Reef LE",
+        "duration": "0m 46s",
+        "date": "2024-12-23 11:34:00",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:07.956016",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_149",
+      "raw_comment": "Yeah, this guy is just a computer.",
+      "cleaned_comment": "Yeah this guy is just a computer",
+      "comment": "Yeah, this guy is just a computer.",
+      "keywords": [
+        "yeah",
+        "guy",
+        "just",
+        "computer"
+      ],
+      "game_data": {
+        "opponent_name": "A.I. 1 (Elite)",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Amphion LE",
+        "duration": "1m 2s",
+        "date": "2024-12-23 15:44:48",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:07.983556",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_150",
+      "raw_comment": "this computer likes to test my patience.",
+      "cleaned_comment": "this computer likes to test my patience",
+      "comment": "this computer likes to test my patience.",
+      "keywords": [
+        "computer",
+        "likes",
+        "test",
+        "patience"
+      ],
+      "game_data": {
+        "opponent_name": "A.I. 1 (Elite)",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Frostline LE",
+        "duration": "1m 26s",
+        "date": "2024-12-23 16:00:06",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:07.987607",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_151",
+      "raw_comment": "this is a computer who likes to joke around, so watch for proxies.",
+      "cleaned_comment": "this is a computer who likes to joke around so watch for proxies",
+      "comment": "this is a computer who likes to joke around, so watch for proxies.",
+      "keywords": [
+        "computer",
+        "who",
+        "likes",
+        "joke",
+        "around"
+      ],
+      "game_data": {
+        "opponent_name": "A.I. 1 (Elite)",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "El Dorado",
+        "duration": "0m 48s",
+        "date": "2024-12-23 16:16:25",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:07.991641",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_152",
+      "raw_comment": "this is a computer player, so it's unreliable to figure out what it will do. Maybe proxy DT?",
+      "cleaned_comment": "this is a computer player so it s unreliable to figure out what it will do Maybe proxy DT",
+      "comment": "this is a computer player, so it's unreliable to figure out what it will do. Maybe proxy DT?",
+      "keywords": [
+        "computer",
+        "player",
+        "unreliable",
+        "figure",
+        "out"
+      ],
+      "game_data": {
+        "opponent_name": "A.I. 1 (Elite)",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "El Dorado",
+        "duration": "0m 36s",
+        "date": "2024-12-23 16:26:06",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:07.995665",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_153",
+      "raw_comment": "this player is actually a computer who likes to add hidden buildings everywhere.",
+      "cleaned_comment": "this player is actually a computer who likes to add hidden buildings everywhere",
+      "comment": "this player is actually a computer who likes to add hidden buildings everywhere.",
+      "keywords": [
+        "player",
+        "actually",
+        "computer",
+        "who",
+        "likes"
+      ],
+      "game_data": {
+        "opponent_name": "A.I. 1 (Elite)",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "El Dorado",
+        "duration": "0m 35s",
+        "date": "2024-12-23 16:32:57",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:07.999823",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_154",
+      "raw_comment": "this player is a computer who will do random things so dont bother trying to understand.",
+      "cleaned_comment": "this player is a computer who will do random things so dont bother trying to understand",
+      "comment": "this player is a computer who will do random things so dont bother trying to understand.",
+      "keywords": [
+        "player",
+        "computer",
+        "who",
+        "random",
+        "things"
+      ],
+      "game_data": {
+        "opponent_name": "A.I. 1 (Elite)",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "El Dorado",
+        "duration": "0m 24s",
+        "date": "2024-12-23 16:45:10",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.008471",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_155",
+      "raw_comment": "Void ray to carriers",
+      "cleaned_comment": "Void ray to carriers",
+      "comment": "Void ray to carriers",
+      "keywords": [
+        "void",
+        "ray",
+        "carriers"
+      ],
+      "game_data": {
+        "opponent_name": "LewisKiniski",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "King's Cove LE",
+        "duration": "27m 44s",
+        "date": "2024-12-24 16:41:20",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.093823",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_156",
+      "raw_comment": "chargelots, archon, immortal, void ray, oracle into tempest",
+      "cleaned_comment": "chargelots archon immortal void ray oracle into tempest",
+      "comment": "chargelots, archon, immortal, void ray, oracle into tempest",
+      "keywords": [
+        "chargelots",
+        "archon",
+        "immortal",
+        "void",
+        "ray"
+      ],
+      "game_data": {
+        "opponent_name": "Max",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Ley Lines",
+        "duration": "20m 5s",
+        "date": "2024-12-30 00:00:02",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.234379",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_157",
+      "raw_comment": "pylon block, to void rays",
+      "cleaned_comment": "pylon block to void rays",
+      "comment": "pylon block, to void rays",
+      "keywords": [
+        "pylon",
+        "block",
+        "void",
+        "rays"
+      ],
+      "game_data": {
+        "opponent_name": "Soil",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "Whispers of Gold",
+        "duration": "6m 58s",
+        "date": "2024-12-30 17:27:48",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.330639",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_158",
+      "raw_comment": "this guy likes to hide a dark templar in the  base to watch.",
+      "cleaned_comment": "this guy likes to hide a dark templar in the base to watch",
+      "comment": "this guy likes to hide a dark templar in the  base to watch.",
+      "keywords": [
+        "guy",
+        "likes",
+        "hide",
+        "dark",
+        "templar"
+      ],
+      "game_data": {
+        "opponent_name": "A.I. 1 (Elite)",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "El Dorado",
+        "duration": "1m 15s",
+        "date": "2024-12-23 16:40:08",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.003823",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_159",
+      "raw_comment": "Just testing",
+      "cleaned_comment": "Just testing",
+      "comment": "Just testing",
+      "keywords": [
+        "just",
+        "testing"
+      ],
+      "game_data": {
+        "opponent_name": "A.I. 1 (Elite)",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Abyssal Reef LE",
+        "duration": "1m 20s",
+        "date": "2024-12-24 10:57:25",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.065037",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_160",
+      "raw_comment": "no banelings just upgraded roaches and lings",
+      "cleaned_comment": "no banelings just upgraded roaches and lings",
+      "comment": "no banelings just upgraded roaches and lings",
+      "keywords": [
+        "banelings",
+        "just",
+        "upgraded",
+        "roaches",
+        "lings"
+      ],
+      "game_data": {
+        "opponent_name": "DKeyAbuser",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Frostline LE",
+        "duration": "9m 9s",
+        "date": "2025-01-06 22:07:11",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.728404",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_161",
+      "raw_comment": "Thank you.",
+      "cleaned_comment": "Thank you",
+      "comment": "Thank you.",
+      "keywords": [
+        "thank",
+        "you"
+      ],
+      "game_data": {
+        "opponent_name": "Link",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Amygdala",
+        "duration": "25m 5s",
+        "date": "2024-12-23 19:19:21",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.020567",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_162",
+      "raw_comment": "Thanks for watching.",
+      "cleaned_comment": "Thanks for watching",
+      "comment": "Thanks for watching.",
+      "keywords": [
+        "thanks",
+        "watching"
+      ],
+      "game_data": {
+        "opponent_name": "spaghetti",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "El Dorado",
+        "duration": "10m 36s",
+        "date": "2024-12-23 19:50:38",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.026074",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_163",
+      "raw_comment": "four gate proxy ",
+      "cleaned_comment": "four gate proxy",
+      "comment": "four gate proxy ",
+      "keywords": [
+        "four",
+        "gate",
+        "proxy"
+      ],
+      "game_data": {
+        "opponent_name": "LewisKiniski",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "King's Cove LE",
+        "duration": "4m 50s",
+        "date": "2024-12-24 16:13:22",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.088824",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_164",
+      "raw_comment": "3-4 proxy rax",
+      "cleaned_comment": "3-4 proxy rax",
+      "comment": "3-4 proxy rax",
+      "keywords": [
+        "3-4",
+        "proxy",
+        "rax"
+      ],
+      "game_data": {
+        "opponent_name": "iiiib",
+        "opponent_race": "Terran",
+        "result": "Lose",
+        "map": "Frostline LE",
+        "duration": "11m 24s",
+        "date": "2024-12-26 13:18:42",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.123619",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_165",
+      "raw_comment": "proxy 4 gate.",
+      "cleaned_comment": "proxy 4 gate",
+      "comment": "proxy 4 gate.",
+      "keywords": [
+        "proxy",
+        "gate"
+      ],
+      "game_data": {
+        "opponent_name": "CaptainMitt",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "Ley Lines",
+        "duration": "2m 33s",
+        "date": "2024-12-26 13:46:33",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.132131",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_166",
+      "raw_comment": "TvP: proxy reapers, and gets raven.",
+      "cleaned_comment": "TvP proxy reapers and gets raven",
+      "comment": "TvP: proxy reapers, and gets raven.",
+      "keywords": [
+        "tvp",
+        "proxy",
+        "reapers",
+        "gets",
+        "raven"
+      ],
+      "game_data": {
+        "opponent_name": "LiquidMiguel",
+        "opponent_race": "Terran",
+        "result": "Lose",
+        "map": "Whispers of Gold",
+        "duration": "11m 33s",
+        "date": "2024-12-29 17:58:52",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.218996",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_167",
+      "raw_comment": "4 gate proxy",
+      "cleaned_comment": "4 gate proxy",
+      "comment": "4 gate proxy",
+      "keywords": [
+        "gate",
+        "proxy"
+      ],
+      "game_data": {
+        "opponent_name": "LewisKiniski",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "King's Cove LE",
+        "duration": "2m 49s",
+        "date": "2024-12-30 00:28:39",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.255916",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_168",
+      "raw_comment": "proxy gate",
+      "cleaned_comment": "proxy gate",
+      "comment": "proxy gate",
+      "keywords": [
+        "proxy",
+        "gate"
+      ],
+      "game_data": {
+        "opponent_name": "JoeMufferaw",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "El Dorado",
+        "duration": "13m 11s",
+        "date": "2024-12-30 13:55:17",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.293813",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_169",
+      "raw_comment": "proxy 4 gate. he usually goes macro.",
+      "cleaned_comment": "proxy 4 gate he usually goes macro",
+      "comment": "proxy 4 gate. he usually goes macro.",
+      "keywords": [
+        "proxy",
+        "gate",
+        "usually",
+        "goes",
+        "macro"
+      ],
+      "game_data": {
+        "opponent_name": "Max",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "Whispers of Gold",
+        "duration": "3m 52s",
+        "date": "2024-12-30 17:19:44",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.324460",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_170",
+      "raw_comment": "4 proxy gateways ",
+      "cleaned_comment": "4 proxy gateways",
+      "comment": "4 proxy gateways ",
+      "keywords": [
+        "proxy",
+        "gateways"
+      ],
+      "game_data": {
+        "opponent_name": "LewisKiniski",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "Amygdala",
+        "duration": "3m 5s",
+        "date": "2024-12-31 18:20:35",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.556076",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_171",
+      "raw_comment": "proxy 4 gate",
+      "cleaned_comment": "proxy 4 gate",
+      "comment": "proxy 4 gate",
+      "keywords": [
+        "proxy",
+        "gate"
+      ],
+      "game_data": {
+        "opponent_name": "LewisKiniski",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "King's Cove LE",
+        "duration": "4m 3s",
+        "date": "2025-01-04 18:34:57",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.592173",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_172",
+      "raw_comment": "proxy four gate",
+      "cleaned_comment": "proxy four gate",
+      "comment": "proxy four gate",
+      "keywords": [
+        "proxy",
+        "four",
+        "gate"
+      ],
+      "game_data": {
+        "opponent_name": "TrumpOwnsYou",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "Whispers of Gold",
+        "duration": "2m 59s",
+        "date": "2025-01-07 22:35:49",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.789777",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_173",
+      "raw_comment": "find the proxy, DT 4 gate",
+      "cleaned_comment": "find the proxy DT 4 gate",
+      "comment": "find the proxy, DT 4 gate",
+      "keywords": [
+        "find",
+        "proxy",
+        "gate"
+      ],
+      "game_data": {
+        "opponent_name": "IIIIIIIIIIII",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Ley Lines",
+        "duration": "6m 50s",
+        "date": "2025-06-27 22:31:24",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:09.023901",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_174",
+      "raw_comment": "4 rax proxy",
+      "cleaned_comment": "4 rax proxy",
+      "comment": "4 rax proxy",
+      "keywords": [
+        "rax",
+        "proxy"
+      ],
+      "game_data": {
+        "opponent_name": "Gayberry",
+        "opponent_race": "Terran",
+        "result": "Win",
+        "map": "Magannatha LE",
+        "duration": "10m 7s",
+        "date": "2025-08-07 02:14:14",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:09.113829",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_175",
+      "raw_comment": "gateway pressure",
+      "cleaned_comment": "gateway pressure",
+      "comment": "gateway pressure",
+      "keywords": [
+        "gateway",
+        "pressure"
+      ],
+      "game_data": {
+        "opponent_name": "IIIIIIIIII",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Ley Lines",
+        "duration": "27m 56s",
+        "date": "2024-12-31 14:33:25",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.483594",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_176",
+      "raw_comment": "forge to mass voidrays",
+      "cleaned_comment": "forge to mass voidrays",
+      "comment": "forge to mass voidrays",
+      "keywords": [
+        "forge",
+        "mass",
+        "voidrays"
+      ],
+      "game_data": {
+        "opponent_name": "EpsteinFiles",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "Ultralove",
+        "duration": "7m 9s",
+        "date": "2025-08-03 20:44:46",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:09.039464",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_177",
+      "raw_comment": "oracle too much damage",
+      "cleaned_comment": "oracle too much damage",
+      "comment": "oracle too much damage",
+      "keywords": [
+        "oracle",
+        "too",
+        "much",
+        "damage"
+      ],
+      "game_data": {
+        "opponent_name": "IIIIlllIIlI",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "Pylon LE",
+        "duration": "6m 12s",
+        "date": "2025-09-01 10:31:16",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:09.259496",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_178",
+      "raw_comment": "reaper 2 rax mass",
+      "cleaned_comment": "reaper 2 rax mass",
+      "comment": "reaper 2 rax mass",
+      "keywords": [
+        "reaper",
+        "rax",
+        "mass"
+      ],
+      "game_data": {
+        "opponent_name": "Honey",
+        "opponent_race": "Terran",
+        "result": "Win",
+        "map": "Frostline LE",
+        "duration": "38m 38s",
+        "date": "2024-12-26 19:06:22",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.165701",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_179",
+      "raw_comment": "3 rax reaper abuser",
+      "cleaned_comment": "3 rax reaper abuser",
+      "comment": "3 rax reaper abuser",
+      "keywords": [
+        "rax",
+        "reaper",
+        "abuser"
+      ],
+      "game_data": {
+        "opponent_name": "MAX",
+        "opponent_race": "Terran",
+        "result": "Lose",
+        "map": "Incorporeal LE",
+        "duration": "3m 51s",
+        "date": "2025-08-14 19:30:26",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:09.131091",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_180",
+      "raw_comment": "fast expand +1 melee",
+      "cleaned_comment": "fast expand 1 melee",
+      "comment": "fast expand +1 melee",
+      "keywords": [
+        "fast",
+        "expand",
+        "melee"
+      ],
+      "game_data": {
+        "opponent_name": "theodoyal",
+        "opponent_race": "Zerg",
+        "result": "Win",
+        "map": "Neon Violet Square LE",
+        "duration": "5m 54s",
+        "date": "2025-01-20 12:49:58",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.859688",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_181",
+      "raw_comment": "12 pool",
+      "cleaned_comment": "12 pool",
+      "comment": "12 pool",
+      "keywords": [
+        "pool"
+      ],
+      "game_data": {
+        "opponent_name": "TarMinyatur",
+        "opponent_race": "Zerg",
+        "result": "Win",
+        "map": "Ley Lines",
+        "duration": "7m 24s",
+        "date": "2024-12-26 14:02:51",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.142642",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_182",
+      "raw_comment": "mass cyclone",
+      "cleaned_comment": "mass cyclone",
+      "comment": "mass cyclone",
+      "keywords": [
+        "mass",
+        "cyclone"
+      ],
+      "game_data": {
+        "opponent_name": "Pikachoo",
+        "opponent_race": "Terran",
+        "result": "Lose",
+        "map": "Frostline LE",
+        "duration": "11m 34s",
+        "date": "2024-12-31 17:40:22",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.541482",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_183",
+      "raw_comment": "macro zerg controls map with lings and banes to hydra",
+      "cleaned_comment": "macro zerg controls map with lings and banes to hydra",
+      "comment": "macro zerg controls map with lings and banes to hydra",
+      "keywords": [
+        "macro",
+        "zerg",
+        "controls",
+        "map",
+        "lings"
+      ],
+      "game_data": {
+        "opponent_name": "FarmBoy",
+        "opponent_race": "Zerg",
+        "result": "Lose",
+        "map": "Pylon LE",
+        "duration": "11m 46s",
+        "date": "2025-08-29 16:51:39",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:09.212389",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_184",
+      "raw_comment": "TvT - reaper/hellion opener",
+      "cleaned_comment": "TvT - reaper hellion opener",
+      "comment": "TvT - reaper/hellion opener",
+      "keywords": [
+        "tvt",
+        "reaper",
+        "hellion",
+        "opener"
+      ],
+      "game_data": {
+        "opponent_name": "STORM",
+        "opponent_race": "Terran",
+        "result": "Win",
+        "map": "Ultralove",
+        "duration": "10m 34s",
+        "date": "2024-12-30 11:19:54",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.261261",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_185",
+      "raw_comment": "normal reaper expand despiteseeing me as terran",
+      "cleaned_comment": "normal reaper expand despiteseeing me as terran",
+      "comment": "normal reaper expand despiteseeing me as terran",
+      "keywords": [
+        "normal",
+        "reaper",
+        "expand",
+        "despiteseeing",
+        "terran"
+      ],
+      "game_data": {
+        "opponent_name": "ZergKnight",
+        "opponent_race": "Terran",
+        "result": "Win",
+        "map": "Persephone LE",
+        "duration": "7m 42s",
+        "date": "2025-08-29 18:14:12",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:09.240432",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_186",
+      "raw_comment": "fast medivac drops",
+      "cleaned_comment": "fast medivac drops",
+      "comment": "fast medivac drops",
+      "keywords": [
+        "fast",
+        "medivac",
+        "drops"
+      ],
+      "game_data": {
+        "opponent_name": "Mantis",
+        "opponent_race": "Terran",
+        "result": "Lose",
+        "map": "Whispers of Gold",
+        "duration": "17m 18s",
+        "date": "2024-12-30 13:33:19",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.282290",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_187",
+      "raw_comment": "pylon block to stalkers",
+      "cleaned_comment": "pylon block to stalkers",
+      "comment": "pylon block to stalkers",
+      "keywords": [
+        "pylon",
+        "block",
+        "stalkers"
+      ],
+      "game_data": {
+        "opponent_name": "sensay",
+        "opponent_race": "Protoss",
+        "result": "Lose",
+        "map": "King's Cove LE",
+        "duration": "29m 27s",
+        "date": "2024-12-30 18:26:17",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.339089",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_188",
+      "raw_comment": "cyclone abuser",
+      "cleaned_comment": "cyclone abuser",
+      "comment": "cyclone abuser",
+      "keywords": [
+        "cyclone",
+        "abuser"
+      ],
+      "game_data": {
+        "opponent_name": "Calyx",
+        "opponent_race": "Terran",
+        "result": "Lose",
+        "map": "King's Cove LE",
+        "duration": "10m 37s",
+        "date": "2024-12-30 00:25:16",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.250408",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_189",
+      "raw_comment": "hellion to battlecruisers",
+      "cleaned_comment": "hellion to battlecruisers",
+      "comment": "hellion to battlecruisers",
+      "keywords": [
+        "hellion",
+        "battlecruisers"
+      ],
+      "game_data": {
+        "opponent_name": "Warion",
+        "opponent_race": "Terran",
+        "result": "Lose",
+        "map": "Ultralove",
+        "duration": "13m 48s",
+        "date": "2025-01-17 23:11:29",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.821499",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_190",
+      "raw_comment": "DT or chargelot abuse",
+      "cleaned_comment": "DT or chargelot abuse",
+      "comment": "DT or chargelot abuse",
+      "keywords": [
+        "chargelot",
+        "abuse"
+      ],
+      "game_data": {
+        "opponent_name": "Zebra",
+        "opponent_race": "Protoss",
+        "result": "Win",
+        "map": "Magannatha LE",
+        "duration": "16m 23s",
+        "date": "2025-08-14 19:58:34",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:09.139102",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_191",
+      "raw_comment": "TvZ, he will go hellbat, battlecruiser timing with SCVs",
+      "cleaned_comment": "TvZ he will go hellbat battlecruiser timing with SCVs",
+      "comment": "TvZ, he will go hellbat, battlecruiser timing with SCVs",
+      "keywords": [
+        "tvz",
+        "hellbat",
+        "battlecruiser",
+        "timing",
+        "scvs"
+      ],
+      "game_data": {
+        "opponent_name": "Early",
+        "opponent_race": "Terran",
+        "result": "Win",
+        "map": "Amygdala",
+        "duration": "10m 0s",
+        "date": "2024-12-30 14:05:43",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.299960",
+      "has_player_comment": true
+    },
+    {
+      "id": "comment_192",
+      "raw_comment": "hellions to battlecruiser",
+      "cleaned_comment": "hellions to battlecruiser",
+      "comment": "hellions to battlecruiser",
+      "keywords": [
+        "hellions",
+        "battlecruiser"
+      ],
+      "game_data": {
+        "opponent_name": "DaddyHackIV",
+        "opponent_race": "Terran",
+        "result": "Lose",
+        "map": "King's Cove LE",
+        "duration": "17m 17s",
+        "date": "2025-01-05 17:34:32",
+        "build_order": []
+      },
+      "timestamp": "2025-09-01T10:52:08.599753",
+      "has_player_comment": true
+    }
+  ],
+  "keyword_index": {
+    "first": [
+      "comment_001",
+      "comment_002",
+      "comment_003"
+    ],
+    "comment": [
+      "comment_001"
+    ],
+    "hello": [
+      "comment_001"
+    ],
+    "world": [
+      "comment_001"
+    ],
+    "turtle": [
+      "comment_002",
+      "comment_052",
+      "comment_141"
+    ],
+    "mech": [
+      "comment_002",
+      "comment_050",
+      "comment_051",
+      "comment_052",
+      "comment_053"
+    ],
+    "banshee": [
+      "comment_002",
+      "comment_013",
+      "comment_014",
+      "comment_043",
+      "comment_045"
+    ],
+    "pylon": [
+      "comment_003",
+      "comment_061",
+      "comment_157",
+      "comment_187"
+    ],
+    "block": [
+      "comment_003",
+      "comment_038",
+      "comment_061",
+      "comment_157",
+      "comment_187"
+    ],
+    "nexus": [
+      "comment_003"
+    ],
+    "after": [
+      "comment_003",
+      "comment_012"
+    ],
+    "rusher": [
+      "comment_004",
+      "comment_005"
+    ],
+    "cannon": [
+      "comment_005",
+      "comment_023",
+      "comment_027",
+      "comment_028",
+      "comment_031",
+      "comment_032",
+      "comment_036",
+      "comment_039",
+      "comment_060",
+      "comment_076",
+      "comment_142",
+      "comment_144",
+      "comment_145",
+      "comment_146",
+      "comment_147"
+    ],
+    "super": [
+      "comment_006",
+      "comment_007"
+    ],
+    "aggressive": [
+      "comment_006",
+      "comment_008"
+    ],
+    "cheesy": [
+      "comment_007"
+    ],
+    "spine": [
+      "comment_007",
+      "comment_040",
+      "comment_067",
+      "comment_072",
+      "comment_101",
+      "comment_105",
+      "comment_125",
+      "comment_126",
+      "comment_127"
+    ],
+    "drone": [
+      "comment_007",
+      "comment_067"
+    ],
+    "rush": [
+      "comment_007",
+      "comment_023",
+      "comment_027",
+      "comment_031",
+      "comment_032",
+      "comment_036",
+      "comment_039",
+      "comment_061",
+      "comment_072",
+      "comment_101",
+      "comment_126",
+      "comment_142",
+      "comment_143",
+      "comment_144",
+      "comment_145",
+      "comment_146",
+      "comment_147"
+    ],
+    "forge": [
+      "comment_008",
+      "comment_042",
+      "comment_176"
+    ],
+    "not": [
+      "comment_008"
+    ],
+    "too": [
+      "comment_008",
+      "comment_177"
+    ],
+    "into": [
+      "comment_008",
+      "comment_019",
+      "comment_021",
+      "comment_022",
+      "comment_023",
+      "comment_024",
+      "comment_025",
+      "comment_026",
+      "comment_027",
+      "comment_028",
+      "comment_029",
+      "comment_030",
+      "comment_031",
+      "comment_032",
+      "comment_033",
+      "comment_034",
+      "comment_035",
+      "comment_036",
+      "comment_037",
+      "comment_038",
+      "comment_039",
+      "comment_040",
+      "comment_041",
+      "comment_042",
+      "comment_043",
+      "comment_044",
+      "comment_045",
+      "comment_046"
+    ],
+    "heavy": [
+      "comment_009"
+    ],
+    "bio": [
+      "comment_009",
+      "comment_010",
+      "comment_011",
+      "comment_012",
+      "comment_013",
+      "comment_014",
+      "comment_015"
+    ],
+    "drop": [
+      "comment_009",
+      "comment_010",
+      "comment_016",
+      "comment_017",
+      "comment_018"
+    ],
+    "ghost": [
+      "comment_010",
+      "comment_051"
+    ],
+    "roach": [
+      "comment_010",
+      "comment_025",
+      "comment_029",
+      "comment_034",
+      "comment_041",
+      "comment_044",
+      "comment_066",
+      "comment_069",
+      "comment_071",
+      "comment_077",
+      "comment_082",
+      "comment_087",
+      "comment_088",
+      "comment_098",
+      "comment_099",
+      "comment_100",
+      "comment_101",
+      "comment_102",
+      "comment_103",
+      "comment_104",
+      "comment_105",
+      "comment_106",
+      "comment_107",
+      "comment_108",
+      "comment_109",
+      "comment_110",
+      "comment_111",
+      "comment_112"
+    ],
+    "corruptor": [
+      "comment_010"
+    ],
+    "drops": [
+      "comment_011",
+      "comment_013",
+      "comment_186"
+    ],
+    "then": [
+      "comment_012",
+      "comment_048",
+      "comment_055",
+      "comment_117"
+    ],
+    "push": [
+      "comment_012",
+      "comment_014",
+      "comment_015",
+      "comment_097",
+      "comment_100",
+      "comment_103",
+      "comment_111",
+      "comment_141"
+    ],
+    "base": [
+      "comment_012",
+      "comment_022",
+      "comment_025",
+      "comment_026",
+      "comment_034",
+      "comment_040",
+      "comment_042",
+      "comment_044",
+      "comment_046",
+      "comment_052",
+      "comment_056",
+      "comment_057",
+      "comment_058",
+      "comment_069",
+      "comment_073",
+      "comment_078",
+      "comment_079",
+      "comment_082",
+      "comment_087",
+      "comment_088",
+      "comment_092",
+      "comment_100",
+      "comment_102",
+      "comment_103",
+      "comment_105",
+      "comment_108",
+      "comment_109",
+      "comment_110",
+      "comment_111",
+      "comment_128",
+      "comment_135",
+      "comment_136",
+      "comment_137",
+      "comment_138"
+    ],
+    "rax": [
+      "comment_015",
+      "comment_094",
+      "comment_138",
+      "comment_164",
+      "comment_174",
+      "comment_178",
+      "comment_179"
+    ],
+    "reaper": [
+      "comment_015",
+      "comment_038",
+      "comment_178",
+      "comment_179",
+      "comment_184",
+      "comment_185"
+    ],
+    "expand": [
+      "comment_015",
+      "comment_032",
+      "comment_033",
+      "comment_035",
+      "comment_040",
+      "comment_064",
+      "comment_106",
+      "comment_121",
+      "comment_180",
+      "comment_185"
+    ],
+    "archon": [
+      "comment_016",
+      "comment_092",
+      "comment_135",
+      "comment_156"
+    ],
+    "collossus": [
+      "comment_016"
+    ],
+    "immortal": [
+      "comment_017",
+      "comment_028",
+      "comment_030",
+      "comment_059",
+      "comment_135",
+      "comment_139",
+      "comment_145",
+      "comment_156"
+    ],
+    "disruptor": [
+      "comment_017"
+    ],
+    "chargelot": [
+      "comment_017",
+      "comment_057",
+      "comment_084",
+      "comment_095",
+      "comment_136",
+      "comment_190"
+    ],
+    "fast": [
+      "comment_018",
+      "comment_032",
+      "comment_033",
+      "comment_106",
+      "comment_121",
+      "comment_180",
+      "comment_186"
+    ],
+    "speedlings": [
+      "comment_018"
+    ],
+    "hydras": [
+      "comment_018"
+    ],
+    "lingbane": [
+      "comment_019"
+    ],
+    "all-in": [
+      "comment_019",
+      "comment_020"
+    ],
+    "muta": [
+      "comment_019",
+      "comment_020",
+      "comment_026",
+      "comment_047",
+      "comment_048",
+      "comment_049"
+    ],
+    "speedling": [
+      "comment_020",
+      "comment_022",
+      "comment_040",
+      "comment_065",
+      "comment_066",
+      "comment_073",
+      "comment_074",
+      "comment_081",
+      "comment_086",
+      "comment_089",
+      "comment_098",
+      "comment_099"
+    ],
+    "2-base": [
+      "comment_020"
+    ],
+    "glave": [
+      "comment_021",
+      "comment_024",
+      "comment_030",
+      "comment_037",
+      "comment_080",
+      "comment_113",
+      "comment_114",
+      "comment_115",
+      "comment_116",
+      "comment_117"
+    ],
+    "adepts": [
+      "comment_021",
+      "comment_024",
+      "comment_030",
+      "comment_037",
+      "comment_080",
+      "comment_113",
+      "comment_114",
+      "comment_115",
+      "comment_116",
+      "comment_117",
+      "comment_118",
+      "comment_119"
+    ],
+    "blink": [
+      "comment_021",
+      "comment_031",
+      "comment_033",
+      "comment_042",
+      "comment_120",
+      "comment_121",
+      "comment_122",
+      "comment_123",
+      "comment_124"
+    ],
+    "hydra": [
+      "comment_022",
+      "comment_100",
+      "comment_109"
+    ],
+    "lurker": [
+      "comment_022"
+    ],
+    "tempest": [
+      "comment_023"
+    ],
+    "stargate": [
+      "comment_024",
+      "comment_118"
+    ],
+    "void": [
+      "comment_024",
+      "comment_046",
+      "comment_155",
+      "comment_156",
+      "comment_157"
+    ],
+    "ling": [
+      "comment_025",
+      "comment_044",
+      "comment_047",
+      "comment_049",
+      "comment_067",
+      "comment_071",
+      "comment_072",
+      "comment_077",
+      "comment_079",
+      "comment_085",
+      "comment_090",
+      "comment_096",
+      "comment_106",
+      "comment_107",
+      "comment_125",
+      "comment_128",
+      "comment_129",
+      "comment_130",
+      "comment_131",
+      "comment_132",
+      "comment_133",
+      "comment_134"
+    ],
+    "bane": [
+      "comment_025",
+      "comment_044",
+      "comment_071",
+      "comment_079",
+      "comment_085",
+      "comment_090",
+      "comment_093",
+      "comment_098",
+      "comment_125",
+      "comment_128",
+      "comment_129",
+      "comment_130",
+      "comment_131",
+      "comment_132",
+      "comment_133"
+    ],
+    "upgrades": [
+      "comment_026",
+      "comment_108",
+      "comment_111"
+    ],
+    "hive": [
+      "comment_026"
+    ],
+    "voidray": [
+      "comment_027",
+      "comment_036"
+    ],
+    "time": [
+      "comment_028"
+    ],
+    "rushed": [
+      "comment_028"
+    ],
+    "pool": [
+      "comment_029",
+      "comment_041",
+      "comment_048",
+      "comment_085",
+      "comment_112",
+      "comment_181"
+    ],
+    "all": [
+      "comment_029",
+      "comment_042",
+      "comment_052",
+      "comment_054",
+      "comment_057",
+      "comment_058",
+      "comment_059",
+      "comment_063",
+      "comment_065",
+      "comment_066",
+      "comment_067",
+      "comment_068",
+      "comment_069",
+      "comment_070",
+      "comment_071",
+      "comment_072",
+      "comment_073",
+      "comment_074",
+      "comment_075",
+      "comment_076",
+      "comment_077",
+      "comment_078",
+      "comment_079",
+      "comment_080",
+      "comment_081",
+      "comment_082",
+      "comment_083",
+      "comment_084",
+      "comment_085",
+      "comment_086",
+      "comment_087",
+      "comment_088",
+      "comment_089",
+      "comment_090",
+      "comment_091",
+      "comment_092",
+      "comment_093",
+      "comment_094",
+      "comment_095",
+      "comment_096",
+      "comment_097"
+    ],
+    "charge": [
+      "comment_030",
+      "comment_056",
+      "comment_092",
+      "comment_135"
+    ],
+    "fake": [
+      "comment_034",
+      "comment_093",
+      "comment_134"
+    ],
+    "mass": [
+      "comment_034",
+      "comment_104",
+      "comment_176",
+      "comment_178",
+      "comment_182"
+    ],
+    "proxy": [
+      "comment_035",
+      "comment_063",
+      "comment_070",
+      "comment_076",
+      "comment_083",
+      "comment_094",
+      "comment_137",
+      "comment_147",
+      "comment_163",
+      "comment_164",
+      "comment_165",
+      "comment_166",
+      "comment_167",
+      "comment_168",
+      "comment_169",
+      "comment_170",
+      "comment_171",
+      "comment_172",
+      "comment_173",
+      "comment_174"
+    ],
+    "gate": [
+      "comment_035",
+      "comment_058",
+      "comment_063",
+      "comment_092",
+      "comment_147",
+      "comment_163",
+      "comment_165",
+      "comment_167",
+      "comment_168",
+      "comment_169",
+      "comment_171",
+      "comment_172",
+      "comment_173"
+    ],
+    "prism": [
+      "comment_035",
+      "comment_054",
+      "comment_056",
+      "comment_057",
+      "comment_058",
+      "comment_059",
+      "comment_060"
+    ],
+    "zvp": [
+      "comment_036",
+      "comment_106"
+    ],
+    "carriers": [
+      "comment_037",
+      "comment_113",
+      "comment_155"
+    ],
+    "scv": [
+      "comment_038"
+    ],
+    "3rd": [
+      "comment_038"
+    ],
+    "collosus": [
+      "comment_039",
+      "comment_062",
+      "comment_122"
+    ],
+    "pressure": [
+      "comment_041",
+      "comment_060",
+      "comment_064",
+      "comment_125",
+      "comment_134",
+      "comment_175"
+    ],
+    "lots": [
+      "comment_043"
+    ],
+    "hellions": [
+      "comment_043",
+      "comment_192"
+    ],
+    "hellion": [
+      "comment_045",
+      "comment_143",
+      "comment_184",
+      "comment_189"
+    ],
+    "harass": [
+      "comment_045"
+    ],
+    "oracle": [
+      "comment_046",
+      "comment_136",
+      "comment_177"
+    ],
+    "ray": [
+      "comment_046",
+      "comment_155",
+      "comment_156"
+    ],
+    "big": [
+      "comment_047"
+    ],
+    "map": [
+      "comment_047",
+      "comment_183"
+    ],
+    "lings": [
+      "comment_048",
+      "comment_075",
+      "comment_104",
+      "comment_109",
+      "comment_160",
+      "comment_183"
+    ],
+    "make": [
+      "comment_048",
+      "comment_095",
+      "comment_127"
+    ],
+    "hides": [
+      "comment_050"
+    ],
+    "what": [
+      "comment_050"
+    ],
+    "doing": [
+      "comment_050"
+    ],
+    "hellbat": [
+      "comment_051",
+      "comment_191"
+    ],
+    "probe": [
+      "comment_054",
+      "comment_055"
+    ],
+    "stalker": [
+      "comment_054",
+      "comment_061",
+      "comment_062",
+      "comment_063"
+    ],
+    "zealot": [
+      "comment_054",
+      "comment_064"
+    ],
+    "blocks": [
+      "comment_055"
+    ],
+    "expansion": [
+      "comment_055"
+    ],
+    "goes": [
+      "comment_055",
+      "comment_169"
+    ],
+    "two": [
+      "comment_056",
+      "comment_103"
+    ],
+    "slot": [
+      "comment_056"
+    ],
+    "chargelots": [
+      "comment_059",
+      "comment_114",
+      "comment_156"
+    ],
+    "quick": [
+      "comment_060"
+    ],
+    "dts": [
+      "comment_060"
+    ],
+    "pvp": [
+      "comment_061",
+      "comment_076",
+      "comment_120"
+    ],
+    "oracles": [
+      "comment_062",
+      "comment_121"
+    ],
+    "robo": [
+      "comment_063"
+    ],
+    "adept": [
+      "comment_064"
+    ],
+    "secret": [
+      "comment_064"
+    ],
+    "behind": [
+      "comment_068"
+    ],
+    "gateway": [
+      "comment_070",
+      "comment_175"
+    ],
+    "3-hatch": [
+      "comment_071"
+    ],
+    "hatch": [
+      "comment_075",
+      "comment_090",
+      "comment_093",
+      "comment_098",
+      "comment_104",
+      "comment_107",
+      "comment_131",
+      "comment_133"
+    ],
+    "slow": [
+      "comment_075",
+      "comment_100",
+      "comment_125",
+      "comment_139",
+      "comment_140"
+    ],
+    "gateways": [
+      "comment_076",
+      "comment_170"
+    ],
+    "very": [
+      "comment_081"
+    ],
+    "cheesey": [
+      "comment_081"
+    ],
+    "min": [
+      "comment_082"
+    ],
+    "upgraded": [
+      "comment_082",
+      "comment_160"
+    ],
+    "gates": [
+      "comment_083"
+    ],
+    "protoss": [
+      "comment_084"
+    ],
+    "random": [
+      "comment_086",
+      "comment_105",
+      "comment_147",
+      "comment_154"
+    ],
+    "zerg": [
+      "comment_086",
+      "comment_183"
+    ],
+    "went": [
+      "comment_086",
+      "comment_105"
+    ],
+    "need": [
+      "comment_088"
+    ],
+    "gases": [
+      "comment_088"
+    ],
+    "banes": [
+      "comment_089",
+      "comment_095"
+    ],
+    "just": [
+      "comment_095",
+      "comment_149",
+      "comment_159",
+      "comment_160"
+    ],
+    "flood": [
+      "comment_096"
+    ],
+    "marinetank": [
+      "comment_097"
+    ],
+    "viking": [
+      "comment_097"
+    ],
+    "defend": [
+      "comment_098",
+      "comment_127"
+    ],
+    "defense": [
+      "comment_099"
+    ],
+    "nydus": [
+      "comment_101",
+      "comment_110"
+    ],
+    "baneling": [
+      "comment_107"
+    ],
+    "burrow": [
+      "comment_108"
+    ],
+    "gets": [
+      "comment_108",
+      "comment_166"
+    ],
+    "early": [
+      "comment_109",
+      "comment_132"
+    ],
+    "voidrays": [
+      "comment_113",
+      "comment_176"
+    ],
+    "close": [
+      "comment_117"
+    ],
+    "choke": [
+      "comment_117"
+    ],
+    "fleet": [
+      "comment_118"
+    ],
+    "wall": [
+      "comment_119"
+    ],
+    "air": [
+      "comment_119"
+    ],
+    "stalkers": [
+      "comment_120",
+      "comment_121",
+      "comment_122",
+      "comment_123",
+      "comment_124",
+      "comment_187"
+    ],
+    "storm": [
+      "comment_123",
+      "comment_136"
+    ],
+    "contain": [
+      "comment_123",
+      "comment_145"
+    ],
+    "immortals": [
+      "comment_124"
+    ],
+    "keep": [
+      "comment_127"
+    ],
+    "melee": [
+      "comment_129",
+      "comment_180"
+    ],
+    "upgrade": [
+      "comment_129"
+    ],
+    "zvz": [
+      "comment_131"
+    ],
+    "attack": [
+      "comment_132"
+    ],
+    "mins": [
+      "comment_132"
+    ],
+    "greedy": [
+      "comment_133"
+    ],
+    "transition": [
+      "comment_133"
+    ],
+    "mutas": [
+      "comment_134"
+    ],
+    "macro": [
+      "comment_135",
+      "comment_169",
+      "comment_183"
+    ],
+    "2-3": [
+      "comment_136"
+    ],
+    "hidden": [
+      "comment_138"
+    ],
+    "build": [
+      "comment_139"
+    ],
+    "zealots": [
+      "comment_139",
+      "comment_140"
+    ],
+    "non": [
+      "comment_140"
+    ],
+    "stop": [
+      "comment_140"
+    ],
+    "cyclone": [
+      "comment_141",
+      "comment_182",
+      "comment_188"
+    ],
+    "ahead": [
+      "comment_142"
+    ],
+    "pull": [
+      "comment_142"
+    ],
+    "drones": [
+      "comment_142"
+    ],
+    "higher": [
+      "comment_143"
+    ],
+    "ground": [
+      "comment_143"
+    ],
+    "late": [
+      "comment_146"
+    ],
+    "computer": [
+      "comment_148",
+      "comment_149",
+      "comment_150",
+      "comment_151",
+      "comment_152",
+      "comment_153",
+      "comment_154"
+    ],
+    "whatever": [
+      "comment_148"
+    ],
+    "ask": [
+      "comment_148"
+    ],
+    "yeah": [
+      "comment_149"
+    ],
+    "guy": [
+      "comment_149",
+      "comment_158"
+    ],
+    "likes": [
+      "comment_150",
+      "comment_151",
+      "comment_153",
+      "comment_158"
+    ],
+    "test": [
+      "comment_150"
+    ],
+    "patience": [
+      "comment_150"
+    ],
+    "who": [
+      "comment_151",
+      "comment_153",
+      "comment_154"
+    ],
+    "joke": [
+      "comment_151"
+    ],
+    "around": [
+      "comment_151"
+    ],
+    "player": [
+      "comment_152",
+      "comment_153",
+      "comment_154"
+    ],
+    "unreliable": [
+      "comment_152"
+    ],
+    "figure": [
+      "comment_152"
+    ],
+    "out": [
+      "comment_152"
+    ],
+    "actually": [
+      "comment_153"
+    ],
+    "things": [
+      "comment_154"
+    ],
+    "rays": [
+      "comment_157"
+    ],
+    "hide": [
+      "comment_158"
+    ],
+    "dark": [
+      "comment_158"
+    ],
+    "templar": [
+      "comment_158"
+    ],
+    "testing": [
+      "comment_159"
+    ],
+    "banelings": [
+      "comment_160"
+    ],
+    "roaches": [
+      "comment_160"
+    ],
+    "thank": [
+      "comment_161"
+    ],
+    "you": [
+      "comment_161"
+    ],
+    "thanks": [
+      "comment_162"
+    ],
+    "watching": [
+      "comment_162"
+    ],
+    "four": [
+      "comment_163",
+      "comment_172"
+    ],
+    "3-4": [
+      "comment_164"
+    ],
+    "tvp": [
+      "comment_166"
+    ],
+    "reapers": [
+      "comment_166"
+    ],
+    "raven": [
+      "comment_166"
+    ],
+    "usually": [
+      "comment_169"
+    ],
+    "find": [
+      "comment_173"
+    ],
+    "much": [
+      "comment_177"
+    ],
+    "damage": [
+      "comment_177"
+    ],
+    "abuser": [
+      "comment_179",
+      "comment_188"
+    ],
+    "controls": [
+      "comment_183"
+    ],
+    "tvt": [
+      "comment_184"
+    ],
+    "opener": [
+      "comment_184"
+    ],
+    "normal": [
+      "comment_185"
+    ],
+    "despiteseeing": [
+      "comment_185"
+    ],
+    "terran": [
+      "comment_185"
+    ],
+    "medivac": [
+      "comment_186"
+    ],
+    "battlecruisers": [
+      "comment_189"
+    ],
+    "abuse": [
+      "comment_190"
+    ],
+    "tvz": [
+      "comment_191"
+    ],
+    "battlecruiser": [
+      "comment_191",
+      "comment_192"
+    ],
+    "timing": [
+      "comment_191"
+    ],
+    "scvs": [
+      "comment_191"
+    ]
+  }
+}

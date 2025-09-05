@@ -1,11 +1,17 @@
 import json
 import requests
-import spacy  # language small model of spacy
 import nltk  # token libraries
+import tiktoken
 from settings import config
 from settings.aliases import ALIASES
-import nltk
-import tiktoken
+
+# Conditional import of spacy (heavy ML library)
+try:
+    import spacy  # language small model of spacy
+    SPACY_AVAILABLE = True
+except ImportError:
+    SPACY_AVAILABLE = False
+    spacy = None
 
 try:
     nltk.data.find('tokenizers/punkt')
@@ -145,12 +151,24 @@ def get_printed_array(order, contextHistory):
     return arrayString
 
 def apply_stop_words_filter(words):
+    """
+    Apply stop words filtering using spacy if available, otherwise return unchanged.
+    
+    Args:
+        words (str): Input text to filter
+        
+    Returns:
+        tuple: (filtered_text, removed_words) - if spacy unavailable, returns (original_text, [])
+    """
+    if not SPACY_AVAILABLE:
+        return words, []  # Return unchanged if spacy not available
+        
     removed_words = []
     # loading the english language small model of spacy
     en = spacy.load('en_core_web_sm')
     sw_spacy = en.Defaults.stop_words
 
-    words_to_remove = ['n’t', 'no', 'not', 'nothing', 'neither', 'never', 'almost', 'more', 'bottom', 'latter', 'three',
+    words_to_remove = ['n\'t', 'no', 'not', 'nothing', 'neither', 'never', 'almost', 'more', 'bottom', 'latter', 'three',
                        'fifteen', 'beside']
     for word in words_to_remove:
         sw_spacy.discard(word)

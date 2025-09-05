@@ -18,3 +18,4 @@ test/replays/
 config.py
 SC2_sounds.json
 dummy.py
+.codegpt

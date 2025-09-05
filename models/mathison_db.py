@@ -208,6 +208,7 @@ class Database:
         self.cursor.reset()
         try:
             # Define the query with JOIN to include player names
+            # Prioritize replays with player_comments, then by most recent date
             query = """
                 SELECT 
                     r.*, 
@@ -222,6 +223,7 @@ class Database:
                     OR 
                     p2.SC2_UserId = %s
                 ORDER BY 
+                    (r.Player_Comments IS NOT NULL AND r.Player_Comments != '') DESC,
                     r.Date_Played DESC
                 LIMIT 1;
             """
@@ -280,6 +282,7 @@ class Database:
         for row in results:
             opponent, wins, losses = row['Opponent'], row['Wins'], row['Losses']
             formatted_result = f"{player_name}, {opponent}, {wins} wins, {losses} losses"
+            self.logger.debug(f"Formatted result: '{formatted_result}' (player_name: '{player_name}', opponent: '{opponent}')")
             formatted_results.append(formatted_result)
 
         self.logger.debug(f"result: \n {formatted_results}")
@@ -596,6 +599,7 @@ class Database:
 
     def get_player_race_matchup_records(self, player_name):
         try:
+            self.logger.debug(f"get_player_race_matchup_records called with player_name: '{player_name}' (length: {len(player_name)})")
 
             query = """
             SELECT 

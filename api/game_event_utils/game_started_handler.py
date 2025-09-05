@@ -1,6 +1,7 @@
 from datetime import datetime
 import pytz
-from ..chat_utils import processMessageForOpenAI
+from api.chat_utils import processMessageForOpenAI
+from api.ml_opponent_analyzer import analyze_opponent_for_game_start
 
 from settings import config
 import utils.tokensArray as tokensArray
@@ -29,6 +30,17 @@ def game_started(self, current_game, contextHistory, logger):
                         streamer_current_race = current_game.get_opponent_race(player_name)
                         logger.debug(f"checking DB for {player_name} as {player_current_race} versus {config.STREAMER_NICKNAME} as any race, even tho {config.STREAMER_NICKNAME} is {streamer_current_race} in this current game")
 
+                        # ML Analysis: Generate strategic intelligence if opponent is known
+                        try:
+                            current_map = getattr(current_game, 'map', 'Unknown')
+                            # Note: current_map is kept for logging but not used in ML analysis
+                            analyze_opponent_for_game_start(
+                                player_name, player_current_race, current_map, 
+                                self, logger, contextHistory
+                            )
+                        except Exception as e:
+                            logger.error(f"Error in ML opponent analysis: {e}")
+
                         # look for player with same name and race as this current game in the database
                         logger.debug(f"checking if {player_name} is in the DB independent of race because Random is not considered due to bug in replay parser")
                         # result = self.db.check_player_and_race_exists(player_name, player_current_race)
@@ -42,10 +54,10 @@ def game_started(self, current_game, contextHistory, logger):
 
                             # Check if the streamer's name is Player1 or Player2 and assign picked_race
                             for streamer_name in config.SC2_PLAYER_ACCOUNTS:
-                                if result['Player1_Name'] == streamer_name:
+                                if result['Player1_Name'].lower() == streamer_name.lower():
                                     streamer_picked_race = result['Player1_PickRace']
                                     break  # Exit loop if match found
-                                elif result['Player2_Name'] == streamer_name:
+                                elif result['Player2_Name'].lower() == streamer_name.lower():
                                     streamer_picked_race = result['Player2_PickRace']
                                     break  # Exit loop if match found
 
@@ -140,26 +152,30 @@ def game_started(self, current_game, contextHistory, logger):
                             if not player_comments:
                                 logger.debug(f"No games with comments found for player '{current_player_name}' and race '{player_current_race}'. Skipping OpenAI processing.")
                             else:
-                                # Build the message string for OpenAI
-                                msg = "1. Summarize the comments for the opponent building a profile based on previous matchups in 350 characters total. \n"
-                                msg += "Below are each comments, each containing: \n"
-                                msg += "player_comments: The comment about the player. \n"
-                                msg += "map: The map on which the game was played. \n"
-                                msg += "date_played: The date when the game was played (formatted). \n"
-                                msg += "game_duration: The duration of the game. \n"
-                                msg += "2. At the end of the summary statement from #1, add these words 'player comments warning'. \n"
+                                # Build the message string for OpenAI with enhanced SC2 focus and anti-hallucination measures
+                                msg = "As a StarCraft 2 expert, analyze these previous game comments about the opponent. "
+                                msg += "IMPORTANT: Use ONLY the data provided below - do NOT make assumptions or add information not present. \n\n"
+                                msg += "Instructions:\n"
+                                msg += "1. Focus on SC2-specific insights: build orders, strategies, unit compositions, timing, macro/micro patterns\n"
+                                msg += "2. Use proper SC2 terminology (e.g., 'early game aggression', 'macro-focused', 'tech rush', 'timing attack')\n"
+                                msg += "3. If comments mention specific units/buildings, reference them accurately\n"
+                                msg += "4. Keep summary under 300 characters\n"
+                                msg += "5. End with exactly: 'player comments warning'\n\n"
+                                msg += "Previous game data:\n"
                                 msg += "-----\n"
 
                                 # Add player comments to the message
                                 for comment in player_comments:
                                     msg += (
-                                        f"player_comments: {comment['player_comments']}, "
-                                        f"map: {comment['map']}, "
-                                        f"date_played: {comment['date_played']}, "
-                                        f"game_duration: {comment['game_duration']}\n"
+                                        f"Comment: {comment['player_comments']}\n"
+                                        f"Map: {comment['map']}\n"
+                                        f"Date: {comment['date_played']}\n"
+                                        f"Duration: {comment['game_duration']}\n"
+                                        f"---\n"
                                     )
 
                                 msg += "-----\n"
+                                msg += "Based ONLY on the above data, provide a StarCraft 2-focused summary:"
 
                                 # Send the message to OpenAI
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)                     
@@ -186,7 +202,14 @@ def game_started(self, current_game, contextHistory, logger):
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
 
                                 msg = "Keep it concise in 400 characters or less: \n"
-                                msg += f"print the first {config.BUILD_ORDER_COUNT_TO_ANALYZE} steps of the opponent's build order and group consecutive items together. For example, Probe 10 - Probe 11 - Probe 12 should be Probe (11-13). \n"
+                                msg += f"<{player_name}>'s build order: "
+                                msg += f"Summarize in chronological order:\n"
+                                msg += "- Show the first 10-15 key steps in order\n"
+                                msg += "- Group consecutive identical items with counts (e.g., 'SCV x3')\n"
+                                msg += "- Use abbreviations for common units (SCV, Marine, Marauder, etc.)\n"
+                                msg += "- Keep it under 150 characters total\n"
+                                msg += "- Format: 'SCV x3, Barracks, SCV x2, Marine x2, Orbital, Marine x3, Reactor'\n"
+                                msg += "- This shows: 3 SCVs, then Barracks, then 2 more SCVs, then 2 Marines, then Orbital, then 3 more Marines, then Reactor\n"
                                 msg += "-----\n"
                                 msg += f"{player_name}'s build order versus {config.STREAMER_NICKNAME}'s {streamer_picked_race}: {first_few_build_steps} \n"
                                 msg += f"omit {config.STREAMER_NICKNAME}'s build order. \n"                                
@@ -198,7 +221,16 @@ def game_started(self, current_game, contextHistory, logger):
                                     msg = f"restate this with all details: This is the first time {config.STREAMER_NICKNAME} played {player_name} in this {streamer_picked_race} versus {player_current_race} matchup."
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
 
-                            msg = f"The CSV is listed as player1, player2, player 1 wins, player 1 losses. Respond with only 10 words with player1's name, and player1's total wins and total losses from the {player_record} \n"
+                            # Ensure we preserve the full player name and don't truncate the data
+                            msg = f"IMPORTANT: The player name is '{player_name}' (exactly {len(player_name)} characters). Do NOT truncate or modify this name.\n\n"
+                            msg += f"The CSV is listed as player1, player2, player 1 wins, player 1 losses. Respond with only 10 words with player1's name, and player1's total wins and total losses from the past results. Use the exact player name '{player_name}'. \n"
+                            msg += f"Past results for {player_name}:\n{player_record}\n"
+                            
+                            # Debug logging to see what's being sent
+                            logger.debug(f"Player name being sent to AI: '{player_name}' (length: {len(player_name)})")
+                            logger.debug(f"Player record length: {len(player_record)}")
+                            logger.debug(f"Full message length: {len(msg)}")
+                            
                             processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
 
                         else:
@@ -211,4 +243,9 @@ def game_started(self, current_game, contextHistory, logger):
 
     except Exception as e:
         logger.debug(f"error with find if player exists: {e}")
+    
+    # Convert list back to string if it was converted to list for processing
+    if isinstance(game_player_names, list):
+        game_player_names = ', '.join(game_player_names)
+    
     return game_player_names

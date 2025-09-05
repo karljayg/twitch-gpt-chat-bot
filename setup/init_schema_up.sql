@@ -93,8 +93,9 @@ CREATE TABLE Replays (
     Player1_Result VARCHAR(50),
     Player2_Result VARCHAR(50),
     Date_Uploaded TIMESTAMP,
-    Date_Played TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  -- This will hold the converted US Eastern time from UnixTimestamp
+    Date_Played TIMESTAMP,  -- This will hold the converted US Eastern time from UnixTimestamp
     Replay_Summary TEXT,
+    Player_Comments TEXT,   -- Added to match live database schema
     Map VARCHAR(255),
     Region VARCHAR(50),
     GameType VARCHAR(50),

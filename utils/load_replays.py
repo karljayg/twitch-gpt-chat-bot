@@ -125,9 +125,19 @@ class ReplayLoader:
             with open(filename, 'w') as file:
                 json.dump(replay_data, file, indent=4)
 
-            # Players and Map
-            players = [f"{player_data['name']}: {player_data['race']}" for player_data in
-                       replay_data['players'].values()]
+            # First, create a mapping of player names to their display names (with alias replacement)
+            player_display_names = {}
+            for player_key, player_data in replay_data['players'].items():
+                player_name = player_data['name']
+                # Check if this is a streamer alias and replace with nickname
+                if any(player_name.lower() == alias.lower() for alias in config.SC2_PLAYER_ACCOUNTS):
+                    player_display_names[player_key] = config.STREAMER_NICKNAME
+                else:
+                    player_display_names[player_key] = player_name
+
+            # Players and Map (using display names with alias replacement)
+            players = [f"{player_display_names[player_key]}: {player_data['race']}" for player_key, player_data in
+                       replay_data['players'].items()]
             region = replay_data['region']
             game_type = replay_data['game_type']
 
@@ -161,8 +171,9 @@ class ReplayLoader:
             units_lost_summary = {player_key: player_data['unitsLost'] for player_key, player_data in
                                   replay_data['players'].items()}
             for player_key, units_lost in units_lost_summary.items():
-                # ChatGPT gets confused if you use possessive 's vs by
-                player_info = f"Units Lost by {replay_data['players'][player_key]['name']}"
+                # Use the display name (with alias replacement) instead of raw player name
+                display_name = player_display_names[player_key]
+                player_info = f"Units Lost by {display_name}"
                 replay_summary += player_info + '\n'
                 units_lost_aggregate = defaultdict(int)
                 if units_lost:  # Check if units_lost is not empty
@@ -180,7 +191,9 @@ class ReplayLoader:
             build_orders = {player_key: player_data['buildOrder'] for player_key, player_data in
                             replay_data['players'].items()}
             for player_key, build_order in build_orders.items():
-                player_info = f"{replay_data['players'][player_key]['name']}'s Build Order (first set of steps):"
+                # Use the display name (with alias replacement) instead of raw player name
+                display_name = player_display_names[player_key]
+                player_info = f"{display_name}'s Build Order (first set of steps):"
                 replay_summary += player_info + '\n'
                 for order in build_order[:int(build_order_count)]:
                     time = order['time']
@@ -190,10 +203,12 @@ class ReplayLoader:
                     replay_summary += order_info + '\n'
                 replay_summary += '\n'
 
-            # replace player names with streamer name
+            # replace player names with streamer name (case-insensitive)
+            import re
             for player_name in config.SC2_PLAYER_ACCOUNTS:
-                replay_summary = replay_summary.replace(
-                    player_name, config.STREAMER_NICKNAME)
+                # Use regex for case-insensitive replacement
+                pattern = re.compile(re.escape(player_name), re.IGNORECASE)
+                replay_summary = pattern.sub(config.STREAMER_NICKNAME, replay_summary)
 
             # Save the replay summary to a file
             filename = config.LAST_REPLAY_SUMMARY_FILE

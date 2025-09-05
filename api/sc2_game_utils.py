@@ -4,14 +4,64 @@ import utils.tokensArray as tokensArray
 from utils.file_utils import find_latest_file
 from utils.file_utils import find_recent_file_within_time
 import spawningtool.parser
-from .game_event_utils import game_started_handler
-from .game_event_utils import game_replay_handler
-from .game_event_utils import game_ended_handler
-from .chat_utils import processMessageForOpenAI
+from api.game_event_utils import game_started_handler
+from api.game_event_utils import game_replay_handler
+from api.game_event_utils import game_ended_handler
+from api.chat_utils import processMessageForOpenAI
 from collections import defaultdict
 
 from settings import config
 from models.game_info import GameInfo
+
+def reset_sc2_connection():
+    """
+    Force a fresh HTTP connection to SC2 API when stuck in bad state.
+    
+    This function is called after 5 consecutive SC2 API failures to attempt
+    connection recovery. It tests multiple connection methods to find one that works:
+    - localhost:6119 (standard local connection)
+    - 127.0.0.1:6119 (IP-based connection, bypasses DNS resolution issues)
+    
+    The function uses completely fresh HTTP sessions to avoid cached connection
+    pool issues that can cause the main requests to remain stuck even when
+    the API is actually available.
+    
+    Returns:
+        bool: True if reset successful and API is reachable, False if API is truly down
+        
+    Side Effects:
+        - Updates reset_sc2_connection.working_url with the successful URL
+        - Sets this URL to None if all connection methods fail
+    """
+    import time
+    
+    # Test URLs to try (localhost can sometimes have resolution issues)
+    test_urls = [
+        "http://localhost:6119/game",
+        "http://127.0.0.1:6119/game"
+    ]
+    
+    for url in test_urls:
+        try:
+            # Create completely fresh session (no connection pooling)
+            with requests.Session() as session:
+                # Try fresh connection with shorter timeout for testing
+                response = session.get(url, timeout=5)
+                if response.status_code == 200:
+                    # Connection successful! Update the working URL for future use
+                    reset_sc2_connection.working_url = url
+                    return True
+                
+        except Exception:
+            # This URL failed, try the next one
+            continue
+    
+    # All connection methods failed
+    reset_sc2_connection.working_url = None
+    return False
+
+# Store the working URL that reset found
+reset_sc2_connection.working_url = None
 
 
 @staticmethod
@@ -26,13 +76,109 @@ def check_SC2_game_status(logger):
                 f"An error occurred while reading the test file: {e}")
             return None
     else:
+        # Enhanced connection handling with health monitoring
         try:
-            response = requests.get("http://localhost:6119/game")
+            # Use configurable timeout to prevent hanging
+            timeout = getattr(config, 'SC2_API_TIMEOUT_SECONDS', 10)
+            
+            # Use the working URL if reset found one, otherwise default to localhost
+            url = getattr(reset_sc2_connection, 'working_url', None) or "http://localhost:6119/game"
+            
+            # Use fresh session if we just did a successful reset
+            if hasattr(check_SC2_game_status, 'use_fresh_session') and check_SC2_game_status.use_fresh_session:
+                with requests.Session() as session:
+                    response = session.get(url, timeout=timeout)
+                check_SC2_game_status.use_fresh_session = False  # Only use once
+            else:
+                response = requests.get(url, timeout=timeout)
             response.raise_for_status()
+            
+            # Track successful connections
+            if not hasattr(check_SC2_game_status, 'consecutive_successes'):
+                check_SC2_game_status.consecutive_successes = 0
+            check_SC2_game_status.consecutive_successes += 1
+            
+            # Reset failure counters on success
+            if hasattr(check_SC2_game_status, 'consecutive_failures'):
+                check_SC2_game_status.consecutive_failures = 0
+            
+            # Only log connection health at significant milestones (every 1000 polls = ~83 minutes)
+            # The visual indicators (., +, o, w) already show system health status
+            if check_SC2_game_status.consecutive_successes % 1000 == 0:
+                logger.info(f"SC2 API connection healthy - {check_SC2_game_status.consecutive_successes} consecutive successful polls")
+            
             return GameInfo(response.json())
+            
+        except requests.exceptions.Timeout:
+            # Handle timeout specifically
+            if not hasattr(check_SC2_game_status, 'consecutive_failures'):
+                check_SC2_game_status.consecutive_failures = 0
+            check_SC2_game_status.consecutive_failures += 1
+            
+            # Log full message on first timeout, then use visual indicators for repeats
+            if check_SC2_game_status.consecutive_failures == 1:  # First timeout
+                logger.debug(f"SC2 API timeout: request exceeded {getattr(config, 'SC2_API_TIMEOUT_SECONDS', 10)} seconds")
+            elif check_SC2_game_status.consecutive_failures == 3:  # Escalate to warning after 3 timeouts
+                logger.warning(f"SC2 API experiencing timeouts - {check_SC2_game_status.consecutive_failures} consecutive failures")
+            elif check_SC2_game_status.consecutive_failures == 5:  # Try connection reset after 5 failures
+                logger.info("Attempting SC2 API connection reset (timeouts)...")
+                if reset_sc2_connection():
+                    logger.info("SC2 API connection reset successful!")
+                    check_SC2_game_status.consecutive_failures = 0  # Reset counter
+                    check_SC2_game_status.use_fresh_session = True  # Use fresh session on next call
+                    return check_SC2_game_status(logger)  # Retry immediately
+                else:
+                    logger.warning("SC2 API connection reset failed - API may be down")
+            # All subsequent timeouts just use visual indicators (no log spam)
+            
+            return GameInfo({"status": "TIMEOUT"})
+            
+        except requests.exceptions.ConnectionError as e:
+            # Handle connection errors specifically
+            if not hasattr(check_SC2_game_status, 'consecutive_failures'):
+                check_SC2_game_status.consecutive_failures = 0
+            check_SC2_game_status.consecutive_failures += 1
+            
+            # Log full message on first failure, then use visual indicators for repeats
+            if check_SC2_game_status.consecutive_failures == 1:  # First failure
+                logger.debug(f"SC2 API connection error: {e}")
+            elif check_SC2_game_status.consecutive_failures == 3:  # Escalate to warning after 3 failures
+                logger.warning(f"SC2 API connection issues - {check_SC2_game_status.consecutive_failures} consecutive failures")
+            elif check_SC2_game_status.consecutive_failures == 5:  # Try connection reset after 5 failures
+                logger.info("Attempting SC2 API connection reset (connection errors)...")
+                if reset_sc2_connection():
+                    logger.info("SC2 API connection reset successful!")
+                    check_SC2_game_status.consecutive_failures = 0  # Reset counter
+                    check_SC2_game_status.use_fresh_session = True  # Use fresh session on next call
+                    return check_SC2_game_status(logger)  # Retry immediately
+                else:
+                    logger.warning("SC2 API connection reset failed - API may be down")
+            # All subsequent failures just use visual indicators (no log spam)
+            
+            return GameInfo({"status": "CONNECTION_ERROR"})
+            
         except Exception as e:
-            logger.debug(f"Is SC2 on? error: {e}")
-            #return None
+            # Handle other errors
+            if not hasattr(check_SC2_game_status, 'consecutive_failures'):
+                check_SC2_game_status.consecutive_failures = 0
+            check_SC2_game_status.consecutive_failures += 1
+            
+            # Log full message on first error, then use visual indicators for repeats
+            if check_SC2_game_status.consecutive_failures == 1:  # First error
+                logger.debug(f"SC2 API error: {e}")
+            elif check_SC2_game_status.consecutive_failures == 3:  # Escalate to warning after 3 errors
+                logger.warning(f"SC2 API experiencing errors - {check_SC2_game_status.consecutive_failures} consecutive failures")
+            elif check_SC2_game_status.consecutive_failures == 5:  # Try connection reset after 5 failures
+                logger.info("Attempting SC2 API connection reset...")
+                if reset_sc2_connection():
+                    logger.info("SC2 API connection reset successful!")
+                    check_SC2_game_status.consecutive_failures = 0  # Reset counter
+                    check_SC2_game_status.use_fresh_session = True  # Use fresh session on next call
+                    return check_SC2_game_status(logger)  # Retry immediately
+                else:
+                    logger.warning("SC2 API connection reset failed - API may be down")
+            # All subsequent errors just use visual indicators (no log spam)
+            
             return GameInfo({"status": "ERROR"})
 
 def handle_SC2_game_results(self, previous_game, current_game, contextHistory, logger):
@@ -49,11 +195,13 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
         # logger.debug(f"GAME STATES (1): {previous_game}, {current_game.get_status()}, {previous_game.get_status()} \n")
         return
 
+    # CRITICAL: Capture the previous game state BEFORE overwriting it
+    actual_previous_game = previous_game
     previous_game = current_game
     if previous_game:
-        logger.debug(f"GAME STATES (2): {previous_game}, {current_game.get_status()}, {previous_game.get_status()} \n")
+        logger.debug(f"GAME STATES (2): {previous_game}, {current_game.get_status()}, {previous_game.get_status()}")
     else:
-        logger.debug(f"GAME STATES (3): {previous_game}, {current_game.get_status()}, {previous_game.get_status()} \n")
+        logger.debug(f"GAME STATES (3): {previous_game}, {current_game.get_status()}, {previous_game.get_status()}")
 
     response = ""
     replay_summary = ""
@@ -106,6 +254,9 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
 
             # Save the replay JSON to a file
             game_ended_handler.save_file(replay_data, 'json', logger)
+            
+            # Store replay data in the TwitchBot instance for pattern learning
+            self.last_replay_data = replay_data
 
             # Players and Map
             players = [f"{player_data['name']}: {player_data['race']}" for player_data in
@@ -193,6 +344,56 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
 
     elif current_game.get_status() == "MATCH_ENDED":
         response = game_ended_handler.game_ended(self, game_player_names, winning_players, losing_players, logger)
+        
+        # Schedule pattern learning trigger after a delay to allow replay processing
+        # Note: Due to Blizzard API bug (isReplay always "true"), we now detect real games
+        # by checking if streamer is playing, not by the broken isReplay flag
+        if hasattr(self, 'pattern_learner') and self.pattern_learner:
+            logger.info("Pattern learning system found - scheduling delayed trigger")
+            import threading
+            import time
+            
+            def delayed_pattern_learning(captured_game_player_names, captured_winning_players, captured_losing_players):
+                logger.info("Starting delayed pattern learning trigger (15 second wait)")
+                time.sleep(15)  # Wait 15 seconds for replay to be processed
+                try:
+                    logger.info("Delayed pattern learning trigger - checking if replay was saved")
+                    
+                    # Check if we have replay data available
+                    if hasattr(self, 'last_replay_data') and self.last_replay_data:
+                        logger.info("Replay data available - triggering pattern learning system")
+                        
+                        # Prepare game data for comment prompt
+                        logger.debug(f"DEBUG: captured_game_player_names before _prepare_game_data_for_comment: {repr(captured_game_player_names)}")
+                        game_data = self._prepare_game_data_for_comment(captured_game_player_names, captured_winning_players, captured_losing_players, logger)
+                        logger.debug(f"Game data prepared for pattern learning: {game_data}")
+                        
+                        # Prompt for comment
+                        logger.info("Prompting for player comment...")
+                        comment = self.pattern_learner.prompt_for_player_comment(game_data)
+                        
+                        if comment:
+                            logger.info(f"Player comment received: {comment}")
+                        else:
+                            # No comment provided - let AI learn from replay data
+                            logger.info("No player comment - AI learning from replay data")
+                            self.pattern_learner.process_game_without_comment(game_data)
+                    else:
+                        logger.warning("No replay data available after delay - pattern learning skipped")
+                        logger.debug(f"Available attributes: {[attr for attr in dir(self) if not attr.startswith('_')]}")
+                        
+                except Exception as e:
+                    logger.error(f"Error in delayed pattern learning: {e}")
+                    import traceback
+                    logger.error(f"Traceback: {traceback.format_exc()}")
+            
+            # Start the delayed trigger in a separate thread with captured variables
+            timer_thread = threading.Thread(target=delayed_pattern_learning, args=(game_player_names, winning_players, losing_players), daemon=True)
+            timer_thread.start()
+            logger.info("Scheduled delayed pattern learning trigger (15 seconds)")
+        else:
+            logger.warning("Pattern learning system NOT available - check initialization")
+            logger.debug(f"Available attributes: {[attr for attr in dir(self) if not attr.startswith('_')]}")
 
     elif current_game.get_status() == "REPLAY_STARTED":
         contextHistory.clear()
@@ -200,6 +401,67 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
 
     elif current_game.get_status() == "REPLAY_ENDED":
         response = game_replay_handler.replay_ended(self, current_game, game_player_names, logger)
+        
+        # SIMPLE AND CORRECT: Only trigger pattern learning if we did NOT start with REPLAY_STARTED
+        # If previous state was REPLAY_STARTED, then this is just watching a replay - skip learning
+        # If previous state was anything else (MATCH_STARTED, etc), then this is a live game ending - do learning
+        previous_status = actual_previous_game.get_status() if (actual_previous_game and hasattr(actual_previous_game, 'get_status')) else "None"
+        logger.debug(f"REPLAY_ENDED: previous state was {previous_status}")
+        
+        player_names_list = [name.strip() for name in game_player_names.split(',')]
+        streamer_is_playing = any(name in config.SC2_PLAYER_ACCOUNTS for name in player_names_list)
+        
+        # Only trigger if: 1) You're in the game AND 2) Previous state was NOT REPLAY_STARTED
+        if (hasattr(self, 'pattern_learner') and self.pattern_learner and streamer_is_playing and 
+            previous_status != "REPLAY_STARTED"):
+            logger.info(f"REPLAY_ENDED: Live game ended (was {previous_status}) - triggering pattern learning")
+            
+            import threading
+            import time
+            
+            def delayed_pattern_learning(captured_game_player_names, captured_winning_players, captured_losing_players):
+                logger.info("Starting delayed pattern learning trigger (15 second wait)")
+                time.sleep(15)  # Wait 15 seconds for replay to be processed
+                try:
+                    logger.info("Delayed pattern learning trigger - checking if replay was saved")
+                    
+                    # Check if we have replay data available
+                    if hasattr(self, 'last_replay_data') and self.last_replay_data:
+                        logger.info("Replay data available - triggering pattern learning system")
+                        
+                        # Prepare game data for comment prompt
+                        game_data = self._prepare_game_data_for_comment(captured_game_player_names, captured_winning_players, captured_losing_players, logger)
+                        logger.debug(f"Game data prepared for pattern learning: {game_data}")
+                        
+                        # Prompt for comment
+                        logger.info("Prompting for player comment...")
+                        comment = self.pattern_learner.prompt_for_player_comment(game_data)
+                        
+                        if comment:
+                            logger.info(f"Player comment received: {comment}")
+                        else:
+                            # No comment provided - let AI learn from replay data
+                            logger.info("No player comment - AI learning from replay data")
+                            self.pattern_learner.process_game_without_comment(game_data)
+                    else:
+                        logger.warning("No replay data available after delay - pattern learning skipped")
+                        
+                except Exception as e:
+                    logger.error(f"Error in delayed pattern learning: {e}")
+                    import traceback
+                    logger.error(f"Traceback: {traceback.format_exc()}")
+            
+            # Start the delayed trigger in a separate thread with captured variables
+            timer_thread = threading.Thread(target=delayed_pattern_learning, args=(game_player_names, winning_players, losing_players), daemon=True)
+            timer_thread.start()
+            logger.info("Scheduled delayed pattern learning trigger (15 seconds)")
+        else:
+            if previous_status == "REPLAY_STARTED":
+                logger.debug("Pattern learning skipped: watching replay (REPLAY_STARTED to REPLAY_ENDED)")
+            else:
+                logger.debug("Pattern learning not triggered: not streamer's game or system unavailable")
+
+
 
     if not config.OPENAI_DISABLED:
         if self.first_run:
@@ -216,12 +478,100 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
         if ((current_game.get_status() not in ["MATCH_STARTED", "REPLAY_STARTED"] and self.total_seconds >= config.ABANDONED_GAME_THRESHOLD)
                 or (current_game.isReplay and config.USE_CONFIG_TEST_REPLAY_FILE)):
             logger.debug("analyzing, replay summary to AI: ")
-            not_alias = tokensArray.find_master_name(opponent_name)
-            if not_alias is not None:
-                replay_summary = replay_summary.replace(opponent_name, not_alias)
-
             processMessageForOpenAI(self, replay_summary, "replay_analysis", logger, contextHistory)
             replay_summary = ""
         else:
             logger.debug("not analyzing replay")
             return
+
+
+def _prepare_game_data_for_comment(self, game_player_names, winning_players, losing_players, logger):
+    """Prepare game data for the comment prompt"""
+    try:
+        game_data = {}
+        
+        # Get opponent info
+        if config.STREAMER_NICKNAME in game_player_names:
+            # Split the comma-separated string into a list first
+            player_names_list = [name.strip() for name in game_player_names.split(',')]
+            opponent_names = [name for name in player_names_list if name != config.STREAMER_NICKNAME]
+            if opponent_names:
+                game_data['opponent_name'] = opponent_names[0]
+                
+                # Try to get opponent race from current game
+                try:
+                    if hasattr(self, 'current_game') and self.current_game:
+                        game_data['opponent_race'] = self.current_game.get_player_race(opponent_names[0])
+                except:
+                    game_data['opponent_race'] = 'Unknown'
+        
+        # Game result
+        if config.STREAMER_NICKNAME in winning_players:
+            game_data['result'] = 'Victory'
+        elif config.STREAMER_NICKNAME in losing_players:
+            game_data['result'] = 'Defeat'
+        else:
+            game_data['result'] = 'Tie'
+        
+        # Game duration
+        if hasattr(self, 'total_seconds'):
+            game_data['duration'] = f"{int(self.total_seconds // 60)}m {int(self.total_seconds % 60)}s"
+        
+        # Current date/time
+        from datetime import datetime
+        game_data['date'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Map info (if available)
+        try:
+            if hasattr(self, 'last_replay_data') and self.last_replay_data:
+                game_data['map'] = self.last_replay_data.get('map', 'Unknown')
+            elif hasattr(self, 'current_game') and self.current_game:
+                # This would need to be implemented based on your game data structure
+                game_data['map'] = 'Unknown'
+        except:
+            game_data['map'] = 'Unknown'
+        
+        # Build order data (if available from replay data)
+        try:
+            # Check if we have replay data available
+            if hasattr(self, 'last_replay_data') and self.last_replay_data:
+                logger.debug(f"Replay data keys: {list(self.last_replay_data.keys())}")
+                if 'players' in self.last_replay_data:
+                    logger.debug(f"Players data: {self.last_replay_data['players']}")
+                # Extract build order from replay data
+                build_data = []
+                if 'players' in self.last_replay_data:
+                    for player in self.last_replay_data['players']:
+                        if 'buildOrder' in player and isinstance(player['buildOrder'], list):
+                            for step in player['buildOrder']:
+                                if isinstance(step, dict):
+                                    build_data.append({
+                                        'supply': step.get('supply', 0),
+                                        'name': step.get('name', ''),
+                                        'time': step.get('time', 0)
+                                    })
+                        elif 'buildOrder' in player:
+                            logger.debug(f"Build order is not a list: {type(player['buildOrder'])} - {player['buildOrder']}")
+                
+                if build_data:
+                    game_data['build_order'] = build_data
+                    logger.debug(f"Added {len(build_data)} build order steps to game data")
+                else:
+                    logger.debug("No build order data found in replay")
+                    
+        except Exception as e:
+            logger.debug(f"Could not extract build order data: {e}")
+        
+        # Build order summary (if available)
+        try:
+            if hasattr(self, 'current_game') and self.current_game:
+                # This would need to be implemented based on your game data structure
+                game_data['build_order_summary'] = 'Not available'
+        except:
+            game_data['build_order_summary'] = 'Not available'
+        
+        return game_data
+        
+    except Exception as e:
+        logger.error(f"Error preparing game data for comment: {e}")
+        return {}

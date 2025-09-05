@@ -1,0 +1,143 @@
+[33m18508aa[m[33m ([m[1;36mHEAD -> [m[1;32mfeature/pattern-learning-system[m[33m)[m Add TDD test for opponent name extraction bug
+[33meeba43b[m Clean up duplicate keywords in pattern learning data
+[33m38757de[m Update documentation with pattern learning improvements and TDD approach
+[33m896aec4[m Implement pattern learning improvements with TDD
+[33m08b64d5[m Fix build order extraction - parse replay summary text instead of JSON structure
+[33m1b1e7d9[m Test pattern learning system successfully - created 15 patterns from real replay data
+[33m1200008[m Add pattern learning system with SC2 replay analysis and game event handlers
+[33m2919293[m Fix repetitive patterns.json - create ONE pattern per unique build order with keyword references
+[33me00ec30[m Fix build order extraction bug - add type checking and debug logging
+[33m659a496[m Fix pattern learning to generate efficient JSON structure - no duplication, proper cross-references
+[33m3a861d2[m Fix: Remove old inefficient data files, ensure new efficient structure is used
+[33m182c449[m Fix: Replace inefficient duplicate data structure with efficient comments.json + keyword index
+[33mabfa498[m Reset: Clear all learning data files to start fresh with real game data only
+[33m7a54e9a[m Clean: Remove all test data, keep only real user comment 'blink stalkers to collosus'
+[33mad28e70[m Fix: Remove hardcoded keywords, learn from replay_summary data, ensure database save always happens
+[33m183beed[m Fix: Add missing SC2 keywords (reaper, expand, build, safe, opening, terran) to improve comment processing
+[33m68b77fd[m Fix: Add file persistence for comments and fix build order extraction indentation
+[33mb707f8f[m Fix: Integrate pattern learning system with database to save player comments to REPLAYS.Player_Comments table
+[33m2a11944[m Fix unhashable type error: change comment_keywords from set to list to handle dictionaries
+[33m488e704[m Add SC2 Pattern Learning System with FSL integration and comprehensive documentation
+[33m08d39f1[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmain[m[33m)[m fix Ctrl-C capture to terminate session
+[33mcc8ab41[m improvements in discord message handling and timing
+[33m2635116[m update readme
+[33mb751c23[m Discord is now supported! Mathison will treat discord messages separate from twitch, but functionality available for both including history lookup, wiki and other commands refactor to separate out this from the tight integration from twitch runs as a separate loop but treated as part of the main properly
+[33m5d4243b[m new feature: opponent comment summary of previous games, instead of just last game
+[33mb4cbbc9[m improved code structure, and auto text2speech for the player comments
+[33m35b5ebe[m custom comments about player now added to the database. voice command triggered by "mathison" then "player comments", so it will be a note to remember and remind next time u play the opponent again.
+[33m180e54a[m added OpenAI Whisper for voice transcription which is more reliable. But it is optional.
+[33mf1903ac[m ability to override config for intros by typing on command line:  python app.py PLAYER_INTROS_ENABLED=False
+[33mfc93cd0[m updated for easier folder path options
+[33m57083d4[m speech to text updates where it will listen to your speech and play related mp3s and comments all configurable, plus main thread improvements
+[33me38b24d[m fixed db logging not showing for debug messages
+[33m55528f8[m fix looping on error for both replay not found, and hopefully the replay read error. Also fixed prompt for better results on mentioning key buildings.
+[33mc875441[m when streamer is Random, it has issues with past games since in SC2 replays, it does not tag Random. It just has Z/P/T.
+[33m575007f[m updated readme for deprecated model issue with langchain, also the config for missing setting, and updated token size
+[33md807d2e[m updated bracket command
+[33m6835af4[m commands will return what mathison will respond to as special functions like getting player records
+[33m956eabd[m career records for a player is now available, including all race vs race matchups
+[33mb735006[m -head to head record for 2 players is now available as a command. It also lists diff race matchups as separate records. -configurable text to speech -smarter "games in last x hours" command -clear contextHistory if larger than 15. This is useful in bot running in regular chat, no game activity. -add message to IRC/twitch chat cleanup function for illegal newline/tab/non-printable characters
+[33m1c5053f[m replay uploader is now interactive taking into account DATE RANGE, PATH and debug mode to process files
+[33m505cb72[m -since Random race is not supported at the moment, just find last time opponent was played against regardless of race
+[33ma0014e9[m -new function to find latest within certain time and retry -used in finding latest replay file since it still sometimes cannot find the latest, and uses the previous one -additional alias function so barcode is said not IIIIII -alias code does not save into DB, just for chat/spoken text -minor prompt adjustments
+[33md78a616[m -refactor so openAI calls is a function for reuse -non-ascii causes issues in logger, possibly from this refactor. for now, replace with ? -full word versus so ChatGPT reads vs properly
+[33mf5989f9[m -MySQL heartbeat functions to requery to keep connection alive (configurable frequency) -update game info for Random -remove introduced bug with WAIT_RESP on sc2_game_utils.py TODO: somehow causes issues, update later
+[33m8242438[m -fine tune prompts -additional game state logging
+[33mfab4250[m race matchup improvements: -specify actual race vs race builds only -for streamer, use picked_race in case Random is chosen and build against it is reflected -Random is currently not tracked in DB, will fix, as well as streamer names.
+[33m20cd5c1[m -wiki info is now spoken -added ensure connection for MySQL errors
+[33m90c5a11[m -adjustments to history lookup -cleaned up DB init -other minor items
+[33m13b269a[m -speech speed adjustment -try/catch
+[33m0234273[m -updated text2speech to do for all msgs to channel that is short -remove emotes from message spoken
+[33m9d218ed[m mathison provides list of games witnessed in the past X hours (limit 72)
+[33md653737[m added text to speech
+[33m40558a1[m -added function to get history of known replays in db -truncate to byte limit function as well
+[33m74e0c6e[m Merge pull request #2 from karljayg/refactor
+[33m9065e14[m[33m ([m[1;32mrefactor[m[33m)[m -override sql query call to include retries -include game history vs opponent -updated other prompts
+[33mdab6247[m added past results vs the players fixed references for load replays
+[33maa5a3ba[m UML info, and updated load_replays to include date_range
+[33m2bfa872[m character limit caused by long responses from wiki call
+[33m66b18b3[m Merge branch 'refactor' of https://github.com/karljayg/twitch-gpt-chat-bot into refactor
+[33mc2ac5b9[m sound and minor fixes
+[33md28bbf5[m fixed database queries to use connection pool and retries to address lost connection issues
+[33m64be503[m fixing global variable latest_file_found not set
+[33md868c6b[m when observing 2 players, message is updated
+[33mbdbc25e[m Added the other refactored functions - Functions modified are handle_SC2_game_results, monitor_game, game_ended_handler, etc, added bugfix with datetime and logger Added code structure in dev_notes
+[33m9b3b333[m Updated processMessageForOpenAI function call in game_started
+[33m1e7a340[m Merge branch 'refactor' of https://github.com/karljayg/twitch-gpt-chat-bot into refactor
+[33m22d08ab[m Refactor chat related functions, updated readme
+[33m9e37583[m Merge branch 'refactor' of https://github.com/karljayg/twitch-gpt-chat-bot into refactor
+[33mce5be08[m [refactor] game_ended_handler
+[33md14cddc[m added test for llama 2b model
+[33mbe48aa4[m Merge branch 'refactor' of https://github.com/karljayg/twitch-gpt-chat-bot into refactor
+[33m09395ca[m [refactor] game started handler
+[33mf5c7409[m added notebook for llama model hf
+[33m91627fb[m [add] dev_notes
+[33m8749333[m [update] sc2_game_utils.py for code refactoring
+[33m22980dd[m [update] refactor sound player module
+[33m688e4b3[m Delete temp/last_replay_data.json
+[33me006df9[m Delete temp/replay_summary.txt
+[33me3259fc[m [update] refactor branch
+[33me747337[m [update] regex to get info from replay_summary.txt
+[33m2f64a87[m [fix] regex to get player name
+[33mc93ec7a[m [update] twitch_bot.py
+[33m60c531f[m [update] emote_generator
+[33mf05f5da[m [fix] twitch bot check first run
+[33mc82a670[m [update] sc2_game_utils.py
+[33mca02bc5[m [add] db migration script
+[33me0fb422[m Update README.md
+[33mf339e3a[m [add/update] folder structure and refactor app
+[33mdaada49[m[33m ([m[1;31morigin/dev[m[33m)[m response message adjustments test for db function
+[33m6e6b464[m new functiono get build order from DB fine tune responses capture errors on parse sc2replay
+[33m0f4de3e[m fine tuning responses, fixing last time played msg
+[33m297251d[m -fixed bug with last time played with minutes (timezone issue) -streamer nickname fixes
+[33m414370f[m database setup, and minor adjustments
+[33mbb723ae[m cleanup, bug fixes: cursor issues token max timing issues data type errors logging updates race/issue find player issues etc.
+[33m4b779ba[m new features: replays to database, replay loader mathison now advises u on opponent if there is a matching name & race initial work on user tracking, personality & chat history
+[33mb3c0aed[m turn on/off the SC2 player intros & other sounds
+[33mfdcdd48[m New feature for SC2: randomized from a list, sound gets played depends on game result: win, loss, tie, abandoned configurable
+[33m14e28ea[m -Tokenizer updates to include tiktoken -in Replay Summary, Units Lost moved to top, above Build Orders -this is in case truncated due to length -on previous results if allowed for first run, msg adjustment as there are no players from prev. results
+[33mf53fcdb[m fine tuning the responses, particularly post game analysis.
+[33mdedbdf8[m -log token count -suppress the suppress msg, so a message that is similar in a row is suppressed by config secs (say 4).  This suppressed message notification is further suppressed by 5.  So every 20 seconds now (4x5) to reduce noise.
+[33mc47706d[m -fix bug when replay summary gets too big, exceeding token size -add try catch for openai request -adjust haiku perspective
+[33m208e456[m -units lost none is accounted for -when game is under a certain threshold (say 15 secs), it is abandoned -proper commentary on such, and does not do replay analysis
+[33madcd84b[m -avoid checking same replay file as last time which happens once in a while due to timing of replay creation and game end -new feature: conversation_mode.  When a game is progress, all msgs are in SC2 context, else normal -replay_analysis mode remains to review previous game replay
+[33m3952eab[m Ignore on first run Fine tuning of request and responses by AI Replays Analysis logic and name adjustments for clarity
+[33m70ea292[m -fix wiki call bug where over 512 chars fails in twitch msg to channel -specify token limits a bit more for new work on bot remembering conversations with every chatter
+[33mca4937b[m -added Game Duration to replay summary -fine-tuned replay analysis commentary
+[33mb9ec2b2[m -AI replies with mood/perspective customized to replay analysis -reorganized config file -additional config options:   -build order steps to analyze -fix replay summary bug not being processed
+[33m9ef7120[m -updated requirements.txt but seems we need to run them manually due to conflicts that pop up ocassionally -placeholder required temp and log files
+[33m8cd4f1e[m -added missing wiki utils -improved logging with new log each run -configurable file locations -updated requirements.txt
+[33m016c177[m -new feature: ask wikipedia, uses langchain tool -fixed signal handler issue on ctrl-c -fixed issue with ignore user -analyze replay override during test with flag -updated the config file with all the parameters I neglected to add
+[33m7071091[m -heartbeat indicator -fixed newline mistake of /n vs \n -clear past context when new game is started -remove print statements no longer needed -no replay analysis for viewing replays or when match just started -space out openAI requests -remove Player: text in responses
+[33m6c864e7[m initial integration with Aligulac and SC2ReplayStats
+[33mc1ce361[m SC2Replay analysis -Mathison now comments on the summary
+[33m39fb570[m SC2Replay analysis -find latest replay file in subdirectory -process via spawningtool the replay file, and output JSON -output build order and summary
+[33mf3d3f25[m Merge remote-tracking branch 'origin/main'
+[33m0361d79[m -prioritized Open Sesame override for prompts -removed unused variables and performed other cleanup suggestions by pycharm and github copilot -improved comments
+[33m0d36fbc[m -prioritized Open Sesame override for prompts -removed unused variables and performed other cleanup suggestions by pycharm and github copilot -improved comments
+[33mb48b3d6[m Merge branch 'main' of github.com:karljayg/twitch-gpt-chat-bot
+[33m14a7e26[m MAJOR CHANGES! 1. Added mood and perspective enhancements on responses 2. added test JSON instead of SC2 localhost for easier testing 3. redid game result management with better GameInfo object, get game status and handle game results, so much clearer/simpler retrieval and algorithm 4. improved logging readability. 5. fixed issue with async errors on ctrl-c. 6. cleaned up old and unused code 7. fixed open sesame directive.
+[33m37e07c9[m Update README.md
+[33m9e54e23[m added configurable mood and perspective settings
+[33m451520c[m Update README.md
+[33m45f35aa[m adjustments for team games/2v2/3v3/etc. Also configurable SLEEP. Needs a lot of testing.
+[33m68d3c75[m repeating error message suppression, and cleanup
+[33ma39a2a4[m gracefully handle with StarCraft is not running resulting in failed JSON lookup. Program will continue to execute so it can respond to chat messages as usual.
+[33m76e866d[m cleaned up player/results/game status, fixed ignore user bug, ctrl-C kill signal to aid in ending execution, also fixed bug where monitor_game kept all attention, so put that in a thread.
+[33m357448e[m using nickname for better personalization and statements, as well as cleanup
+[33m1629d13[m bot will now comment on the game start and result
+[33m2e4dc70[m updated req. libraries, better msgs and comments
+[33m7952813[m added game monitoring, so that result is available for bot to comment on
+[33mcd38036[m config updates, better responses, and greeting fix
+[33m2548306[m updated doc, license, and pip requirements
+[33m87b4a83[m updated greeting and response logic, with emotes, and sc2 specific funny tone
+[33m3683250[m external library version updates broke many things for me. fixed. more to go.
+[33mb69ae44[m minor
+[33m3b6ca4b[m Merge pull request #1 from karljayg/refactor
+[33m789d7db[m reconstructing code. somehow lost quite a bit when I made a bad git command
+[33m9f6083e[m minor bot fixes, including IGNORE option
+[33meaceee9[m added toxicity perspective API call to Google, response updates, and reorg
+[33m41ec97f[m initial attempt at async (more to do), improved chat interaction with new configurable features with greetings and many commands
+[33me7dab31[m added configurable filter for stop words
+[33m9ea202f[m there is conversational history now, that also tracks token limits! we have persistence and memory from one conversation to the next while program is running. Next task: persistence between runs, ie save memory to hard drive :D
+[33m1bb312a[m initial

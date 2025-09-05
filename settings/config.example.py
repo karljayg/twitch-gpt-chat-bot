@@ -124,7 +124,37 @@ STOP_WORDS_FLAG = "adios amigo"
 RESP_FREQUENCY = 1.0  # TODO: unused
 RESP_WAIT = 5  # wait in seconds to respond TODO: review if this works
 MAX_RESPONSIVENESS = 0.5  # TODO: unused
-TEXT_TO_SPEECH = True 
+
+"""
+|   Audio Settings
+"""
+# Master switch for all audio features - disable for server deployments
+ENABLE_AUDIO = True
+
+# Text-to-Speech settings
+TEXT_TO_SPEECH = True  # Enable TTS for bot responses
+
+# Speech-to-Text settings  
+ENABLE_SPEECH_TO_TEXT = True  # Enable voice command recognition
+USE_WHISPER = False  # Use OpenAI Whisper for speech2text, or normal python library speechrecognition
+
+# Game Sound settings
+ENABLE_GAME_SOUNDS = True  # Enable SC2 game event sounds (win/loss/start/etc)
+
+# StarCraft II Monitoring settings
+ENABLE_SC2_MONITORING = True  # Enable SC2 client monitoring for game events (disable for server deployments)
+
+# FSL Integration Settings
+ENABLE_FSL_INTEGRATION = True  # Enable FSL reviewer link integration
+FSL_API_URL = "http://localhost/psistorm.com/fsl/api/service.php"
+FSL_API_TOKEN = "fsl_api_7x9k2m4n8p3q6r9s2t5v8w1y4z7a0c3f6h9j2m5p8s1v4y7"
+FSL_REVIEWER_WEIGHT = 1.0  # Default weight for Twitch viewers
+
+# Pattern Learning System Settings
+ENABLE_PATTERN_LEARNING = True  # Enable SC2 build pattern learning from player comments
+PATTERN_LEARNING_SIMILARITY_THRESHOLD = 0.7  # Minimum similarity score to consider patterns matching
+PATTERN_LEARNING_MAX_PATTERNS = 1000  # Maximum number of patterns to store in memory
+PATTERN_DATA_DIR = "data"  # Directory to store learned patterns
 
 
 """
@@ -181,14 +211,18 @@ MOOD_OPTIONS = [
     "silly"  # 19 Expressing a lighthearted and humorous mood.
 ]
 
+# PERSPECTIVE_OPTIONS for AI responses
+# Note: The first 6 options (index 0-5) are used for replay analysis
+# All replay analysis prompts include anti-hallucination instructions to use ONLY the Winners/Losers data provided
 PERSPECTIVE_OPTIONS = [
-    "talk about build order or units lost in a very short poem of 20 words or less",
-    "find something interesting in the replay summary, limit to 15 words",
-    "point out the most killed total and units for each player based on replay summary, limit to 15 words",
-    "write game summary in haiku using specific units and even the map name, limit to 25 words",
-    "mention the game duration minutes, and make a gamer joke about it, keeping in mind average game time is 15 minutes",
-    "do a friendly roast to either player based on something in their build order, units created or lost, limit to 25 words",
-    # above are the first 5 for replay analysis, per PERSPECTIVE_INDEX_CUTOFF = 6
+    "talk about build order or units lost in a very short poem of 20 words or less. If mentioning game results, use only the Winners/Losers data provided.",
+    "find something interesting in the replay summary, limit to 15 words. If mentioning game results, use only the Winners/Losers data provided.",
+    "point out the most killed total and units for each player based on replay summary, limit to 15 words. If mentioning game results, use only the Winners/Losers data provided.",
+    "write game summary in haiku using specific units and even the map name, limit to 25 words. Include who won/lost based on the Winners/Losers data.",
+    "Based on the EXACT game results shown (Winners/Losers), mention the game duration minutes, and make a gamer joke about it, keeping in mind average game time is 15 minutes. Use ONLY the Winners/Losers data provided - do NOT make assumptions about who won.",
+    "do a friendly roast to either player based on something in their build order, units created or lost, limit to 25 words. Remember who actually won/lost from the Winners/Losers data.",
+    # above are the first 6 for replay analysis (index 0-5), per PERSPECTIVE_INDEX_CUTOFF = 6
+    # All replay analysis prompts include anti-hallucination instructions to prevent AI from making up wrong winners/losers
     "respond casually and concisely in only 15 words",
     "be extremely short in response, at most 16 words",
     "speak with expertise, at most 10 words",  # long winded, be careful

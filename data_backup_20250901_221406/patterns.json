@@ -1,0 +1,83 @@
+{
+  "pattern_001": {
+    "signature": {
+      "early_game": [
+        {
+          "unit": "Forge",
+          "count": 1,
+          "order": 1,
+          "supply": 17,
+          "time": 70
+        },
+        {
+          "unit": "PhotonCannon",
+          "count": 1,
+          "order": 2,
+          "supply": 22,
+          "time": 110
+        },
+        {
+          "unit": "DarkShrine",
+          "count": 1,
+          "order": 3,
+          "supply": 26,
+          "time": 295
+        },
+        {
+          "unit": "Dark Templar",
+          "count": 1,
+          "order": 4,
+          "supply": 31,
+          "time": 368
+        }
+      ],
+      "key_timings": {
+        "Forge": 70
+      },
+      "opening_sequence": [
+        {
+          "unit": "Forge",
+          "count": 1,
+          "order": 1,
+          "supply": 17,
+          "time": 70
+        },
+        {
+          "unit": "PhotonCannon",
+          "count": 1,
+          "order": 2,
+          "supply": 22,
+          "time": 110
+        },
+        {
+          "unit": "DarkShrine",
+          "count": 1,
+          "order": 3,
+          "supply": 26,
+          "time": 295
+        },
+        {
+          "unit": "Dark Templar",
+          "count": 1,
+          "order": 4,
+          "supply": 31,
+          "time": 368
+        }
+      ]
+    },
+    "comment_id": "comment_001",
+    "game_id": "game_001",
+    "keywords": [
+      "cannon",
+      "rush",
+      "into",
+      "test"
+    ],
+    "comment": "cannon rush into DT test",
+    "sample_count": 1,
+    "last_seen": "2025-09-01T22:03:57.961796",
+    "strategy_type": "standard_opening",
+    "race": "unknown",
+    "confidence": 0.8
+  }
+}
