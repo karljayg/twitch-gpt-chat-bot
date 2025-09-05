@@ -18,21 +18,14 @@ class LogOnceWithinIntervalFilter(logging.Filter):
     # log filter for similar repetitive messages to suppress
     def filter(self, record):
         now = datetime.now()
-        time_left = None
-        self.loop_count += 1  # Increment the loop counter
-        time_left = ...  # Calculate the time left
-        time_since_last_logged = ...  # Calculate the time since last logged
 
         if self.last_logged_message:
             time_since_last_logged = now - self.last_logged_time
-            time_left = self.interval - time_since_last_logged
             if time_since_last_logged < self.interval:
                 similarity = SequenceMatcher(
                     None, self.last_logged_message, record.msg).ratio()
                 if similarity > self.similarity_threshold:
-                    # Suppressed message - no need to print since visual indicators show status
-                    # if self.loop_count % self.loops_to_print == 0:  # Check if it's time to print
-                    #     print(f"suppressed: {math.floor(time_left.total_seconds())} secs")
+                    # Suppressed message - visual indicators show status instead
                     return False
 
         self.last_logged_message = record.msg

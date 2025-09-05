@@ -348,7 +348,9 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
         # Schedule pattern learning trigger after a delay to allow replay processing
         # Note: Due to Blizzard API bug (isReplay always "true"), we now detect real games
         # by checking if streamer is playing, not by the broken isReplay flag
-        if hasattr(self, 'pattern_learner') and self.pattern_learner:
+        # Only trigger pattern learning for games that weren't abandoned
+        if (hasattr(self, 'pattern_learner') and self.pattern_learner and 
+            hasattr(self, 'total_seconds') and self.total_seconds >= config.ABANDONED_GAME_THRESHOLD):
             logger.info("Pattern learning system found - scheduling delayed trigger")
             import threading
             import time
@@ -391,6 +393,8 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
             timer_thread = threading.Thread(target=delayed_pattern_learning, args=(game_player_names, winning_players, losing_players), daemon=True)
             timer_thread.start()
             logger.info("Scheduled delayed pattern learning trigger (15 seconds)")
+        elif hasattr(self, 'total_seconds') and self.total_seconds < config.ABANDONED_GAME_THRESHOLD:
+            logger.info(f"Skipping pattern learning for short game ({self.total_seconds}s < {config.ABANDONED_GAME_THRESHOLD}s threshold)")
         else:
             logger.warning("Pattern learning system NOT available - check initialization")
             logger.debug(f"Available attributes: {[attr for attr in dir(self) if not attr.startswith('_')]}")
@@ -411,9 +415,10 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
         player_names_list = [name.strip() for name in game_player_names.split(',')]
         streamer_is_playing = any(name in config.SC2_PLAYER_ACCOUNTS for name in player_names_list)
         
-        # Only trigger if: 1) You're in the game AND 2) Previous state was NOT REPLAY_STARTED
+        # Only trigger if: 1) You're in the game AND 2) Previous state was NOT REPLAY_STARTED AND 3) Game wasn't abandoned
         if (hasattr(self, 'pattern_learner') and self.pattern_learner and streamer_is_playing and 
-            previous_status != "REPLAY_STARTED"):
+            previous_status != "REPLAY_STARTED" and 
+            hasattr(self, 'total_seconds') and self.total_seconds >= config.ABANDONED_GAME_THRESHOLD):
             logger.info(f"REPLAY_ENDED: Live game ended (was {previous_status}) - triggering pattern learning")
             
             import threading
@@ -458,6 +463,8 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
         else:
             if previous_status == "REPLAY_STARTED":
                 logger.debug("Pattern learning skipped: watching replay (REPLAY_STARTED to REPLAY_ENDED)")
+            elif hasattr(self, 'total_seconds') and self.total_seconds < config.ABANDONED_GAME_THRESHOLD:
+                logger.info(f"Skipping pattern learning for short game ({self.total_seconds}s < {config.ABANDONED_GAME_THRESHOLD}s threshold)")
             else:
                 logger.debug("Pattern learning not triggered: not streamer's game or system unavailable")
 
