@@ -1,5 +1,0 @@
-[33me00ec30[m Fix build order extraction bug - add type checking and debug logging
-[33m488e704[m Add SC2 Pattern Learning System with FSL integration and comprehensive documentation
-[33mcc8ab41[m improvements in discord message handling and timing
-[33m57083d4[m speech to text updates where it will listen to your speech and play related mp3s and comments all configurable, plus main thread improvements
-[33m55528f8[m fix looping on error for both replay not found, and hopefully the replay read error. Also fixed prompt for better results on mentioning key buildings.
