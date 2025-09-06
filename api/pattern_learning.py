@@ -1091,7 +1091,9 @@ class SC2PatternLearner:
             
             def get_input():
                 try:
-                    result[0] = input(prompt)
+                    # Display prompt immediately and flush
+                    print(prompt, end='', flush=True)
+                    result[0] = input()
                 except (EOFError, KeyboardInterrupt):
                     result[0] = None
             
