@@ -147,40 +147,46 @@ logging.getLogger('urllib3').setLevel(logging.WARNING)
 # Suppress Discord gateway debug messages (websocket heartbeats)
 logging.getLogger('discord.gateway').setLevel(logging.INFO)
 
-# Custom logging handler that tracks when log messages are printed
-# This enables smart spacing between log messages and visual indicators
-class MarkingStreamHandler(logging.StreamHandler):
-    """
-    Custom StreamHandler that tracks when log messages are emitted.
+# Simple indicator tracking without messing with logging system
+
+# Track indicator sequences
+_indicator_counts = {}  # Track counts of each indicator type  
+_sequence_start_time = None
+
+def _print_indicator_summary():
+    """Print summary of indicators when interrupted by log output."""
+    import time as time_module  # Explicit import to avoid conflicts
+    global _indicator_counts, _sequence_start_time
     
-    This handler calls mark_log_output() after each log record is printed,
-    which allows the print_indicator() function to add proper spacing
-    between log messages and single-character status indicators.
-    """
-    def emit(self, record):
-        super().emit(record)
-        mark_log_output()  # Mark that a log message was just printed
-
-# Configure logging with the marking handler
-handler = MarkingStreamHandler(sys.stdout)
-handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
-logging.basicConfig(level=logging.DEBUG, handlers=[handler])
-
-# Smart indicator spacing system
-# This tracks whether the last output was a log message to provide clean separation
-# between verbose log messages and single-character visual indicators
-_last_output_was_log = False
-
-def mark_log_output():
-    """
-    Track that a log message was just printed.
+    # Indicator descriptions
+    indicator_names = {
+        '.': 'normal',
+        'o': 'errors', 
+        '+': 'events',
+        'x': 'unknown',
+        '?': 'waiting',
+        'e': 'exceptions'
+    }
     
-    This function is called automatically by MarkingStreamHandler after each
-    log record is emitted. It sets a flag that print_indicator() uses to
-    determine if it needs to add spacing before the next indicator.
-    """
-    global _last_output_was_log
-    _last_output_was_log = True
+    try:
+        if _indicator_counts and _sequence_start_time:
+            elapsed = time_module.time() - _sequence_start_time
+            elapsed_str = time_module.strftime("%H:%M:%S", time_module.gmtime(elapsed))
+            
+            # Build summary string with all indicator counts and descriptions
+            total_indicators = sum(_indicator_counts.values())
+            if total_indicators >= 1:
+                count_parts = [f"{count} {indicator_names.get(indicator, indicator)}" for indicator, count in _indicator_counts.items()]
+                count_str = " and ".join(count_parts)
+                print(f" [elapsed: {elapsed_str}, {count_str} total]", flush=True)
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception:
+        pass
+    
+    # Reset tracking
+    _indicator_counts = {}
+    _sequence_start_time = None
 
 def print_indicator(indicator):
     """
@@ -201,12 +207,19 @@ def print_indicator(indicator):
     Args:
         indicator (str): Single character to print as status indicator
     """
-    global _last_output_was_log
-    if _last_output_was_log:
-        print(f"\n{indicator}", end="", flush=True)  # Add newline before indicator
-        _last_output_was_log = False
-    else:
-        print(indicator, end="", flush=True)  # Normal indicator
+    global _indicator_counts, _sequence_start_time
+    
+    current_time = time.time()
+    
+    # Track indicators for summary (but still print them all)
+    if _sequence_start_time is None:
+        _sequence_start_time = current_time
+    
+    # Count this indicator
+    _indicator_counts[indicator] = _indicator_counts.get(indicator, 0) + 1
+    
+    # Print the indicator
+    print(indicator, end="", flush=True)
 
 # Player names of streamer to check results for
 player_names = config.SC2_PLAYER_ACCOUNTS
@@ -645,6 +658,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                                 time.sleep(2)
                                 handle_SC2_game_results(self, previous_game, current_game, contextHistory, logger)
                         except Exception as e:
+                            _print_indicator_summary()
                             logger.debug(f"Error processing game status: {e}")
 
                     previous_game = current_game

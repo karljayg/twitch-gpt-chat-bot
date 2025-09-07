@@ -157,6 +157,12 @@ def msgToChannel(self, message, logger, text2speech=False, send_to_discord=False
 # This will determine if the bot will reply base on dice roll
 # And this will generate the response
 def process_pubmsg(self, event, logger, contextHistory):
+    # Print indicator summary before logging
+    try:
+        from api.twitch_bot import _print_indicator_summary
+        _print_indicator_summary()
+    except:
+        pass
 
     logger.debug("processing pubmsg")
 

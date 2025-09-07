@@ -95,6 +95,24 @@ INFO: Replay data available - triggering pattern learning system
 INFO: Game already processed, skipping comment prompt
 ```
 
+## Console Status Indicators
+
+The system displays real-time status using single-character indicators:
+
+- `.` = **normal** (SC2 API working, heartbeat, etc.)
+- `o` = **errors** (SC2 API failures, speech recognition issues)  
+- `+` = **events** (database heartbeat, successful operations)
+- `x` = **unknown** (speech recognition unknown value)
+- `?` = **waiting** (speech recognition waiting/unclear state)
+- `e` = **exceptions** (exception occurred)
+
+### Indicator Summary
+When log messages appear, you'll see a summary of recent indicators:
+```
+..................+...................+........ [elapsed: 00:00:03, 40 normal and 2 events total]
+DEBUG:api.twitch_bot:processing pubmsg
+```
+
 ## Configuration
 
 ### Key Settings

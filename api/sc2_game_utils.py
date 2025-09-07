@@ -1,5 +1,6 @@
 import json
 import requests
+import time
 import utils.tokensArray as tokensArray
 from utils.file_utils import find_latest_file
 from utils.file_utils import find_recent_file_within_time
@@ -212,6 +213,13 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
     losing_players = ', '.join(current_game.get_player_names(result_filter='Defeat'))
 
     if current_game.get_status() in ("MATCH_ENDED", "REPLAY_ENDED"):
+        # Print indicator summary before processing game results
+        try:
+            from api.twitch_bot import _print_indicator_summary
+            _print_indicator_summary()
+        except:
+            pass
+            
         if self.first_run:
             logger.debug("this is the first run")
             self.first_run = False
@@ -221,6 +229,9 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
         else:
             logger.debug("this is not first run")
 
+        # Wait for user to exit game/replay and for SC2 to finish writing replay file
+        time.sleep(10)  # 10 second delay
+        
         result = find_recent_file_within_time(
             config.REPLAYS_FOLDER,
             config.REPLAYS_FILE_EXTENSION,
