@@ -151,12 +151,12 @@ logging.getLogger('discord.gateway').setLevel(logging.INFO)
 
 # Track indicator sequences
 _indicator_counts = {}  # Track counts of each indicator type  
-_sequence_start_time = None
+_last_log_time = None  # Track when the last log message occurred
 
 def _print_indicator_summary():
     """Print summary of indicators when interrupted by log output."""
-    import time as time_module  # Explicit import to avoid conflicts
-    global _indicator_counts, _sequence_start_time
+    global _indicator_counts, _last_log_time
+    import time  # Import at function start to avoid scoping issues
     
     # Indicator descriptions
     indicator_names = {
@@ -169,24 +169,32 @@ def _print_indicator_summary():
     }
     
     try:
-        if _indicator_counts and _sequence_start_time:
-            elapsed = time_module.time() - _sequence_start_time
-            elapsed_str = time_module.strftime("%H:%M:%S", time_module.gmtime(elapsed))
+        if _indicator_counts and _last_log_time:
+            # Calculate elapsed time since last log message
+            elapsed_seconds = time.time() - _last_log_time
+            minutes = int(elapsed_seconds // 60)
+            seconds = int(elapsed_seconds % 60)
+            elapsed_str = f"{minutes:02d}:{seconds:02d}"
             
-            # Build summary string with all indicator counts and descriptions
+            # Build summary string with counts and elapsed time
             total_indicators = sum(_indicator_counts.values())
             if total_indicators >= 1:
                 count_parts = [f"{count} {indicator_names.get(indicator, indicator)}" for indicator, count in _indicator_counts.items()]
                 count_str = " and ".join(count_parts)
                 print(f" [elapsed: {elapsed_str}, {count_str} total]", flush=True)
-    except (KeyboardInterrupt, SystemExit):
-        raise
+        elif _indicator_counts:
+            # No last log time tracked, just show counts
+            total_indicators = sum(_indicator_counts.values())
+            if total_indicators >= 1:
+                count_parts = [f"{count} {indicator_names.get(indicator, indicator)}" for indicator, count in _indicator_counts.items()]
+                count_str = " and ".join(count_parts)
+                print(f" [{count_str} total]", flush=True)
     except Exception:
-        pass
+        pass  # Silently ignore any errors in summary
     
-    # Reset tracking
+    # Update last log time and reset tracking
+    _last_log_time = time.time()
     _indicator_counts = {}
-    _sequence_start_time = None
 
 def print_indicator(indicator):
     """
@@ -207,13 +215,9 @@ def print_indicator(indicator):
     Args:
         indicator (str): Single character to print as status indicator
     """
-    global _indicator_counts, _sequence_start_time
+    global _indicator_counts
     
-    current_time = time.time()
-    
-    # Track indicators for summary (but still print them all)
-    if _sequence_start_time is None:
-        _sequence_start_time = current_time
+    # Just track indicator counts - timing handled in summary function
     
     # Count this indicator
     _indicator_counts[indicator] = _indicator_counts.get(indicator, 0) + 1
@@ -658,8 +662,11 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                                 time.sleep(2)
                                 handle_SC2_game_results(self, previous_game, current_game, contextHistory, logger)
                         except Exception as e:
-                            _print_indicator_summary()
                             logger.debug(f"Error processing game status: {e}")
+                            try:
+                                _print_indicator_summary()
+                            except:
+                                pass  # Don't let summary errors interfere with main error handling
 
                     previous_game = current_game
 

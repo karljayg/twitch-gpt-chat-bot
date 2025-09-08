@@ -230,7 +230,8 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
             logger.debug("this is not first run")
 
         # Wait for user to exit game/replay and for SC2 to finish writing replay file
-        time.sleep(10)  # 10 second delay
+        import time as time_mod
+        time_mod.sleep(10)  # 10 second delay
         
         result = find_recent_file_within_time(
             config.REPLAYS_FOLDER,
@@ -327,10 +328,10 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
                 player_info = f"{replay_data['players'][player_key]['name']}'s Build Order (first set of steps):"
                 replay_summary += player_info + '\n'
                 for order in build_order[:int(build_order_count)]:
-                    time = order['time']
+                    order_time = order['time']
                     name = order['name']
                     supply = order['supply']
-                    order_info = f"Time: {time}, Name: {name}, Supply: {supply}"
+                    order_info = f"Time: {order_time}, Name: {name}, Supply: {supply}"
                     replay_summary += order_info + '\n'
                 replay_summary += '\n'
 
