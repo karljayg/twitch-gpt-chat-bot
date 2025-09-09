@@ -172,9 +172,10 @@ def _print_indicator_summary():
         if _indicator_counts and _last_log_time:
             # Calculate elapsed time since last log message
             elapsed_seconds = time.time() - _last_log_time
-            minutes = int(elapsed_seconds // 60)
+            hours = int(elapsed_seconds // 3600)
+            minutes = int((elapsed_seconds % 3600) // 60)
             seconds = int(elapsed_seconds % 60)
-            elapsed_str = f"{minutes:02d}:{seconds:02d}"
+            elapsed_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
             
             # Build summary string with counts and elapsed time
             total_indicators = sum(_indicator_counts.values())
