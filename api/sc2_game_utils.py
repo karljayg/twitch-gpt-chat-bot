@@ -45,10 +45,9 @@ def reset_sc2_connection():
     for url in test_urls:
         try:
             # Create completely fresh session (no connection pooling)
-            with requests.Session() as session:
-                # Try fresh connection with shorter timeout for testing
-                response = session.get(url, timeout=5)
-                if response.status_code == 200:
+            # Use fresh request instead of session to avoid stale connections
+            response = requests.get(url, timeout=5)
+            if response.status_code == 200:
                     # Connection successful! Update the working URL for future use
                     reset_sc2_connection.working_url = url
                     return True
@@ -87,8 +86,7 @@ def check_SC2_game_status(logger):
             
             # Use fresh session if we just did a successful reset
             if hasattr(check_SC2_game_status, 'use_fresh_session') and check_SC2_game_status.use_fresh_session:
-                with requests.Session() as session:
-                    response = session.get(url, timeout=timeout)
+                response = requests.get(url, timeout=timeout)
                 check_SC2_game_status.use_fresh_session = False  # Only use once
             else:
                 response = requests.get(url, timeout=timeout)
@@ -103,10 +101,10 @@ def check_SC2_game_status(logger):
             if hasattr(check_SC2_game_status, 'consecutive_failures'):
                 check_SC2_game_status.consecutive_failures = 0
             
-            # Only log connection health at significant milestones (every 1000 polls = ~83 minutes)
+            # Only log connection health at significant milestones (every 5000 polls = ~7 hours)
             # The visual indicators (., +, o, w) already show system health status
-            if check_SC2_game_status.consecutive_successes % 1000 == 0:
-                logger.info(f"SC2 API connection healthy - {check_SC2_game_status.consecutive_successes} consecutive successful polls")
+            if check_SC2_game_status.consecutive_successes % 5000 == 0:
+                logger.debug(f"SC2 API connection healthy - {check_SC2_game_status.consecutive_successes} consecutive successful polls")
             
             return GameInfo(response.json())
             
@@ -230,7 +228,8 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
             logger.debug("this is not first run")
 
         # Wait for user to exit game/replay and for SC2 to finish writing replay file
-        time.sleep(10)  # 10 second delay
+        import time as time_mod
+        time_mod.sleep(10)  # 10 second delay
         
         result = find_recent_file_within_time(
             config.REPLAYS_FOLDER,
