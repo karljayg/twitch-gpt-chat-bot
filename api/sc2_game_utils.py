@@ -327,10 +327,10 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
                 player_info = f"{replay_data['players'][player_key]['name']}'s Build Order (first set of steps):"
                 replay_summary += player_info + '\n'
                 for order in build_order[:int(build_order_count)]:
-                    time = order['time']
+                    order_time = order['time']
                     name = order['name']
                     supply = order['supply']
-                    order_info = f"Time: {time}, Name: {name}, Supply: {supply}"
+                    order_info = f"Time: {order_time}, Name: {name}, Supply: {supply}"
                     replay_summary += order_info + '\n'
                 replay_summary += '\n'
 
@@ -364,11 +364,10 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
             hasattr(self, 'total_seconds') and self.total_seconds >= config.ABANDONED_GAME_THRESHOLD):
             logger.info("Pattern learning system found - scheduling delayed trigger")
             import threading
-            import time
             
             def delayed_pattern_learning(captured_game_player_names, captured_winning_players, captured_losing_players):
                 logger.info("Starting delayed pattern learning trigger (15 second wait)")
-                time.sleep(15)  # Wait 15 seconds for replay to be processed
+                time.sleep(config.PATTERN_LEARNING_DELAY_SECONDS)  # Wait for replay to be processed
                 try:
                     logger.info("Delayed pattern learning trigger - checking if replay was saved")
                     
@@ -433,11 +432,10 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
             logger.info(f"REPLAY_ENDED: Live game ended (was {previous_status}) - triggering pattern learning")
             
             import threading
-            import time
             
             def delayed_pattern_learning(captured_game_player_names, captured_winning_players, captured_losing_players):
                 logger.info("Starting delayed pattern learning trigger (15 second wait)")
-                time.sleep(15)  # Wait 15 seconds for replay to be processed
+                time.sleep(config.PATTERN_LEARNING_DELAY_SECONDS)  # Wait for replay to be processed
                 try:
                     logger.info("Delayed pattern learning trigger - checking if replay was saved")
                     

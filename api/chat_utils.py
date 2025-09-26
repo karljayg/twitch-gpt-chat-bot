@@ -11,6 +11,19 @@ import utils.wiki_utils as wiki_utils
 import utils.tokensArray as tokensArray
 import string
 from models.mathison_db import Database
+
+def clean_text_for_logging(text):
+    """Clean text for logging by replacing problematic Unicode characters"""
+    if not text:
+        return text
+    
+    try:
+        # Try to encode as ASCII, replacing problematic characters
+        return text.encode('ascii', 'replace').decode('ascii')
+    except:
+        # Fallback: remove non-ASCII characters
+        return ''.join(char if ord(char) < 128 else '?' for char in text)
+
 # Conditional audio imports
 try:
     if getattr(config, 'ENABLE_AUDIO', True):
@@ -594,7 +607,7 @@ def process_ai_message(user_message, conversation_mode="normal", contextHistory=
                             + msg)
 
     logger.debug("CONVERSATION MODE: " + conversation_mode)
-    logger.debug("sent to OpenAI: %s", msg)
+    logger.debug("sent to OpenAI: %s", clean_text_for_logging(msg))
 
     completion = send_prompt_to_openai(msg)
 
@@ -609,7 +622,7 @@ def process_ai_message(user_message, conversation_mode="normal", contextHistory=
                 response = f'{response} {get_random_emote()}'
 
             logger.debug('raw response from OpenAI:')
-            logger.debug(response)
+            logger.debug(clean_text_for_logging(response))
 
             # Clean up response
             # Remove carriage returns, newlines, and tabs
@@ -628,7 +641,7 @@ def process_ai_message(user_message, conversation_mode="normal", contextHistory=
             logger.debug("cleaned up message from OpenAI:")
             # replace with ? all non ascii characters that throw an error in logger
             response = tokensArray.replace_non_ascii(response, replacement='?')
-            logger.debug(response)
+            logger.debug(clean_text_for_logging(response))
 
             # Remove all occurrences of "AI: "
             response = re.sub(r'\bAI: ', '', response)
@@ -637,7 +650,7 @@ def process_ai_message(user_message, conversation_mode="normal", contextHistory=
             tokensArray.add_new_msg(
                 contextHistory, 'AI: ' + response + "\n", logger)
 
-            logger.debug(f'AI response generated: {response}')
+            logger.debug(f'AI response generated: {clean_text_for_logging(response)}')
             
             # For replay analysis, validate that the response doesn't contradict the actual game results
             if conversation_mode == "replay_analysis" and "Winners:" in msg and "Losers:" in msg:
@@ -711,7 +724,7 @@ def processMessageForOpenAI(self, msg, conversation_mode, logger, contextHistory
         for chunk in chunks:
             msgToChannel(self, chunk, logger)
             # Log relevant details
-            logger.debug(f'Sending openAI response chunk: {chunk}')
+            logger.debug(f'Sending openAI response chunk: {clean_text_for_logging(chunk)}')
     else:
         # if response is less than 150 characters
         if len(response) <= 150:

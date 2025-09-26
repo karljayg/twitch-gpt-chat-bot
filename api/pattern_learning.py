@@ -47,9 +47,9 @@ class SC2PatternLearner:
             
             # Try to get player input with timeout
             print("Enter player comment about the game (or press Enter to skip)")
-            print("Timeout: 60 seconds...")
+            print(f"Timeout: {config.PLAYER_COMMENT_TIMEOUT_SECONDS} seconds...")
             try:
-                comment = self._get_input_with_timeout("Comment: ", 60)
+                comment = self._get_input_with_timeout("Comment: ", config.PLAYER_COMMENT_TIMEOUT_SECONDS)
                 if comment is not None:
                     comment = comment.strip()
             except (EOFError, OSError, KeyboardInterrupt):
