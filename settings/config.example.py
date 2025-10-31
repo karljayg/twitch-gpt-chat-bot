@@ -152,6 +152,8 @@ FSL_REVIEWER_WEIGHT = 1.0  # Default weight for Twitch viewers
 
 # Pattern Learning System Settings
 ENABLE_PATTERN_LEARNING = True  # Enable SC2 build pattern learning from player comments
+PLAYER_COMMENT_TIMEOUT_SECONDS = 60  # Timeout for player comment input (in seconds)
+PATTERN_LEARNING_DELAY_SECONDS = 3  # Delay before prompting for player comments (wait for replay processing)
 PATTERN_LEARNING_SIMILARITY_THRESHOLD = 0.7  # Minimum similarity score to consider patterns matching
 PATTERN_LEARNING_MAX_PATTERNS = 1000  # Maximum number of patterns to store in memory
 PATTERN_DATA_DIR = "data"  # Directory to store learned patterns

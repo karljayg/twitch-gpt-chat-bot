@@ -365,10 +365,30 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
             import threading
             
             def delayed_pattern_learning(captured_game_player_names, captured_winning_players, captured_losing_players):
-                logger.info("Starting delayed pattern learning trigger (15 second wait)")
+                logger.info(f"Starting delayed pattern learning trigger ({config.PATTERN_LEARNING_DELAY_SECONDS} second wait)")
                 time.sleep(config.PATTERN_LEARNING_DELAY_SECONDS)  # Wait for replay to be processed
                 try:
-                    logger.info("Delayed pattern learning trigger - checking if replay was saved")
+                    logger.info("Delayed pattern learning trigger - checking if safe to prompt")
+                    
+                    # Check current game state to avoid blocking during replay or new game
+                    try:
+                        current_game_status = check_SC2_game_status(logger)
+                        if current_game_status:
+                            current_status = current_game_status.get_status()
+                            
+                            # Skip if watching replay - REPLAY_ENDED will trigger fresh prompt with full timeout
+                            if current_status == "REPLAY_STARTED":
+                                logger.info("Player watching replay - deferring prompt until replay ends")
+                                return  # Game stays unprocessed, REPLAY_ENDED will prompt again
+                            
+                            # Skip if started new match - player has moved on
+                            if current_status == "MATCH_STARTED":
+                                logger.info("Player started new game - skipping prompt (game remains unprocessed for manual comment later)")
+                                return
+                                
+                            logger.debug(f"Game state: {current_status} - proceeding with prompt")
+                    except Exception as e:
+                        logger.warning(f"Could not check game state: {e} - proceeding with prompt anyway")
                     
                     # Check if we have replay data available
                     if hasattr(self, 'last_replay_data') and self.last_replay_data:
@@ -379,16 +399,15 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
                         game_data = self._prepare_game_data_for_comment(captured_game_player_names, captured_winning_players, captured_losing_players, logger)
                         logger.debug(f"Game data prepared for pattern learning: {game_data}")
                         
-                        # Prompt for comment
+                        # Prompt for comment (has built-in duplicate detection)
                         logger.info("Prompting for player comment...")
                         comment = self.pattern_learner.prompt_for_player_comment(game_data)
                         
                         if comment:
                             logger.info(f"Player comment received: {comment}")
                         else:
-                            # No comment provided - let AI learn from replay data
-                            logger.info("No player comment - AI learning from replay data")
-                            self.pattern_learner.process_game_without_comment(game_data)
+                            # No comment provided - skip pattern learning (optional feature)
+                            logger.info("No player comment provided - pattern learning skipped")
                     else:
                         logger.warning("No replay data available after delay - pattern learning skipped")
                         logger.debug(f"Available attributes: {[attr for attr in dir(self) if not attr.startswith('_')]}")
@@ -401,7 +420,7 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
             # Start the delayed trigger in a separate thread with captured variables
             timer_thread = threading.Thread(target=delayed_pattern_learning, args=(game_player_names, winning_players, losing_players), daemon=True)
             timer_thread.start()
-            logger.info("Scheduled delayed pattern learning trigger (15 seconds)")
+            logger.info(f"Scheduled delayed pattern learning trigger ({config.PATTERN_LEARNING_DELAY_SECONDS} seconds)")
         elif hasattr(self, 'total_seconds') and self.total_seconds < config.ABANDONED_GAME_THRESHOLD:
             logger.info(f"Skipping pattern learning for short game ({self.total_seconds}s < {config.ABANDONED_GAME_THRESHOLD}s threshold)")
         else:
@@ -433,10 +452,30 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
             import threading
             
             def delayed_pattern_learning(captured_game_player_names, captured_winning_players, captured_losing_players):
-                logger.info("Starting delayed pattern learning trigger (15 second wait)")
+                logger.info(f"Starting delayed pattern learning trigger ({config.PATTERN_LEARNING_DELAY_SECONDS} second wait)")
                 time.sleep(config.PATTERN_LEARNING_DELAY_SECONDS)  # Wait for replay to be processed
                 try:
-                    logger.info("Delayed pattern learning trigger - checking if replay was saved")
+                    logger.info("Delayed pattern learning trigger - checking if safe to prompt")
+                    
+                    # Check current game state to avoid blocking during replay or new game
+                    try:
+                        current_game_status = check_SC2_game_status(logger)
+                        if current_game_status:
+                            current_status = current_game_status.get_status()
+                            
+                            # Skip if watching replay - REPLAY_ENDED will trigger fresh prompt with full timeout
+                            if current_status == "REPLAY_STARTED":
+                                logger.info("Player watching replay - deferring prompt until replay ends")
+                                return  # Game stays unprocessed, REPLAY_ENDED will prompt again
+                            
+                            # Skip if started new match - player has moved on
+                            if current_status == "MATCH_STARTED":
+                                logger.info("Player started new game - skipping prompt (game remains unprocessed for manual comment later)")
+                                return
+                                
+                            logger.debug(f"Game state: {current_status} - proceeding with prompt")
+                    except Exception as e:
+                        logger.warning(f"Could not check game state: {e} - proceeding with prompt anyway")
                     
                     # Check if we have replay data available
                     if hasattr(self, 'last_replay_data') and self.last_replay_data:
@@ -446,16 +485,15 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
                         game_data = self._prepare_game_data_for_comment(captured_game_player_names, captured_winning_players, captured_losing_players, logger)
                         logger.debug(f"Game data prepared for pattern learning: {game_data}")
                         
-                        # Prompt for comment
+                        # Prompt for comment (has built-in duplicate detection)
                         logger.info("Prompting for player comment...")
                         comment = self.pattern_learner.prompt_for_player_comment(game_data)
                         
                         if comment:
                             logger.info(f"Player comment received: {comment}")
                         else:
-                            # No comment provided - let AI learn from replay data
-                            logger.info("No player comment - AI learning from replay data")
-                            self.pattern_learner.process_game_without_comment(game_data)
+                            # No comment provided - skip pattern learning (optional feature)
+                            logger.info("No player comment provided - pattern learning skipped")
                     else:
                         logger.warning("No replay data available after delay - pattern learning skipped")
                         
@@ -467,7 +505,7 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
             # Start the delayed trigger in a separate thread with captured variables
             timer_thread = threading.Thread(target=delayed_pattern_learning, args=(game_player_names, winning_players, losing_players), daemon=True)
             timer_thread.start()
-            logger.info("Scheduled delayed pattern learning trigger (15 seconds)")
+            logger.info(f"Scheduled delayed pattern learning trigger ({config.PATTERN_LEARNING_DELAY_SECONDS} seconds)")
         else:
             if previous_status == "REPLAY_STARTED":
                 logger.debug("Pattern learning skipped: watching replay (REPLAY_STARTED to REPLAY_ENDED)")
