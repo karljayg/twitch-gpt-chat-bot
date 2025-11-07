@@ -139,6 +139,51 @@ class Database:
         self.cursor.close()
         self.connection.close()
 
+    def get_latest_replay(self):
+        """Get information about the most recent replay"""
+        self.cursor.reset()
+        try:
+            # First get the latest replay data
+            sql = """
+                SELECT r.UnixTimestamp, r.Player1_Id, r.Player2_Id, 
+                       r.Player1_Result, r.Player2_Result,
+                       r.Map, r.GameDuration, r.Date_Played, r.Player_Comments,
+                       p1.SC2_UserId as Player1_Name, p2.SC2_UserId as Player2_Name
+                FROM Replays r
+                JOIN Players p1 ON r.Player1_Id = p1.Id
+                JOIN Players p2 ON r.Player2_Id = p2.Id
+                WHERE r.UnixTimestamp = (SELECT MAX(UnixTimestamp) FROM Replays)
+            """
+            self.cursor.execute(sql)
+            result = self.cursor.fetchone()
+            
+            if not result:
+                return None
+            
+            # Determine which player is the streamer and which is opponent
+            from settings import config
+            streamer_accounts = [name.lower() for name in config.SC2_PLAYER_ACCOUNTS]
+            
+            if result['Player1_Name'].lower() in streamer_accounts:
+                opponent = result['Player2_Name']
+                result_str = result['Player1_Result']
+            else:
+                opponent = result['Player1_Name']
+                result_str = result['Player2_Result']
+            
+            return {
+                'opponent': opponent,
+                'map': result['Map'],
+                'result': result_str,
+                'date': str(result['Date_Played']),
+                'duration': result['GameDuration'],
+                'timestamp': result['UnixTimestamp'],
+                'existing_comment': result['Player_Comments']
+            }
+        except Exception as e:
+            self.logger.error(f"Error fetching latest replay: {e}")
+            return None
+    
     def update_player_comments_in_last_replay(self, comment):
         self.cursor.reset()  # Ensure the cursor is in a clean state
         try:

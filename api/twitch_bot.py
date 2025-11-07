@@ -238,6 +238,9 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         self.total_seconds = 0
         self.encoding = tiktoken.get_encoding(config.TOKENIZER_ENCODING)
         self.encoding = tiktoken.encoding_for_model(config.ENGINE)
+        
+        # Pending player comment state for overwrite confirmation
+        self.pending_player_comment = None  # Stores: {'comment': str, 'replay': dict, 'timestamp': int}
 
         # handle KeyboardInterrupt in a more graceful way by setting a flag when Ctrl-C is pressed and checking that
         # flag in threads that need to be terminated

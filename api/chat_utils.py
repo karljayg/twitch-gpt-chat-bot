@@ -180,10 +180,171 @@ def process_pubmsg(self, event, logger, contextHistory):
     logger.debug("processing pubmsg")
 
     # Get message from chat
-    msg = event.arguments[0].lower()
+    original_msg = event.arguments[0]
+    msg = original_msg.lower()
     sender = event.source.split('!')[0]
     # tags = {kvpair["key"]: kvpair["value"] for kvpair in event.tags}
     # user = {"name": tags["display-name"], "id": tags["user-id"]}
+
+    # Check for Y/N response to overwrite confirmation (must be before player comment check)
+    if sender.lower() == config.PAGE.lower() and hasattr(self, 'pending_player_comment') and self.pending_player_comment:
+        if msg.strip().lower() in ['y', 'yes']:
+            logger.info("User confirmed overwrite of existing comment")
+            try:
+                pending = self.pending_player_comment
+                comment_text = pending['comment']
+                replay_info = pending['replay']
+                
+                # Overwrite the comment
+                success = self.db.update_player_comments_in_last_replay(comment_text)
+                
+                if success and hasattr(self, 'pattern_learner') and self.pattern_learner:
+                    game_data = {
+                        'opponent_name': replay_info['opponent'],
+                        'map': replay_info['map'],
+                        'date': replay_info['date'],
+                        'result': replay_info['result'],
+                        'duration': replay_info['duration']
+                    }
+                    
+                    self.pattern_learner._process_new_comment(game_data, comment_text)
+                    self.pattern_learner.save_patterns_to_file()
+                    
+                    response = f"Overwritten comment for game vs {replay_info['opponent']} on {replay_info['map']} ({replay_info['date']}): '{comment_text}'"
+                    msgToChannel(self, response, logger)
+                else:
+                    msgToChannel(self, "Failed to save comment", logger)
+                    
+            except Exception as e:
+                logger.error(f"Error overwriting comment: {e}")
+                msgToChannel(self, f"Error saving comment: {str(e)}", logger)
+            finally:
+                self.pending_player_comment = None
+            return
+            
+        elif msg.strip().lower() in ['n', 'no']:
+            logger.info("User declined overwrite, checking for newer replay")
+            try:
+                pending = self.pending_player_comment
+                original_timestamp = pending['timestamp']
+                comment_text = pending['comment']
+                
+                # Get latest replay again to see if new game happened
+                latest_replay = self.db.get_latest_replay()
+                
+                if not latest_replay:
+                    msgToChannel(self, "No replays found", logger)
+                elif latest_replay['timestamp'] > original_timestamp:
+                    # New game exists!
+                    if latest_replay.get('existing_comment'):
+                        msgToChannel(self, f"Newer replay vs {latest_replay['opponent']} also has a comment - cannot save", logger)
+                    else:
+                        # Save to new replay
+                        success = self.db.update_player_comments_in_last_replay(comment_text)
+                        
+                        if success and hasattr(self, 'pattern_learner') and self.pattern_learner:
+                            game_data = {
+                                'opponent_name': latest_replay['opponent'],
+                                'map': latest_replay['map'],
+                                'date': latest_replay['date'],
+                                'result': latest_replay['result'],
+                                'duration': latest_replay['duration']
+                            }
+                            
+                            self.pattern_learner._process_new_comment(game_data, comment_text)
+                            self.pattern_learner.save_patterns_to_file()
+                            
+                            response = f"Saved comment to newer game vs {latest_replay['opponent']} on {latest_replay['map']} ({latest_replay['date']}): '{comment_text}'"
+                            msgToChannel(self, response, logger)
+                        else:
+                            msgToChannel(self, "Failed to save comment to newer replay", logger)
+                else:
+                    # No new game
+                    msgToChannel(self, "No new empty replay found - comment not saved", logger)
+                    
+            except Exception as e:
+                logger.error(f"Error handling no response: {e}")
+                msgToChannel(self, f"Error: {str(e)}", logger)
+            finally:
+                self.pending_player_comment = None
+            return
+
+    # Handle player comments from channel owner via Twitch chat
+    if msg.startswith('player comment') and sender.lower() == config.PAGE.lower():
+        logger.info(f"Player comment received from {sender} in Twitch chat")
+        
+        # Extract comment text after "player comment" or "player comments"
+        if original_msg.lower().startswith('player comments '):
+            comment_text = original_msg[16:].strip()  # "player comments " = 16 chars
+        elif original_msg.lower().startswith('player comment '):
+            comment_text = original_msg[15:].strip()  # "player comment " = 15 chars
+        else:
+            msgToChannel(self, "Usage: player comment <your comment text>", logger)
+            return
+        
+        if not comment_text:
+            msgToChannel(self, "Please provide comment text after 'player comment'", logger)
+            return
+        
+        try:
+            # Get the latest replay from database
+            latest_replay = self.db.get_latest_replay()
+            
+            if not latest_replay:
+                msgToChannel(self, "No replays found in database - please play a game first", logger)
+                return
+            
+            opponent = latest_replay.get('opponent', 'Unknown')
+            map_name = latest_replay.get('map', 'Unknown')
+            game_date = latest_replay.get('date', 'Unknown')
+            existing_comment = latest_replay.get('existing_comment')
+            
+            # Check if comment already exists
+            if existing_comment:
+                # Store pending state for Y/N confirmation
+                self.pending_player_comment = {
+                    'comment': comment_text,
+                    'replay': latest_replay,
+                    'timestamp': latest_replay['timestamp']
+                }
+                
+                response = f"There is already data there for last game vs {opponent} on {map_name} ({game_date}). Are you sure you want to overwrite it? Y/N"
+                msgToChannel(self, response, logger)
+                return
+            
+            # No existing comment - save directly
+            if hasattr(self, 'pattern_learner') and self.pattern_learner:
+                # Update database with player comment
+                success = self.db.update_player_comments_in_last_replay(comment_text)
+                
+                if success:
+                    # Process comment for pattern learning
+                    game_data = {
+                        'opponent_name': opponent,
+                        'map': map_name,
+                        'date': game_date,
+                        'result': latest_replay.get('result', 'Unknown'),
+                        'duration': latest_replay.get('duration', 'Unknown')
+                    }
+                    
+                    self.pattern_learner._process_new_comment(game_data, comment_text)
+                    self.pattern_learner.save_patterns_to_file()
+                    
+                    response = f"Saved comment for game vs {opponent} on {map_name} ({game_date}): '{comment_text}'"
+                    logger.info(response)
+                    msgToChannel(self, response, logger)
+                else:
+                    msgToChannel(self, f"Failed to save comment to database for {opponent} on {map_name}", logger)
+            else:
+                msgToChannel(self, "Pattern learning system not available", logger)
+                
+        except Exception as e:
+            logger.error(f"Error saving player comment from Twitch: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            msgToChannel(self, f"Error saving comment: {str(e)}", logger)
+        
+        return
 
     if 'commands' in msg.lower():
         response = f"{config.BOT_COMMANDS}"

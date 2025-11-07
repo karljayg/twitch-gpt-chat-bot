@@ -399,15 +399,9 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
                         game_data = self._prepare_game_data_for_comment(captured_game_player_names, captured_winning_players, captured_losing_players, logger)
                         logger.debug(f"Game data prepared for pattern learning: {game_data}")
                         
-                        # Prompt for comment (has built-in duplicate detection)
-                        logger.info("Prompting for player comment...")
-                        comment = self.pattern_learner.prompt_for_player_comment(game_data)
-                        
-                        if comment:
-                            logger.info(f"Player comment received: {comment}")
-                        else:
-                            # No comment provided - skip pattern learning (optional feature)
-                            logger.info("No player comment provided - pattern learning skipped")
+                        # Player comments now handled via Twitch chat using "player comment <text>"
+                        # No console prompt needed - user will type in Twitch chat when ready
+                        logger.info("Game data prepared - player can add comment via Twitch chat: 'player comment <text>'")
                     else:
                         logger.warning("No replay data available after delay - pattern learning skipped")
                         logger.debug(f"Available attributes: {[attr for attr in dir(self) if not attr.startswith('_')]}")
@@ -485,15 +479,9 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
                         game_data = self._prepare_game_data_for_comment(captured_game_player_names, captured_winning_players, captured_losing_players, logger)
                         logger.debug(f"Game data prepared for pattern learning: {game_data}")
                         
-                        # Prompt for comment (has built-in duplicate detection)
-                        logger.info("Prompting for player comment...")
-                        comment = self.pattern_learner.prompt_for_player_comment(game_data)
-                        
-                        if comment:
-                            logger.info(f"Player comment received: {comment}")
-                        else:
-                            # No comment provided - skip pattern learning (optional feature)
-                            logger.info("No player comment provided - pattern learning skipped")
+                        # Player comments now handled via Twitch chat using "player comment <text>"
+                        # No console prompt needed - user will type in Twitch chat when ready
+                        logger.info("Game data prepared - player can add comment via Twitch chat: 'player comment <text>'")
                     else:
                         logger.warning("No replay data available after delay - pattern learning skipped")
                         
