@@ -157,6 +157,35 @@ PATTERN_LEARNING_DELAY_SECONDS = 3  # Delay before prompting for player comments
 PATTERN_LEARNING_SIMILARITY_THRESHOLD = 0.7  # Minimum similarity score to consider patterns matching
 PATTERN_LEARNING_MAX_PATTERNS = 1000  # Maximum number of patterns to store in memory
 PATTERN_DATA_DIR = "data"  # Directory to store learned patterns
+PATTERN_LEARNING_PROMPT_FOR_COMMENTS = True  # Set to True to always prompt for player comments (never auto-process)
+
+# ML Opponent Analysis Settings
+ENABLE_ML_OPPONENT_ANALYSIS = True  # Enable ML analysis of opponents at game start
+ML_ANALYSIS_SIMILARITY_THRESHOLD = 0.05  # Minimum similarity score (5%) to suggest ML analysis
+ML_ANALYSIS_STRATEGIC_BONUS = 0.1  # 10% bonus per strategic keyword match
+ML_ANALYSIS_COMMENT_EXACT_MATCH_BONUS = 1.0  # 100% bonus for exact comment matches
+ML_ANALYSIS_COMMENT_KEYWORD_BONUS = 0.5  # 50% bonus for keyword overlap with opponent comments
+ML_ANALYSIS_COMMENT_REVERSE_BONUS = 0.3  # 30% bonus for reverse keyword matches
+
+# Race-specific strategic items to look for in opponent build orders
+# Used when analyzing opponent builds to identify key tech paths and strategies
+SC2_STRATEGIC_ITEMS = {
+    'Zerg': {
+        'buildings': 'RoachWarren, BanelingNest, Spire, NydusNetwork, HydraliskDen, InfestationPit, UltraliskCavern, LurkerDen, EvolutionChamber',
+        'units': 'Roach, Baneling, Mutalisk, Lurker, Hydralisk, Broodlord, SwarmHost, Viper, Infestor, Ultralisk, Corruptor, Ravager',
+        'upgrades': 'Metabolic Boost, Adrenal Glands, Pneumatized Carapace, Glial Reconstitution, Burrow, Tunneling Claws, Grooved Spines, Muscular Augments, Zerg Melee Attacks, Zerg Missile Attacks, Zerg Ground Carapace'
+    },
+    'Terran': {
+        'buildings': 'Starport, FusionCore, Factory, GhostAcademy, Armory, TechLab, Reactor, EngineeringBay',
+        'units': 'Ghost, Cyclone, Liberator, Banshee, Battlecruiser, Widow Mine, Raven, Hellion, Hellbat, Siege Tank, Thor, Marauder, Reaper, Viking, Medivac',
+        'upgrades': 'Stimpack, Combat Shields, Concussive Shells, Siege Tech, Drilling Claws, Smart Servos, Banshee Cloak, Terran Infantry Weapons, Terran Infantry Armor, Terran Vehicle Weapons, Terran Vehicle Plating, Terran Ship Weapons, Terran Ship Plating, Hi-Sec Auto Tracking, Hyperflight Rotors, Mag-Field Accelerator'
+    },
+    'Protoss': {
+        'buildings': 'Forge, TwilightCouncil, DarkShrine, Stargate, RoboticsFacility, TemplarArchive, FleetBeacon, RoboticsBay',
+        'units': 'Dark Templar, Immortal, Void Ray, Oracle, Phoenix, Colossus, Disruptor, Tempest, Carrier, High Templar, Archon, Adept, Sentry, Stalker, Warp Prism, Observer',
+        'upgrades': 'Charge, Blink, Resonating Glaives, Extended Thermal Lance, Protoss Ground Weapons, Protoss Ground Armor, Protoss Air Weapons, Protoss Air Armor, Protoss Shields'
+    }
+}
 
 
 """

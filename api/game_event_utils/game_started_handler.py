@@ -9,6 +9,10 @@ import utils.tokensArray as tokensArray
 
 
 def game_started(self, current_game, contextHistory, logger):
+    # Clear conversation context at start of new game to prevent player name confusion between games
+    contextHistory.clear()
+    logger.debug("Cleared conversation context for new game")
+    
     # prevent the array brackets from being included
     game_player_names = ', '.join(current_game.get_player_names())
     try:
@@ -42,9 +46,8 @@ def game_started(self, current_game, contextHistory, logger):
                             logger.error(f"Error in ML opponent analysis: {e}")
 
                         # look for player with same name and race as this current game in the database
-                        logger.debug(f"checking if {player_name} is in the DB independent of race because Random is not considered due to bug in replay parser")
-                        # result = self.db.check_player_and_race_exists(player_name, player_current_race)
-                        result = self.db.check_player_exists(player_name)
+                        logger.debug(f"checking if {player_name} as {player_current_race} is in the DB")
+                        result = self.db.check_player_and_race_exists(player_name, player_current_race)
                         logger.debug(f"Result for player check: {result}")
 
                         if result is not None:
@@ -156,11 +159,12 @@ def game_started(self, current_game, contextHistory, logger):
                                 msg = "As a StarCraft 2 expert, analyze these previous game comments about the opponent. "
                                 msg += "IMPORTANT: Use ONLY the data provided below - do NOT make assumptions or add information not present. \n\n"
                                 msg += "Instructions:\n"
-                                msg += "1. Focus on SC2-specific insights: build orders, strategies, unit compositions, timing, macro/micro patterns\n"
-                                msg += "2. Use proper SC2 terminology (e.g., 'early game aggression', 'macro-focused', 'tech rush', 'timing attack')\n"
-                                msg += "3. If comments mention specific units/buildings, reference them accurately\n"
-                                msg += "4. Keep summary under 300 characters\n"
-                                msg += "5. End with exactly: 'player comments warning'\n\n"
+                                msg += "1. Extract ONLY the opponent's behavior: their build orders, strategies, unit compositions, timing, patterns\n"
+                                msg += "2. IGNORE any advice, counter-strategies, or responses mentioned (e.g., 'kill with X', 'counter with Y')\n"
+                                msg += "3. Use proper SC2 terminology (e.g., 'early game aggression', 'macro-focused', 'tech rush', 'timing attack')\n"
+                                msg += "4. If opponent's units/buildings are mentioned, reference them accurately\n"
+                                msg += "5. Keep summary under 300 characters\n"
+                                msg += "6. End with exactly: 'player comments warning'\n\n"
                                 msg += "Previous game data:\n"
                                 msg += "-----\n"
 
@@ -175,7 +179,9 @@ def game_started(self, current_game, contextHistory, logger):
                                     )
 
                                 msg += "-----\n"
-                                msg += "Based ONLY on the above data, provide a StarCraft 2-focused summary:"
+                                msg += "Based ONLY on the above data, provide a StarCraft 2-focused summary:\n"
+                                msg += "CRITICAL: Describe ONLY what the opponent does (their builds, strategies, patterns). "
+                                msg += "Do NOT give advice on how to respond or counter."
 
                                 # Send the message to OpenAI
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)                     
@@ -194,11 +200,15 @@ def game_started(self, current_game, contextHistory, logger):
 
                             # if there is a previous game with same race matchup
                             if first_few_build_steps is not None:
+                                # Get race-specific strategic items from config
+                                race_items = config.SC2_STRATEGIC_ITEMS.get(player_current_race, {'buildings': '', 'units': '', 'upgrades': ''})
+                                
                                 msg = f"The opponent {player_name}'s build order: {first_few_build_steps} \n"
                                 msg += "Keep it short 25 words or less: \n"
-                                msg += "Mention any of these found in the opponent's build order:"
-                                msg += "roach warren, baneling nest, spire, nydus, hydra den, starport, forge, fusion core, ghost, factory, twilight, dark shrine, stargate, robotics \n"
-                                msg += "roach, baneling, muta, lurker, dark templar, immortal, void ray, oracle, charge, cyclone, liberator, banshee, battlecruiser, mine\n"
+                                msg += f"Mention any of these found in the opponent's build order: "
+                                msg += f"{race_items['buildings']}\n"
+                                msg += f"{race_items['units']}\n"
+                                msg += f"{race_items['upgrades']}\n"
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
 
                                 msg = "Keep it concise in 400 characters or less: \n"

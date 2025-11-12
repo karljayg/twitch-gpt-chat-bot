@@ -211,9 +211,13 @@ class Database:
             raise
 
     def check_player_and_race_exists(self, player_name, player_race):
+        """
+        Check if player exists with specific race.
+        Prioritizes replays with player_comments, then by most recent date.
+        Filters to only return games where the player played as the specified race.
+        """
         self.cursor.reset()
         try:
-            # Define the query with JOIN to include player names
             query = """
                 SELECT 
                     r.*, 
@@ -224,10 +228,11 @@ class Database:
                     JOIN Players p1 ON r.Player1_Id = p1.Id
                     JOIN Players p2 ON r.Player2_Id = p2.Id
                 WHERE 
-                    (p1.SC2_UserId = %s AND r.Player1_Race = %s) 
+                    ((p1.SC2_UserId = %s AND r.Player1_Race = %s) 
                     OR 
-                    (p2.SC2_UserId = %s AND r.Player2_Race = %s)
+                    (p2.SC2_UserId = %s AND r.Player2_Race = %s))
                 ORDER BY 
+                    (r.Player_Comments IS NOT NULL AND r.Player_Comments != '') DESC,
                     r.Date_Played DESC
                 LIMIT 1;
             """
@@ -238,15 +243,15 @@ class Database:
             # Fetch the result
             result = self.cursor.fetchone()
 
-            # Return the replay summary if found, else None
+            # Return the replay if found, else None
             if result:
-                self.logger.debug(f"Player exists: {result}")
+                self.logger.debug(f"Player '{player_name}' with race '{player_race}' exists: {result}")
                 return result
             else:
-                self.logger.debug("Player does not exist in our DB")
+                self.logger.debug(f"Player '{player_name}' with race '{player_race}' does not exist in our DB")
                 return None
         except Exception as e:
-            self.logger.error(f"Error checking if player exists: {e}")
+            self.logger.error(f"Error checking if player with race exists: {e}")
             return None
 
     def check_player_exists(self, player_name):

@@ -132,12 +132,12 @@ class MLOpponentAnalyzer:
     def _analyze_from_database_with_patterns(self, opponent_name, opponent_race, db, logger):
         """Analyze opponent using database replays and learned pattern matching"""
         try:
-            # Get opponent's replay data from database
-            opponent_replay = db.check_player_exists(opponent_name)
+            # Get opponent's replay data from database (filtered by race)
+            opponent_replay = db.check_player_and_race_exists(opponent_name, opponent_race)
             
             if not opponent_replay:
                 if logger:
-                    logger.debug(f"ML Analysis: No database records for opponent '{opponent_name}'")
+                    logger.debug(f"ML Analysis: No database records for opponent '{opponent_name}' as {opponent_race}")
                 return None
             
             # Store the opponent's comment for priority matching
@@ -554,7 +554,8 @@ class MLOpponentAnalyzer:
             analysis_type = data.get('analysis_type', 'learning_data')
             
             msg = "Generate a concise ML analysis for Twitch chat based on opponent data. "
-            msg += "Keep it under 200 characters and strategic. "
+            msg += "Keep it under 200 characters. Describe ONLY what the opponent does - their builds, strategies, and patterns. "
+            msg += "Do NOT give advice on how to counter or respond. "
             msg += "Format: 'ML Analysis: [your analysis]'\n\n"
             msg += f"Opponent: {data['opponent_name']}\n"
             
@@ -573,11 +574,11 @@ class MLOpponentAnalyzer:
                         msg += f"- {comment[:100]}\n"
             
             elif analysis_type == 'pattern_matching':
-                # Analysis based on pattern matching
-                msg += f"Build pattern analysis (vs learned strategies):\n"
+                # Analysis based on pattern matching from similar opponents
+                msg += "Pattern matched from similar opponents (not exact opponent history):\n"
                 
                 if data.get('matched_patterns'):
-                    msg += "Similar to learned patterns:\n"
+                    msg += "This opponent's build resembles strategies from other players:\n"
                     for pattern in data['matched_patterns'][:2]:
                         similarity = pattern['similarity'] * 100
                         msg += f"- {pattern['comment']} ({similarity:.0f}% match)\n"
@@ -587,9 +588,7 @@ class MLOpponentAnalyzer:
                 
                 if data.get('build_order_preview'):
                     build_preview = [step['name'] for step in data['build_order_preview'][:5]]
-                    msg += f"Opening: {' → '.join(build_preview)}\n"
-            
-            msg += "\nGenerate strategic advice for chat viewers about this opponent based on the analysis."
+                    msg += f"Their opening: {' → '.join(build_preview)}\n"
             
             # Send to OpenAI for natural language generation
             if logger:
