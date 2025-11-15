@@ -657,7 +657,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                             should_skip = False
                             if hasattr(current_game, 'isReplay') and current_game.isReplay and config.IGNORE_GAME_STATUS_WHILE_WATCHING_REPLAYS:
                                 player_names = current_game.get_player_names()
-                                streamer_is_playing = any(name in config.SC2_PLAYER_ACCOUNTS for name in player_names)
+                                player_accounts_lower = [name.lower() for name in config.SC2_PLAYER_ACCOUNTS]
+                                streamer_is_playing = any(name.lower() in player_accounts_lower for name in player_names)
                                 if not streamer_is_playing:
                                     should_skip = True
                             
@@ -727,20 +728,35 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         try:
             game_data = {}
             
-            # Get opponent info
-            if config.STREAMER_NICKNAME in game_player_names:
-                # Split the comma-separated string into a list first
-                player_names_list = [name.strip() for name in game_player_names.split(',')]
-                opponent_names = [name for name in player_names_list if name != config.STREAMER_NICKNAME]
-                if opponent_names:
-                    game_data['opponent_name'] = opponent_names[0]
+            # Get opponent info (case-insensitive comparison against all player accounts)
+            player_names_list = [name.strip() for name in game_player_names.split(',')]
+            player_accounts_lower = [name.lower() for name in config.SC2_PLAYER_ACCOUNTS]
+            
+            # Find opponent by excluding all streamer accounts
+            opponent_names = [name for name in player_names_list if name.lower() not in player_accounts_lower]
+            if opponent_names:
+                game_data['opponent_name'] = opponent_names[0]
+                
+                # Try to get opponent race - prioritize replay data over current game state
+                opponent_race = 'Unknown'
+                try:
+                    # First try from replay data (most reliable after game ends)
+                    if hasattr(self, 'last_replay_data') and self.last_replay_data:
+                        for player_key, player_data in self.last_replay_data.get('players', {}).items():
+                            if player_data.get('name') == opponent_names[0]:
+                                opponent_race = player_data.get('race', 'Unknown')
+                                logger.debug(f"Got opponent race from replay data: {opponent_race}")
+                                break
                     
-                    # Try to get opponent race from current game
-                    try:
-                        if hasattr(self, 'current_game') and self.current_game:
-                            game_data['opponent_race'] = self.current_game.get_player_race(opponent_names[0])
-                    except:
-                        game_data['opponent_race'] = 'Unknown'
+                    # Fallback to current game state if replay data not available
+                    if opponent_race == 'Unknown' and hasattr(self, 'current_game') and self.current_game:
+                        opponent_race = self.current_game.get_player_race(opponent_names[0])
+                        logger.debug(f"Got opponent race from current game: {opponent_race}")
+                except Exception as e:
+                    logger.debug(f"Could not get opponent race: {e}")
+                    opponent_race = 'Unknown'
+                
+                game_data['opponent_race'] = opponent_race
             
             # Game result
             if config.STREAMER_NICKNAME in winning_players:
@@ -779,46 +795,57 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                         with open(replay_summary_path, 'r') as f:
                             summary_text = f.read()
                         
-                        # Parse build order from summary text
-                        build_data = []
-                        in_build_order = False
-                        current_player = None
-                        
-                        for line in summary_text.split('\n'):
-                            line = line.strip()
-                            if "Build Order (first set of steps):" in line:
-                                in_build_order = True
-                                current_player = line.split("'s")[0]
-                                continue
-                            elif in_build_order and line.startswith("Time:"):
-                                # Parse: "Time: 0:00, Name: Probe, Supply: 12"
-                                try:
-                                    parts = line.split(", ")
-                                    time_part = parts[0].split(": ")[1]  # "0:00"
-                                    name_part = parts[1].split(": ")[1]  # "Probe"
-                                    supply_part = parts[2].split(": ")[1]  # "12"
-                                    
-                                    # Convert time to seconds
-                                    minutes, seconds = map(int, time_part.split(":"))
-                                    time_seconds = minutes * 60 + seconds
-                                    
-                                    build_data.append({
-                                        'supply': int(supply_part),
-                                        'name': name_part,
-                                        'time': time_seconds
-                                    })
-                                except Exception as e:
-                                    logger.debug(f"Could not parse build order line: {line} - {e}")
-                                    continue
-                            elif in_build_order and not line.startswith("Time:"):
-                                # End of build order section
-                                break
-                        
-                        if build_data:
-                            game_data['build_order'] = build_data
-                            logger.debug(f"Added {len(build_data)} build order steps to game data")
+                        # Get opponent name to specifically extract their build order
+                        opponent_name = game_data.get('opponent_name', None)
+                        if not opponent_name:
+                            logger.debug("No opponent name available - cannot extract build order")
                         else:
-                            logger.debug("No build order data found in replay summary")
+                            # Parse build order from summary text - ONLY for the opponent
+                            build_data = []
+                            in_opponent_build = False
+                            current_player = None
+                            
+                            for line in summary_text.split('\n'):
+                                line = line.strip()
+                                if "Build Order (first set of steps):" in line:
+                                    # Extract player name from line (e.g., "Zeaschling's Build Order...")
+                                    current_player = line.split("'s")[0]
+                                    # Check if this is the opponent's build (case-insensitive)
+                                    if current_player.lower() == opponent_name.lower():
+                                        in_opponent_build = True
+                                        logger.debug(f"Found opponent's build order section for: {current_player}")
+                                    else:
+                                        in_opponent_build = False
+                                    continue
+                                elif in_opponent_build and line.startswith("Time:"):
+                                    # Parse: "Time: 0:00, Name: Probe, Supply: 12"
+                                    try:
+                                        parts = line.split(", ")
+                                        time_part = parts[0].split(": ")[1]  # "0:00"
+                                        name_part = parts[1].split(": ")[1]  # "Probe"
+                                        supply_part = parts[2].split(": ")[1]  # "12"
+                                        
+                                        # Convert time to seconds
+                                        minutes, seconds = map(int, time_part.split(":"))
+                                        time_seconds = minutes * 60 + seconds
+                                        
+                                        build_data.append({
+                                            'supply': int(supply_part),
+                                            'name': name_part,
+                                            'time': time_seconds
+                                        })
+                                    except Exception as e:
+                                        logger.debug(f"Could not parse build order line: {line} - {e}")
+                                        continue
+                                elif in_opponent_build and not line.startswith("Time:"):
+                                    # End of opponent's build order section - stop parsing
+                                    break
+                            
+                            if build_data:
+                                game_data['build_order'] = build_data
+                                logger.debug(f"Added {len(build_data)} build order steps to game data for opponent {opponent_name}")
+                            else:
+                                logger.debug(f"No build order data found for opponent {opponent_name} in replay summary")
                     else:
                         logger.debug("Replay summary file not found")
                         
@@ -838,3 +865,122 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         except Exception as e:
             logger.error(f"Error preparing game data for comment: {e}")
             return {}
+    
+    def _display_pattern_validation(self, game_data, logger):
+        """Display pattern learning validation and store suggestion if confidence is high"""
+        try:
+            from api.ml_opponent_analyzer import get_ml_analyzer
+            import settings.config as config
+            
+            opponent_name = game_data.get('opponent_name', 'Unknown')
+            opponent_race = game_data.get('opponent_race', 'Unknown')
+            result = game_data.get('result', 'Unknown')
+            duration = game_data.get('duration', 'Unknown')
+            map_name = game_data.get('map', 'Unknown')
+            
+            # Get ML analyzer and check for patterns
+            analyzer = get_ml_analyzer()
+            db_instance = getattr(self, 'db', None)
+            
+            # Check if this is a known opponent
+            is_known_opponent = False
+            if db_instance:
+                opponent_record = db_instance.check_player_and_race_exists(opponent_name, opponent_race)
+                is_known_opponent = opponent_record is not None
+            
+            # Run pattern matching against ALL learned patterns (not just this opponent)
+            # Extract build order from game data
+            build_order = game_data.get('build_order', [])
+            matched_patterns = analyzer.match_build_against_all_patterns(build_order, opponent_race, logger)
+            
+            # Wrap in analysis_data structure for compatibility
+            analysis_data = {
+                'matched_patterns': matched_patterns
+            } if matched_patterns else None
+            
+            # Extract opponent's build from replay
+            build_summary = []
+            if 'build_order' in game_data and game_data['build_order']:
+                # Get opponent's build order
+                build_order = game_data['build_order']
+                unit_counts = {}
+                for step in build_order:
+                    unit_name = step.get('name', '')
+                    if unit_name:
+                        unit_counts[unit_name] = unit_counts.get(unit_name, 0) + 1
+                
+                # Format as "Unit x count"
+                for unit, count in sorted(unit_counts.items(), key=lambda x: -x[1])[:10]:  # Top 10
+                    if count > 1:
+                        build_summary.append(f"{unit} x{count}")
+                    else:
+                        build_summary.append(unit)
+            
+            # Display validation report in stdout
+            print("\n" + "=" * 60)
+            print("🔍 PATTERN LEARNING VALIDATION")
+            print("=" * 60)
+            print(f"Opponent: {opponent_name} ({opponent_race}) - {'KNOWN' if is_known_opponent else 'NEW'}")
+            print(f"Result: {result} | Duration: {duration} | Map: {map_name}")
+            print()
+            
+            if build_summary:
+                print("--- OPPONENT'S BUILD (from replay) ---")
+                print(", ".join(build_summary))
+                print()
+            
+            # Display pattern matching results
+            if analysis_data:
+                matched_patterns = analysis_data.get('matched_patterns', [])
+                
+                if matched_patterns:
+                    # Get best match
+                    best_match = matched_patterns[0]
+                    similarity = best_match.get('similarity', 0) * 100
+                    pattern_comment = best_match.get('comment', 'No description')
+                    keywords = best_match.get('keywords', [])
+                    
+                    print(f"--- BEST PATTERN MATCH ({similarity:.0f}% similarity) ---")
+                    print(f'Pattern: "{pattern_comment}"')
+                    if keywords:
+                        print(f"Keywords matched: {', '.join(keywords[:5])}")
+                    print()
+                    
+                    # Check if confidence is high enough to suggest
+                    if similarity >= config.PATTERN_SUGGESTION_MIN_SIMILARITY * 100:
+                        # Store suggestion for Twitch chat handler
+                        self.suggested_pattern_comment = pattern_comment
+                        print("✓ High confidence match!")
+                        print()
+                        print("To accept, type in Twitch:  player comment yes")
+                    else:
+                        # Clear any previous suggestion
+                        self.suggested_pattern_comment = None
+                        print("⚠ Low confidence match - please provide custom comment")
+                        print()
+                        print("To add custom, type in Twitch:  player comment <your text>")
+                else:
+                    # No patterns matched
+                    self.suggested_pattern_comment = None
+                    print("--- NO PATTERN MATCH ---")
+                    print("This build doesn't match existing patterns.")
+                    print()
+                    print("Please describe this strategy in Twitch:")
+                    print("  player comment <your description>")
+            else:
+                # No analysis data (no patterns exist yet)
+                self.suggested_pattern_comment = None
+                print("--- NO PATTERNS AVAILABLE ---")
+                print("Building pattern database - please add your first comment!")
+                print()
+                print("Type in Twitch:  player comment <your description>")
+            
+            print()
+            print("To skip, don't type anything (DB will remain empty)")
+            print("=" * 60)
+            print()
+            
+        except Exception as e:
+            logger.error(f"Error in pattern validation display: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")

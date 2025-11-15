@@ -314,8 +314,10 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
             build_orders = {player_key: player_data['buildOrder'] for player_key, player_data in replay_data['players'].items()}
             opponent_name = None
             player_order = []
+            # Create case-insensitive lookup
+            player_accounts_lower = [name.lower() for name in config.SC2_PLAYER_ACCOUNTS]
             for player_key, player_data in replay_data['players'].items():
-                if player_data['name'] in config.SC2_PLAYER_ACCOUNTS:
+                if player_data['name'].lower() in player_accounts_lower:
                     player_order.append(player_key)
                 else:
                     opponent_name = player_data['name']
@@ -333,8 +335,12 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
                     replay_summary += order_info + '\n'
                 replay_summary += '\n'
 
+            # Replace all player account names (case-insensitive) with STREAMER_NICKNAME
             for player_name in config.SC2_PLAYER_ACCOUNTS:
-                replay_summary = replay_summary.replace(player_name, config.STREAMER_NICKNAME)
+                # Use case-insensitive replacement by creating a pattern
+                import re
+                pattern = re.compile(re.escape(player_name), re.IGNORECASE)
+                replay_summary = pattern.sub(config.STREAMER_NICKNAME, replay_summary)
 
             game_ended_handler.save_file(replay_summary, 'summary', logger)
 
@@ -358,38 +364,17 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
         # Schedule pattern learning trigger after a delay to allow replay processing
         # Note: Due to Blizzard API bug (isReplay always "true"), we now detect real games
         # by checking if streamer is playing, not by the broken isReplay flag
-        # Only trigger pattern learning for games that weren't abandoned
+        # Only trigger pattern learning for 1v1 games that weren't abandoned
         if (hasattr(self, 'pattern_learner') and self.pattern_learner and 
-            hasattr(self, 'total_seconds') and self.total_seconds >= config.ABANDONED_GAME_THRESHOLD):
-            logger.info("Pattern learning system found - scheduling delayed trigger")
+            hasattr(self, 'total_seconds') and self.total_seconds >= config.ABANDONED_GAME_THRESHOLD and
+            current_game.total_players == 2):  # Only 1v1 games
+            logger.info("Pattern learning system found - scheduling delayed trigger (1v1 game)")
             import threading
             
             def delayed_pattern_learning(captured_game_player_names, captured_winning_players, captured_losing_players):
                 logger.info(f"Starting delayed pattern learning trigger ({config.PATTERN_LEARNING_DELAY_SECONDS} second wait)")
                 time.sleep(config.PATTERN_LEARNING_DELAY_SECONDS)  # Wait for replay to be processed
                 try:
-                    logger.info("Delayed pattern learning trigger - checking if safe to prompt")
-                    
-                    # Check current game state to avoid blocking during replay or new game
-                    try:
-                        current_game_status = check_SC2_game_status(logger)
-                        if current_game_status:
-                            current_status = current_game_status.get_status()
-                            
-                            # Skip if watching replay - REPLAY_ENDED will trigger fresh prompt with full timeout
-                            if current_status == "REPLAY_STARTED":
-                                logger.info("Player watching replay - deferring prompt until replay ends")
-                                return  # Game stays unprocessed, REPLAY_ENDED will prompt again
-                            
-                            # Skip if started new match - player has moved on
-                            if current_status == "MATCH_STARTED":
-                                logger.info("Player started new game - skipping prompt (game remains unprocessed for manual comment later)")
-                                return
-                                
-                            logger.debug(f"Game state: {current_status} - proceeding with prompt")
-                    except Exception as e:
-                        logger.warning(f"Could not check game state: {e} - proceeding with prompt anyway")
-                    
                     # Check if we have replay data available
                     if hasattr(self, 'last_replay_data') and self.last_replay_data:
                         logger.info("Replay data available - triggering pattern learning system")
@@ -398,6 +383,30 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
                         logger.debug(f"DEBUG: captured_game_player_names before _prepare_game_data_for_comment: {repr(captured_game_player_names)}")
                         game_data = self._prepare_game_data_for_comment(captured_game_player_names, captured_winning_players, captured_losing_players, logger)
                         logger.debug(f"Game data prepared for pattern learning: {game_data}")
+                        
+                        # ALWAYS display pattern validation (read-only, safe to show even during replay)
+                        self._display_pattern_validation(game_data, logger)
+                        
+                        # Now check game state for prompt availability
+                        logger.info("Delayed pattern learning trigger - checking if safe to prompt")
+                        try:
+                            current_game_status = check_SC2_game_status(logger)
+                            if current_game_status:
+                                current_status = current_game_status.get_status()
+                                
+                                # Skip if watching replay - REPLAY_ENDED will trigger fresh prompt with full timeout
+                                if current_status == "REPLAY_STARTED":
+                                    logger.info("Player watching replay - deferring prompt until replay ends")
+                                    return  # Game stays unprocessed, REPLAY_ENDED will prompt again
+                                
+                                # Skip if started new match - player has moved on
+                                if current_status == "MATCH_STARTED":
+                                    logger.info("Player started new game - skipping prompt (game remains unprocessed for manual comment later)")
+                                    return
+                                    
+                                logger.debug(f"Game state: {current_status} - proceeding with prompt")
+                        except Exception as e:
+                            logger.warning(f"Could not check game state: {e} - proceeding with prompt anyway")
                         
                         # Player comments now handled via Twitch chat using "player comment <text>"
                         # No console prompt needed - user will type in Twitch chat when ready
@@ -415,6 +424,8 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
             timer_thread = threading.Thread(target=delayed_pattern_learning, args=(game_player_names, winning_players, losing_players), daemon=True)
             timer_thread.start()
             logger.info(f"Scheduled delayed pattern learning trigger ({config.PATTERN_LEARNING_DELAY_SECONDS} seconds)")
+        elif current_game.total_players != 2:
+            logger.info(f"Skipping pattern learning for non-1v1 game ({current_game.total_players} players - team game)")
         elif hasattr(self, 'total_seconds') and self.total_seconds < config.ABANDONED_GAME_THRESHOLD:
             logger.info(f"Skipping pattern learning for short game ({self.total_seconds}s < {config.ABANDONED_GAME_THRESHOLD}s threshold)")
         else:
@@ -435,13 +446,15 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
         logger.debug(f"REPLAY_ENDED: previous state was {previous_status}")
         
         player_names_list = [name.strip() for name in game_player_names.split(',')]
-        streamer_is_playing = any(name in config.SC2_PLAYER_ACCOUNTS for name in player_names_list)
+        player_accounts_lower = [name.lower() for name in config.SC2_PLAYER_ACCOUNTS]
+        streamer_is_playing = any(name.lower() in player_accounts_lower for name in player_names_list)
         
-        # Only trigger if: 1) You're in the game AND 2) Previous state was NOT REPLAY_STARTED AND 3) Game wasn't abandoned
+        # Only trigger if: 1) You're in the game AND 2) Previous state was NOT REPLAY_STARTED AND 3) Game wasn't abandoned AND 4) It's a 1v1 game
         if (hasattr(self, 'pattern_learner') and self.pattern_learner and streamer_is_playing and 
             previous_status != "REPLAY_STARTED" and 
-            hasattr(self, 'total_seconds') and self.total_seconds >= config.ABANDONED_GAME_THRESHOLD):
-            logger.info(f"REPLAY_ENDED: Live game ended (was {previous_status}) - triggering pattern learning")
+            hasattr(self, 'total_seconds') and self.total_seconds >= config.ABANDONED_GAME_THRESHOLD and
+            current_game.total_players == 2):  # Only 1v1 games
+            logger.info(f"REPLAY_ENDED: Live 1v1 game ended (was {previous_status}) - triggering pattern learning")
             
             import threading
             
@@ -449,28 +462,6 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
                 logger.info(f"Starting delayed pattern learning trigger ({config.PATTERN_LEARNING_DELAY_SECONDS} second wait)")
                 time.sleep(config.PATTERN_LEARNING_DELAY_SECONDS)  # Wait for replay to be processed
                 try:
-                    logger.info("Delayed pattern learning trigger - checking if safe to prompt")
-                    
-                    # Check current game state to avoid blocking during replay or new game
-                    try:
-                        current_game_status = check_SC2_game_status(logger)
-                        if current_game_status:
-                            current_status = current_game_status.get_status()
-                            
-                            # Skip if watching replay - REPLAY_ENDED will trigger fresh prompt with full timeout
-                            if current_status == "REPLAY_STARTED":
-                                logger.info("Player watching replay - deferring prompt until replay ends")
-                                return  # Game stays unprocessed, REPLAY_ENDED will prompt again
-                            
-                            # Skip if started new match - player has moved on
-                            if current_status == "MATCH_STARTED":
-                                logger.info("Player started new game - skipping prompt (game remains unprocessed for manual comment later)")
-                                return
-                                
-                            logger.debug(f"Game state: {current_status} - proceeding with prompt")
-                    except Exception as e:
-                        logger.warning(f"Could not check game state: {e} - proceeding with prompt anyway")
-                    
                     # Check if we have replay data available
                     if hasattr(self, 'last_replay_data') and self.last_replay_data:
                         logger.info("Replay data available - triggering pattern learning system")
@@ -478,6 +469,30 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
                         # Prepare game data for comment prompt
                         game_data = self._prepare_game_data_for_comment(captured_game_player_names, captured_winning_players, captured_losing_players, logger)
                         logger.debug(f"Game data prepared for pattern learning: {game_data}")
+                        
+                        # ALWAYS display pattern validation (read-only, safe to show even during replay)
+                        self._display_pattern_validation(game_data, logger)
+                        
+                        # Now check game state for prompt availability
+                        logger.info("Delayed pattern learning trigger - checking if safe to prompt")
+                        try:
+                            current_game_status = check_SC2_game_status(logger)
+                            if current_game_status:
+                                current_status = current_game_status.get_status()
+                                
+                                # Skip if watching replay - REPLAY_ENDED will trigger fresh prompt with full timeout
+                                if current_status == "REPLAY_STARTED":
+                                    logger.info("Player watching replay - deferring prompt until replay ends")
+                                    return  # Game stays unprocessed, REPLAY_ENDED will prompt again
+                                
+                                # Skip if started new match - player has moved on
+                                if current_status == "MATCH_STARTED":
+                                    logger.info("Player started new game - skipping prompt (game remains unprocessed for manual comment later)")
+                                    return
+                                    
+                                logger.debug(f"Game state: {current_status} - proceeding with prompt")
+                        except Exception as e:
+                            logger.warning(f"Could not check game state: {e} - proceeding with prompt anyway")
                         
                         # Player comments now handled via Twitch chat using "player comment <text>"
                         # No console prompt needed - user will type in Twitch chat when ready
@@ -497,6 +512,8 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
         else:
             if previous_status == "REPLAY_STARTED":
                 logger.debug("Pattern learning skipped: watching replay (REPLAY_STARTED to REPLAY_ENDED)")
+            elif current_game.total_players != 2:
+                logger.info(f"Skipping pattern learning for non-1v1 game ({current_game.total_players} players - team game)")
             elif hasattr(self, 'total_seconds') and self.total_seconds < config.ABANDONED_GAME_THRESHOLD:
                 logger.info(f"Skipping pattern learning for short game ({self.total_seconds}s < {config.ABANDONED_GAME_THRESHOLD}s threshold)")
             else:
@@ -525,94 +542,3 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
             logger.debug("not analyzing replay")
             return
 
-
-def _prepare_game_data_for_comment(self, game_player_names, winning_players, losing_players, logger):
-    """Prepare game data for the comment prompt"""
-    try:
-        game_data = {}
-        
-        # Get opponent info
-        if config.STREAMER_NICKNAME in game_player_names:
-            # Split the comma-separated string into a list first
-            player_names_list = [name.strip() for name in game_player_names.split(',')]
-            opponent_names = [name for name in player_names_list if name != config.STREAMER_NICKNAME]
-            if opponent_names:
-                game_data['opponent_name'] = opponent_names[0]
-                
-                # Try to get opponent race from current game
-                try:
-                    if hasattr(self, 'current_game') and self.current_game:
-                        game_data['opponent_race'] = self.current_game.get_player_race(opponent_names[0])
-                except:
-                    game_data['opponent_race'] = 'Unknown'
-        
-        # Game result
-        if config.STREAMER_NICKNAME in winning_players:
-            game_data['result'] = 'Victory'
-        elif config.STREAMER_NICKNAME in losing_players:
-            game_data['result'] = 'Defeat'
-        else:
-            game_data['result'] = 'Tie'
-        
-        # Game duration
-        if hasattr(self, 'total_seconds'):
-            game_data['duration'] = f"{int(self.total_seconds // 60)}m {int(self.total_seconds % 60)}s"
-        
-        # Current date/time
-        from datetime import datetime
-        game_data['date'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        
-        # Map info (if available)
-        try:
-            if hasattr(self, 'last_replay_data') and self.last_replay_data:
-                game_data['map'] = self.last_replay_data.get('map', 'Unknown')
-            elif hasattr(self, 'current_game') and self.current_game:
-                # This would need to be implemented based on your game data structure
-                game_data['map'] = 'Unknown'
-        except:
-            game_data['map'] = 'Unknown'
-        
-        # Build order data (if available from replay data)
-        try:
-            # Check if we have replay data available
-            if hasattr(self, 'last_replay_data') and self.last_replay_data:
-                logger.debug(f"Replay data keys: {list(self.last_replay_data.keys())}")
-                if 'players' in self.last_replay_data:
-                    logger.debug(f"Players data: {self.last_replay_data['players']}")
-                # Extract build order from replay data
-                build_data = []
-                if 'players' in self.last_replay_data:
-                    for player in self.last_replay_data['players']:
-                        if 'buildOrder' in player and isinstance(player['buildOrder'], list):
-                            for step in player['buildOrder']:
-                                if isinstance(step, dict):
-                                    build_data.append({
-                                        'supply': step.get('supply', 0),
-                                        'name': step.get('name', ''),
-                                        'time': step.get('time', 0)
-                                    })
-                        elif 'buildOrder' in player:
-                            logger.debug(f"Build order is not a list: {type(player['buildOrder'])} - {player['buildOrder']}")
-                
-                if build_data:
-                    game_data['build_order'] = build_data
-                    logger.debug(f"Added {len(build_data)} build order steps to game data")
-                else:
-                    logger.debug("No build order data found in replay")
-                    
-        except Exception as e:
-            logger.debug(f"Could not extract build order data: {e}")
-        
-        # Build order summary (if available)
-        try:
-            if hasattr(self, 'current_game') and self.current_game:
-                # This would need to be implemented based on your game data structure
-                game_data['build_order_summary'] = 'Not available'
-        except:
-            game_data['build_order_summary'] = 'Not available'
-        
-        return game_data
-        
-    except Exception as e:
-        logger.error(f"Error preparing game data for comment: {e}")
-        return {}

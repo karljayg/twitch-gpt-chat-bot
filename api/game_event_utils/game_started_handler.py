@@ -27,23 +27,13 @@ def game_started(self, current_game, contextHistory, logger):
                 processMessageForOpenAI(self, msg, "in_game", logger, contextHistory)
             else:
                 self.play_SC2_sound("start")
+                player_accounts_lower = [name.lower() for name in config.SC2_PLAYER_ACCOUNTS]
                 for player_name in game_player_names:
                     logger.debug(f"looking for: {player_name}")
-                    if player_name != config.STREAMER_NICKNAME:
+                    if player_name.lower() not in player_accounts_lower:
                         player_current_race = current_game.get_player_race(player_name)
                         streamer_current_race = current_game.get_opponent_race(player_name)
                         logger.debug(f"checking DB for {player_name} as {player_current_race} versus {config.STREAMER_NICKNAME} as any race, even tho {config.STREAMER_NICKNAME} is {streamer_current_race} in this current game")
-
-                        # ML Analysis: Generate strategic intelligence if opponent is known
-                        try:
-                            current_map = getattr(current_game, 'map', 'Unknown')
-                            # Note: current_map is kept for logging but not used in ML analysis
-                            analyze_opponent_for_game_start(
-                                player_name, player_current_race, current_map, 
-                                self, logger, contextHistory
-                            )
-                        except Exception as e:
-                            logger.error(f"Error in ML opponent analysis: {e}")
 
                         # look for player with same name and race as this current game in the database
                         logger.debug(f"checking if {player_name} as {player_current_race} is in the DB")
@@ -98,7 +88,24 @@ def game_started(self, current_game, contextHistory, logger):
                             logger.debug(f"checking DB for last game where player versus {config.STREAMER_NICKNAME} was in same matchup of {player_current_race} versus {streamer_current_race} ")
 
                             # do this before alias substitutions, since we are only altering speaking/chat, not when searching for actual player name in DB records
-                            player_record = "past results:\n" + '\n'.join(self.db.get_player_records(player_name))
+                            raw_records = self.db.get_player_records(player_name)
+                            logger.debug(f"[RECORD DEBUG] Raw records for {player_name}: {raw_records}")
+                            
+                            # Parse first row to extract wins/losses (don't trust AI to do math)
+                            opponent_wins = 0
+                            opponent_losses = 0
+                            if raw_records:
+                                first_row = raw_records[0]
+                                logger.debug(f"[RECORD DEBUG] First row (vs {config.STREAMER_NICKNAME}): {first_row}")
+                                # Parse: "SirMalagant, KJ, 129 wins, 203 losses"
+                                import re
+                                match = re.search(r'(\d+)\s+wins?,\s*(\d+)\s+losses?', first_row)
+                                if match:
+                                    opponent_wins = int(match.group(1))
+                                    opponent_losses = int(match.group(2))
+                                    logger.debug(f"[RECORD DEBUG] Parsed: opponent has {opponent_wins} wins, {opponent_losses} losses")
+                            
+                            player_record = "past results:\n" + '\n'.join(raw_records)
 
                             # get the defined amount of build steps of the opponent with same race matchup from config.BUILD_ORDER_COUNT_TO_ANALYZE
                             first_few_build_steps = self.db.extract_opponent_build_order(player_name, player_current_race, streamer_current_race)
@@ -153,9 +160,22 @@ def game_started(self, current_game, contextHistory, logger):
 
                             # Check if there are comments
                             if not player_comments:
-                                logger.debug(f"No games with comments found for player '{current_player_name}' and race '{player_current_race}'. Skipping OpenAI processing.")
+                                logger.debug(f"No games with comments found for player '{current_player_name}' and race '{player_current_race}'.")
+                                
+                                # ML Analysis: Only run if NO player comments exist (use inferred patterns as fallback)
+                                try:
+                                    current_map = getattr(current_game, 'map', 'Unknown')
+                                    logger.debug(f"Running ML pattern analysis for {player_name} (no player comments available)")
+                                    analyze_opponent_for_game_start(
+                                        player_name, player_current_race, current_map, 
+                                        self, logger, contextHistory
+                                    )
+                                except Exception as e:
+                                    logger.error(f"Error in ML opponent analysis: {e}")
                             else:
                                 # Build the message string for OpenAI with enhanced SC2 focus and anti-hallucination measures
+                                num_comment_games = len(player_comments)
+                                
                                 msg = "As a StarCraft 2 expert, analyze these previous game comments about the opponent. "
                                 msg += "IMPORTANT: Use ONLY the data provided below - do NOT make assumptions or add information not present. \n\n"
                                 msg += "Instructions:\n"
@@ -164,7 +184,8 @@ def game_started(self, current_game, contextHistory, logger):
                                 msg += "3. Use proper SC2 terminology (e.g., 'early game aggression', 'macro-focused', 'tech rush', 'timing attack')\n"
                                 msg += "4. If opponent's units/buildings are mentioned, reference them accurately\n"
                                 msg += "5. Keep summary under 300 characters\n"
-                                msg += "6. End with exactly: 'player comments warning'\n\n"
+                                msg += f"6. START your response with: 'Note: You've also faced this opponent {num_comment_games} other time{'s' if num_comment_games != 1 else ''}. Historical patterns show: '\n"
+                                msg += "7. End with exactly: 'player comments warning'\n\n"
                                 msg += "Previous game data:\n"
                                 msg += "-----\n"
 
@@ -231,10 +252,13 @@ def game_started(self, current_game, contextHistory, logger):
                                     msg = f"restate this with all details: This is the first time {config.STREAMER_NICKNAME} played {player_name} in this {streamer_picked_race} versus {player_current_race} matchup."
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
 
-                            # Ensure we preserve the full player name and don't truncate the data
-                            msg = f"IMPORTANT: The player name is '{player_name}' (exactly {len(player_name)} characters). Do NOT truncate or modify this name.\n\n"
-                            msg += f"The CSV is listed as player1, player2, player 1 wins, player 1 losses. Respond with only 10 words with player1's name, and player1's total wins and total losses from the past results. Use the exact player name '{player_name}'. \n"
-                            msg += f"Past results for {player_name}:\n{player_record}\n"
+                            # Calculate YOUR record (invert opponent's wins/losses)
+                            your_wins = opponent_losses
+                            your_losses = opponent_wins
+                            
+                            # Have AI just restate the calculated record in a natural way
+                            msg = f"Restate this matchup record naturally in under 12 words:\n"
+                            msg += f"{config.STREAMER_NICKNAME} has {your_wins} wins and {your_losses} losses versus {player_name}.\n"
                             
                             # Debug logging to see what's being sent
                             logger.debug(f"Player name being sent to AI: '{player_name}' (length: {len(player_name)})")

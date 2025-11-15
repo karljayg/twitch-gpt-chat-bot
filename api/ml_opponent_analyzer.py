@@ -55,6 +55,102 @@ class MLOpponentAnalyzer:
             print(f"Error loading patterns data: {e}")
             return {"patterns": []}
     
+    def match_build_against_all_patterns(self, build_order, opponent_race, logger, current_comment=None):
+        """
+        Match a build order against ALL learned patterns, regardless of opponent.
+        Used for pattern validation display to show matches from similar strategies.
+        
+        Args:
+            build_order: List of build order steps [{supply, name, time}, ...]
+            opponent_race: Race of the opponent ('Terran', 'Protoss', 'Zerg')
+            logger: Logger instance
+            current_comment: Optional player comment for this game (for comment-based priority boosting)
+            
+        Returns:
+            List of matched patterns sorted by similarity, or empty list
+        """
+        try:
+            # Load learned patterns from COMMENTS (real game data)
+            comments_data = self.load_learning_data()
+            
+            if not comments_data or not build_order:
+                if logger:
+                    logger.debug("No comments data or build order available for matching")
+                return []
+            
+            # Extract comments with build order data
+            comments_with_builds = [c for c in comments_data.get('comments', []) 
+                                    if c.get('game_data', {}).get('build_order')]
+            
+            if not comments_with_builds:
+                if logger:
+                    logger.debug(f"No comments with build order data found (total comments: {len(comments_data.get('comments', []))})")
+                return []
+            
+            if logger:
+                logger.debug(f"Matching against {len(comments_with_builds)} comments with build data")
+            
+            # Set current comment for priority boosting (if provided)
+            self._current_opponent_comment = current_comment if current_comment else ''
+            
+            # Convert comments to patterns format for matching
+            # Each comment with build order becomes a pattern entry
+            patterns_from_comments = []
+            for comment in comments_with_builds:
+                game_data = comment.get('game_data', {})
+                build_data = game_data.get('build_order', [])
+                comment_race = game_data.get('opponent_race', 'unknown')
+                
+                # Convert build_data format from {name, time, supply} to {unit, time, supply}
+                # The signature extraction expects 'unit' field, not 'name'
+                early_game_signature = []
+                for i, step in enumerate(build_data):
+                    early_game_signature.append({
+                        'unit': step.get('name', ''),  # Convert 'name' to 'unit'
+                        'time': step.get('time', 0),
+                        'supply': step.get('supply', 0),
+                        'count': 1,
+                        'order': i + 1
+                    })
+                
+                # Create pattern entry from comment
+                pattern_entry = {
+                    'signature': {
+                        'early_game': early_game_signature
+                    },
+                    'comment': comment.get('comment', ''),
+                    'game_data': game_data,
+                    'race': comment_race.lower() if comment_race else 'unknown',
+                    'has_player_comment': True,
+                    'opponent_name': game_data.get('opponent_name', 'Unknown')
+                }
+                patterns_from_comments.append(pattern_entry)
+            
+            # Create patterns_data structure
+            patterns_data_from_comments = {'patterns': patterns_from_comments}
+            
+            # Match build against comment-based patterns
+            matched_patterns = self._match_build_against_patterns(build_order, patterns_data_from_comments, opponent_race, logger)
+            
+            # Clear current comment
+            self._current_opponent_comment = ''
+            
+            # Add game context to each match for display
+            for match in matched_patterns:
+                # Try to find the original game this pattern came from
+                match['game_info'] = {
+                    'opponent_name': match.get('opponent_name', 'Unknown'),
+                    'map': match.get('map', 'Unknown'),
+                    'date': match.get('date', 'Unknown')
+                }
+            
+            return matched_patterns
+            
+        except Exception as e:
+            if logger:
+                logger.error(f"Error matching build against all patterns: {e}")
+            return []
+    
     def analyze_opponent_for_chat(self, opponent_name, opponent_race, logger, db=None):
         """
         Analyze opponent and generate chat message if enough data exists
@@ -227,7 +323,11 @@ class MLOpponentAnalyzer:
             return []
 
     def _match_build_against_patterns(self, build_order, patterns_data, opponent_race, logger):
-        """Match opponent's build order against learned patterns with priority for player comments"""
+        """
+        NEW: Match opponent's build order against learned patterns using BUILD-TO-BUILD comparison.
+        Player comments are labels only - matching is purely based on build signatures.
+        Strategic items from SC2_STRATEGIC_ITEMS are weighted higher.
+        """
         if logger:
             logger.debug(f"Pattern matching for opponent race: {opponent_race}")
         try:
@@ -240,124 +340,77 @@ class MLOpponentAnalyzer:
             
             matched_patterns = []
             
-            # Extract complete build order sequence (units AND buildings)
-            unit_sequence = [step['name'] for step in build_order]  # ALL items to catch any strategic elements
-            unit_sequence_str = ' '.join(unit_sequence).lower()
+            # Extract strategic items from new build (ignore workers/supply)
+            new_build_strategic_items = self._extract_strategic_items_from_build(build_order, opponent_race)
             
-            # Match against learned patterns using keywords and strategy types
+            if not new_build_strategic_items:
+                if logger:
+                    logger.debug("No strategic items found in new build - cannot match")
+                return []
+            
+            # Match against each pattern's build signature
             for pattern in patterns:
-                pattern_keywords = pattern.get('keywords', [])
-                if not pattern_keywords:
+                # Skip patterns without signatures
+                if 'signature' not in pattern:
                     continue
                 
-                # Skip overly generic patterns that dominate results
+                # Skip generic test patterns
                 comment = pattern.get('comment', '').lower()
                 generic_indicators = ['hello world', 'first comment', 'test', 'computer']
                 if any(indicator in comment for indicator in generic_indicators):
                     continue
                 
-                # Filter patterns by race relevance - check if pattern contains race-specific units
-                pattern_race = self._determine_pattern_race(pattern_keywords)
-                opponent_race_lower = opponent_race.lower() if opponent_race else 'unknown'
+                # Get pattern race from signature
+                pattern_signature = pattern.get('signature', {})
+                pattern_race = self._determine_pattern_race_from_signature(pattern_signature)
                 
-                # Additional comment-based race filtering using existing race unit lists
-                comment_race = self._determine_pattern_race_from_comment(pattern.get('comment', ''))
-                if comment_race != 'unknown' and comment_race != opponent_race_lower:
+                # Filter by race
+                opponent_race_lower = opponent_race.lower() if opponent_race else 'unknown'
+                if pattern_race and pattern_race != 'unknown' and pattern_race != opponent_race_lower:
                     if logger:
-                        logger.debug(f"Pattern '{pattern.get('comment', '')}' filtered out by comment race: {comment_race} != {opponent_race_lower}")
+                        logger.debug(f"Pattern '{comment}' filtered by race: {pattern_race} != {opponent_race_lower}")
                     continue
                 
-                # Original race filtering logic
-                if pattern_race and pattern_race != 'unknown':
-                    if pattern_race != opponent_race_lower:
-                        if logger:
-                            logger.debug(f"Pattern '{pattern.get('comment', '')}' filtered out by pattern race: {pattern_race} != {opponent_race_lower}")
-                        continue
+                # Extract strategic items from pattern signature
+                pattern_strategic_items = self._extract_strategic_items_from_signature(pattern_signature, opponent_race)
                 
-                # Extract common unit types from opponent's build
-                opponent_units = set(unit_sequence_str.split())
+                if not pattern_strategic_items:
+                    continue
                 
-                # Convert keywords to lowercase for comparison
-                pattern_keywords_lower = [kw.lower() for kw in pattern_keywords if isinstance(kw, str)]
+                # Compare builds directly (build-to-build comparison)
+                similarity_score = self._compare_build_signatures(
+                    new_build_strategic_items,
+                    pattern_strategic_items,
+                    opponent_race,
+                    logger
+                )
                 
-                # Get strategic keywords from actual player comments in database
-                strategic_keywords = self._get_strategic_keywords_from_comments()
-                
-                # Calculate keyword overlap with strategic weighting
-                common_keywords = 0
-                strategic_matches = 0
-                
-                for unit in opponent_units:
-                    matched = False
-                    for kw in pattern_keywords_lower:
-                        if unit in kw or kw in unit:
-                            common_keywords += 1
-                            # Give extra weight for strategic keywords
-                            if kw in strategic_keywords:
-                                strategic_matches += 1
-                            matched = True
-                            break
-                
-                # Calculate similarity with strategic weighting
-                if len(opponent_units) > 0:
-                    base_similarity = common_keywords / len(opponent_units)
-                    strategic_bonus = strategic_matches * getattr(config, 'ML_ANALYSIS_STRATEGIC_BONUS', 0.1)  # Configurable bonus per strategic match
-                    similarity_score = base_similarity + strategic_bonus
-                else:
-                    similarity_score = 0
-                
-                # PRIORITY BOOST: Give massive bonus to patterns that match the opponent's actual comment
-                # This ensures player comments take absolute priority
-                comment_priority_boost = 0.0
-                if self._current_opponent_comment:
-                    opponent_comment_lower = self._current_opponent_comment.lower()
-                    pattern_comment_lower = pattern.get('comment', '').lower()
-                    
-                    # Check for exact or very close comment matches
-                    if pattern_comment_lower == opponent_comment_lower:
-                        comment_priority_boost = getattr(config, 'ML_ANALYSIS_COMMENT_EXACT_MATCH_BONUS', 1.0)  # Configurable exact match bonus
-                        if logger:
-                            logger.debug(f"EXACT COMMENT MATCH: '{pattern_comment_lower}' = '{opponent_comment_lower}' - +{comment_priority_boost} boost")
-                    elif any(keyword in opponent_comment_lower for keyword in pattern_keywords_lower):
-                        comment_priority_boost = getattr(config, 'ML_ANALYSIS_COMMENT_KEYWORD_BONUS', 0.5)  # Configurable keyword overlap bonus
-                        if logger:
-                            logger.debug(f"KEYWORD OVERLAP: '{pattern_keywords_lower}' in '{opponent_comment_lower}' - +{comment_priority_boost} boost")
-                    elif any(keyword in pattern_comment_lower for keyword in opponent_comment_lower.split()):
-                        comment_priority_boost = getattr(config, 'ML_ANALYSIS_COMMENT_REVERSE_BONUS', 0.3)  # Configurable reverse keyword bonus
-                        if logger:
-                            logger.debug(f"REVERSE KEYWORD MATCH: '{opponent_comment_lower.split()}' in '{pattern_comment_lower}' - +{comment_priority_boost} boost")
-                
-                # Apply comment priority boost
-                similarity_score += comment_priority_boost
-                if logger and comment_priority_boost > 0:
-                    logger.debug(f"Pattern '{pattern.get('comment', '')}' got +{comment_priority_boost} boost, final score: {similarity_score}")
-                
-                # No artificial strategic conflict filtering - let pattern matching work naturally
-                # based on what actually exists in the build order and player comments
-                
-                if similarity_score > getattr(config, 'ML_ANALYSIS_SIMILARITY_THRESHOLD', 0.05):  # Configurable similarity threshold
+                # Configurable minimum threshold
+                min_threshold = getattr(config, 'ML_ANALYSIS_SIMILARITY_THRESHOLD', 0.05)
+                if similarity_score > min_threshold:
                     matched_patterns.append({
                         'comment': pattern.get('comment', 'Unknown strategy'),
-                        'keywords': pattern_keywords[:10],  # First 10 keywords
+                        'keywords': pattern.get('keywords', [])[:10],  # For display only (labels)
                         'similarity': similarity_score,
                         'strategy_type': pattern.get('strategy_type', 'unknown'),
-                        'race': pattern.get('race', 'unknown')
+                        'race': pattern_race
                     })
             
             # Sort by similarity (highest first)
             matched_patterns.sort(key=lambda x: x['similarity'], reverse=True)
             
-            # Debug: Log the top patterns after sorting
             if logger:
-                logger.debug(f"Top patterns after sorting:")
+                logger.debug(f"Matched {len(matched_patterns)} patterns for opponent race {opponent_race}")
                 for i, pattern in enumerate(matched_patterns[:5]):
-                    logger.debug(f"  {i+1}. '{pattern['comment']}' - Score: {pattern['similarity']:.4f}")
+                    logger.debug(f"  {i+1}. '{pattern['comment']}' - Score: {pattern['similarity']:.2f}")
             
-            return matched_patterns[:3]  # Top 3 matches
+            return matched_patterns
             
         except Exception as e:
             if logger:
-                logger.error(f"Error matching patterns: {e}")
+                logger.error(f"Error matching build against patterns: {e}")
+                import traceback
+                logger.error(f"Traceback: {traceback.format_exc()}")
             return []
 
     def _generate_concise_summary(self, opponent_name, opponent_race, matched_patterns, build_order):
@@ -395,6 +448,195 @@ class MLOpponentAnalyzer:
         except Exception as e:
             return f"ML Analysis: {opponent_name} ({opponent_race}) - Analysis available"
 
+    def _extract_strategic_items_from_build(self, build_order, opponent_race):
+        """
+        Extract only strategic items from build order, filtering out workers and supply.
+        Returns list of dicts with {name, timing, position} for weighting.
+        """
+        # Define workers and supply structures (to filter out)
+        non_strategic = {
+            'probe', 'scv', 'drone', 'mule',
+            'pylon', 'supplydepot', 'overlord', 'overseer',
+            'nexus', 'commandcenter', 'hatchery', 'lair', 'hive',
+            'orbitalcommand', 'planetaryfortress'
+        }
+        
+        # Get strategic items from config
+        strategic_items = set()
+        if opponent_race in config.SC2_STRATEGIC_ITEMS:
+            race_items = config.SC2_STRATEGIC_ITEMS[opponent_race]
+            for category in ['buildings', 'units', 'upgrades']:
+                if category in race_items:
+                    items = [item.strip().lower() for item in race_items[category].split(',')]
+                    strategic_items.update(items)
+        
+        # Extract strategic items with timing info
+        strategic_build_items = []
+        for i, step in enumerate(build_order):
+            name = step.get('name', '').lower()
+            timing = step.get('time', 0)
+            
+            # Skip workers and supply
+            if name in non_strategic:
+                continue
+            
+            # Check if it's a strategic item
+            if name in strategic_items:
+                strategic_build_items.append({
+                    'name': name,
+                    'timing': timing,
+                    'position': i,  # Position in build order (lower = earlier = more significant)
+                    'supply': step.get('supply', 0)
+                })
+        
+        return strategic_build_items
+    
+    def _determine_pattern_race_from_signature(self, signature):
+        """Determine race from pattern signature by looking at units in build"""
+        try:
+            # Get all units from signature
+            units = []
+            if 'early_game' in signature:
+                units.extend([item.get('unit', '').lower() for item in signature['early_game']])
+            if 'opening_sequence' in signature:
+                units.extend([item.get('unit', '').lower() for item in signature['opening_sequence']])
+            if 'key_timings' in signature:
+                units.extend([key.lower() for key in signature['key_timings'].keys()])
+            
+            # Check race-specific units
+            zerg_units = {'drone', 'zergling', 'roach', 'hydralisk', 'mutalisk', 'baneling', 'hatchery', 'spawningpool', 'roachwarren'}
+            terran_units = {'scv', 'marine', 'marauder', 'tank', 'hellion', 'barracks', 'factory', 'starport'}
+            protoss_units = {'probe', 'zealot', 'stalker', 'adept', 'gateway', 'nexus', 'cyberneticscore'}
+            
+            for unit in units:
+                if any(z in unit for z in zerg_units):
+                    return 'zerg'
+                if any(t in unit for t in terran_units):
+                    return 'terran'
+                if any(p in unit for p in protoss_units):
+                    return 'protoss'
+            
+            return 'unknown'
+        except:
+            return 'unknown'
+    
+    def _extract_strategic_items_from_signature(self, signature, race):
+        """Extract strategic items from a pattern signature"""
+        try:
+            strategic_items = []
+            seen_items = {}  # Track items by name to avoid duplicates
+            
+            # Get strategic items from config
+            strategic_item_names = set()
+            if race in config.SC2_STRATEGIC_ITEMS:
+                race_items = config.SC2_STRATEGIC_ITEMS[race]
+                for category in ['buildings', 'units', 'upgrades']:
+                    if category in race_items:
+                        items = [item.strip().lower() for item in race_items[category].split(',')]
+                        strategic_item_names.update(items)
+            
+            # Extract from key_timings (critical strategic buildings)
+            if 'key_timings' in signature:
+                for unit_name, timing in signature['key_timings'].items():
+                    unit_lower = unit_name.lower()
+                    if unit_lower in strategic_item_names:
+                        seen_items[unit_lower] = {
+                            'name': unit_lower,
+                            'timing': timing,
+                            'position': 0  # Key timings are most critical
+                        }
+            
+            # Extract from early_game sequence (includes units AND buildings)
+            # This is crucial for catching strategic units like Marine, Tank, etc.
+            if 'early_game' in signature:
+                for i, step in enumerate(signature['early_game']):
+                    unit_name = step.get('unit', '').lower()
+                    if unit_name in strategic_item_names:
+                        # Only add if not already seen, or if this is earlier
+                        if unit_name not in seen_items:
+                            seen_items[unit_name] = {
+                                'name': unit_name,
+                                'timing': step.get('time', 0),
+                                'position': i
+                            }
+            
+            # Convert to list
+            strategic_items = list(seen_items.values())
+            
+            return strategic_items
+        except Exception as e:
+            return []
+    
+    def _compare_build_signatures(self, new_build_items, pattern_items, race, logger):
+        """
+        Compare two builds directly using strategic items.
+        Returns similarity score 0-1 based on:
+        - Which strategic items appear in both
+        - Timing similarity for matching items
+        - Strategic item weights from SC2_STRATEGIC_ITEMS
+        """
+        try:
+            if not new_build_items or not pattern_items:
+                return 0.0
+            
+            # Create lookup dictionaries by item name
+            new_build_dict = {item['name']: item for item in new_build_items}
+            pattern_dict = {item['name']: item for item in pattern_items}
+            
+            # Find matching items
+            matching_items = set(new_build_dict.keys()) & set(pattern_dict.keys())
+            
+            if not matching_items:
+                return 0.0
+            
+            # Calculate weighted similarity
+            total_weight = 0.0
+            matched_weight = 0.0
+            
+            # Weight all items in pattern (denominator)
+            for item_name, item_data in pattern_dict.items():
+                timing = item_data['timing']
+                
+                # Early timing bonus
+                if timing < 300:  # 5 minutes
+                    weight = 3.0
+                elif timing < 480:  # 8 minutes
+                    weight = 2.0
+                else:
+                    weight = 1.0
+                
+                total_weight += weight
+                
+                # If this item exists in new build, add to matched weight
+                if item_name in matching_items:
+                    new_timing = new_build_dict[item_name]['timing']
+                    
+                    # Timing similarity bonus (closer timing = higher score)
+                    timing_diff = abs(new_timing - timing)
+                    if timing_diff < 30:  # Within 30 seconds
+                        timing_bonus = 1.0
+                    elif timing_diff < 60:  # Within 1 minute
+                        timing_bonus = 0.8
+                    elif timing_diff < 120:  # Within 2 minutes
+                        timing_bonus = 0.5
+                    else:
+                        timing_bonus = 0.3
+                    
+                    matched_weight += weight * timing_bonus
+            
+            # Calculate final similarity
+            if total_weight > 0:
+                similarity = matched_weight / total_weight
+            else:
+                similarity = 0.0
+            
+            return similarity
+            
+        except Exception as e:
+            if logger:
+                logger.error(f"Error comparing build signatures: {e}")
+            return 0.0
+    
     def _get_strategic_keywords_from_comments(self):
         """Extract strategic keywords from all player comments in database"""
         try:

@@ -286,6 +286,18 @@ def process_pubmsg(self, event, logger, contextHistory):
             msgToChannel(self, "Please provide comment text after 'player comment'", logger)
             return
         
+        # Check if accepting suggested pattern
+        if comment_text.lower() == 'yes':
+            if hasattr(self, 'suggested_pattern_comment') and self.suggested_pattern_comment:
+                comment_text = self.suggested_pattern_comment
+                logger.info(f"User accepted suggested pattern: '{comment_text}'")
+                msgToChannel(self, f"✓ Using suggested pattern: '{comment_text}'", logger)
+                # Clear suggestion after use
+                self.suggested_pattern_comment = None
+            else:
+                msgToChannel(self, "No pattern suggestion available. Please provide a comment.", logger)
+                return
+        
         try:
             # Get the latest replay from database
             latest_replay = self.db.get_latest_replay()

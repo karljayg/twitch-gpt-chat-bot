@@ -167,6 +167,19 @@ ML_ANALYSIS_COMMENT_EXACT_MATCH_BONUS = 1.0  # 100% bonus for exact comment matc
 ML_ANALYSIS_COMMENT_KEYWORD_BONUS = 0.5  # 50% bonus for keyword overlap with opponent comments
 ML_ANALYSIS_COMMENT_REVERSE_BONUS = 0.3  # 30% bonus for reverse keyword matches
 
+# Pattern Learning Suggestion Threshold
+# This controls when the system suggests a pattern match after a game.
+# The system uses build-to-build comparison (opponent's strategic items, timing, order).
+# Based on validation testing across 368 games with 10 strategy groups:
+#   - Similar strategies match at 70-93% (avg 73.9%)
+#   - Exact same builds match at 85-100%
+#   - Different strategies score <60%
+# Recommended values:
+#   - 0.60 (60%): Balanced - catches most strategies, filters noise
+#   - 0.70 (70%): Stricter - high confidence only, may miss some edge cases
+#   - 0.35 (35%): Permissive - catches weak matches, risk of false positives
+PATTERN_SUGGESTION_MIN_SIMILARITY = 0.60
+
 # Race-specific strategic items to look for in opponent build orders
 # Used when analyzing opponent builds to identify key tech paths and strategies
 SC2_STRATEGIC_ITEMS = {
