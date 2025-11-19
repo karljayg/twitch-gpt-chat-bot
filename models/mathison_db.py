@@ -383,23 +383,28 @@ class Database:
     
     def get_head_to_head_matchup(self, player1, player2):
         try:
+            # Query that respects parameter order (player1 first, player2 second)
             query = """
             SELECT 
-                LEAST(p1.SC2_UserId, p2.SC2_UserId) AS Player1,
-                GREATEST(p1.SC2_UserId, p2.SC2_UserId) AS Player2,
-                LEAST(r.Player1_Race, r.Player2_Race) AS Player1_Race,
-                GREATEST(r.Player1_Race, r.Player2_Race) AS Player2_Race,
+                CASE 
+                    WHEN LOWER(p1.SC2_UserId) = LOWER(%s) THEN r.Player1_Race
+                    ELSE r.Player2_Race
+                END AS Player1_Race,
+                CASE 
+                    WHEN LOWER(p1.SC2_UserId) = LOWER(%s) THEN r.Player2_Race
+                    ELSE r.Player1_Race
+                END AS Player2_Race,
                 SUM(
                     CASE 
-                        WHEN (p1.SC2_UserId = %s AND r.Player1_Result = 'Win') OR 
-                            (p2.SC2_UserId = %s AND r.Player2_Result = 'Win') THEN 1 
+                        WHEN (LOWER(p1.SC2_UserId) = LOWER(%s) AND r.Player1_Result = 'Win') OR 
+                             (LOWER(p2.SC2_UserId) = LOWER(%s) AND r.Player2_Result = 'Win') THEN 1 
                         ELSE 0 
                     END
                 ) AS Player1_Wins,
                 SUM(
                     CASE 
-                        WHEN (p1.SC2_UserId = %s AND r.Player1_Result = 'Win') OR 
-                            (p2.SC2_UserId = %s AND r.Player2_Result = 'Win') THEN 1 
+                        WHEN (LOWER(p1.SC2_UserId) = LOWER(%s) AND r.Player1_Result = 'Win') OR 
+                             (LOWER(p2.SC2_UserId) = LOWER(%s) AND r.Player2_Result = 'Win') THEN 1 
                         ELSE 0 
                     END
                 ) AS Player2_Wins
@@ -410,25 +415,30 @@ class Database:
             JOIN 
                 Players p2 ON r.Player2_Id = p2.Id
             WHERE 
-                (p1.SC2_UserId = %s AND p2.SC2_UserId = %s) OR 
-                (p1.SC2_UserId = %s AND p2.SC2_UserId = %s)
+                (LOWER(p1.SC2_UserId) = LOWER(%s) AND LOWER(p2.SC2_UserId) = LOWER(%s)) OR 
+                (LOWER(p1.SC2_UserId) = LOWER(%s) AND LOWER(p2.SC2_UserId) = LOWER(%s))
             GROUP BY 
-                LEAST(p1.SC2_UserId, p2.SC2_UserId), 
-                GREATEST(p1.SC2_UserId, p2.SC2_UserId),
-                LEAST(r.Player1_Race, r.Player2_Race), 
-                GREATEST(r.Player1_Race, r.Player2_Race);
+                CASE 
+                    WHEN LOWER(p1.SC2_UserId) = LOWER(%s) THEN r.Player1_Race
+                    ELSE r.Player2_Race
+                END,
+                CASE 
+                    WHEN LOWER(p1.SC2_UserId) = LOWER(%s) THEN r.Player2_Race
+                    ELSE r.Player1_Race
+                END;
             """
 
-            # Execute the query
-            self.cursor.execute(query, (player1, player1, player2, player2, player1, player2, player2, player1))
+            # Execute the query - player1 and player2 determine the perspective
+            # Parameters: SELECT (player1 x2), WIN counts (player1, player1, player2, player2), WHERE (player1, player2, player2, player1), GROUP BY (player1 x2)
+            self.cursor.execute(query, (player1, player1, player1, player1, player2, player2, player1, player2, player2, player1, player1, player1))
             results = self.cursor.fetchall()
             print(f"***********Raw query results: {results}")  
             self.logger.debug(f"Raw query results: {results}")
 
-            # Formatting results
+            # Formatting results with player names from parameters (maintaining order)
             formatted_results = []
             for row in results:
-                matchup_info = f"{row['Player1']} ({row['Player1_Race']}) vs {row['Player2']} ({row['Player2_Race']}), {row['Player1_Wins']} wins - {row['Player2_Wins']} wins"
+                matchup_info = f"{player1} ({row['Player1_Race']}) vs {player2} ({row['Player2_Race']}), {row['Player1_Wins']} wins - {row['Player2_Wins']} wins"
                 formatted_results.append(matchup_info)
 
             return formatted_results

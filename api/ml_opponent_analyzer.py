@@ -569,11 +569,12 @@ class MLOpponentAnalyzer:
     
     def _compare_build_signatures(self, new_build_items, pattern_items, race, logger):
         """
-        Compare two builds directly using strategic items.
+        Compare two builds directly using strategic items with BIDIRECTIONAL matching.
         Returns similarity score 0-1 based on:
         - Which strategic items appear in both
         - Timing similarity for matching items
         - Strategic item weights from SC2_STRATEGIC_ITEMS
+        - PENALTY for extra tech buildings in new build not in pattern
         """
         try:
             if not new_build_items or not pattern_items:
@@ -589,23 +590,33 @@ class MLOpponentAnalyzer:
             if not matching_items:
                 return 0.0
             
-            # Calculate weighted similarity
-            total_weight = 0.0
-            matched_weight = 0.0
+            # Define critical tech buildings that strongly differentiate strategies
+            tech_buildings = {
+                'banelingnest', 'roachwarren', 'spire', 'hydraliskden', 'lurkerden',
+                'infestationpit', 'ultraliskcavern', 'nydusnetwork',
+                'stargate', 'roboticsfacility', 'darkshrine', 'templararchive', 'fleetbeacon',
+                'factory', 'starport', 'fusioncore', 'ghostacademy'
+            }
             
-            # Weight all items in pattern (denominator)
+            # DIRECTION 1: Pattern → New Build (How well does new build match the pattern?)
+            pattern_total_weight = 0.0
+            pattern_matched_weight = 0.0
+            
             for item_name, item_data in pattern_dict.items():
                 timing = item_data['timing']
                 
+                # Extra weight for tech buildings
+                is_tech = item_name in tech_buildings
+                
                 # Early timing bonus
                 if timing < 300:  # 5 minutes
-                    weight = 3.0
+                    weight = 4.0 if is_tech else 3.0
                 elif timing < 480:  # 8 minutes
-                    weight = 2.0
+                    weight = 3.0 if is_tech else 2.0
                 else:
-                    weight = 1.0
+                    weight = 2.0 if is_tech else 1.0
                 
-                total_weight += weight
+                pattern_total_weight += weight
                 
                 # If this item exists in new build, add to matched weight
                 if item_name in matching_items:
@@ -622,11 +633,52 @@ class MLOpponentAnalyzer:
                     else:
                         timing_bonus = 0.3
                     
-                    matched_weight += weight * timing_bonus
+                    pattern_matched_weight += weight * timing_bonus
             
-            # Calculate final similarity
-            if total_weight > 0:
-                similarity = matched_weight / total_weight
+            # DIRECTION 2: New Build → Pattern (Penalty for extra strategic items in new build)
+            new_total_weight = 0.0
+            new_matched_weight = 0.0
+            
+            for item_name, item_data in new_build_dict.items():
+                timing = item_data['timing']
+                
+                # Extra weight for tech buildings
+                is_tech = item_name in tech_buildings
+                
+                # Early timing bonus
+                if timing < 300:  # 5 minutes
+                    weight = 4.0 if is_tech else 3.0
+                elif timing < 480:  # 8 minutes
+                    weight = 3.0 if is_tech else 2.0
+                else:
+                    weight = 2.0 if is_tech else 1.0
+                
+                new_total_weight += weight
+                
+                # If this item exists in pattern, add to matched weight
+                if item_name in matching_items:
+                    pattern_timing = pattern_dict[item_name]['timing']
+                    
+                    # Timing similarity bonus
+                    timing_diff = abs(timing - pattern_timing)
+                    if timing_diff < 30:
+                        timing_bonus = 1.0
+                    elif timing_diff < 60:
+                        timing_bonus = 0.8
+                    elif timing_diff < 120:
+                        timing_bonus = 0.5
+                    else:
+                        timing_bonus = 0.3
+                    
+                    new_matched_weight += weight * timing_bonus
+            
+            # Calculate bidirectional similarity
+            pattern_similarity = pattern_matched_weight / pattern_total_weight if pattern_total_weight > 0 else 0.0
+            new_similarity = new_matched_weight / new_total_weight if new_total_weight > 0 else 0.0
+            
+            # Use harmonic mean (penalizes mismatches more than arithmetic mean)
+            if pattern_similarity > 0 and new_similarity > 0:
+                similarity = 2 * (pattern_similarity * new_similarity) / (pattern_similarity + new_similarity)
             else:
                 similarity = 0.0
             

@@ -773,7 +773,12 @@ def process_ai_message(user_message, conversation_mode="normal", contextHistory=
             else:
                 if conversation_mode == "replay_analysis":
                     msg = (f"As a {mood} observer of matches in StarCraft 2, {perspective}. "
-                            + "IMPORTANT: Use ONLY the Winners/Losers data provided - do NOT make assumptions about who won. "
+                            + "CRITICAL RULES: "
+                            + "1. Use ONLY the Winners/Losers data provided - do NOT make assumptions about who won. "
+                            + "2. ALWAYS cite exact numbers from 'Units Lost by' section - NEVER use vague phrases like 'significantly more', 'lost more', 'lost less'. "
+                            + "3. Example of CORRECT: 'arnoldatgym lost 45 Marines vs KJ's 12' - Example of WRONG: 'lost significantly more Marines'. "
+                            + "4. Include the actual counts for units (e.g., '183 drones', '61 probes') - the data is provided, use it. "
+                            + "5. When comparing units lost, be mathematically accurate: if one player lost 61 probes and another lost 2, do NOT say 'almost twice as many'. "
                             + msg)
                 else:
                     msg = (f"As a {mood} observer of matches in StarCraft 2, {perspective}, "

@@ -214,7 +214,7 @@ BOT_MOODS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
              14, 15, 16, 17, 18, 19]  # selected flavors of mood
 # additional selected perspectives of response
 BOT_PERSPECTIVES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-PERSPECTIVE_INDEX_CUTOFF = 6  # if 4, the first 4 index are for replays: 0,1,2,3
+PERSPECTIVE_INDEX_CUTOFF = 7  # if 4, the first 4 index are for replays: 0,1,2,3
 
 # mood and perspectives options selected above (not to be confused with Google Perspective API
 MOOD_OPTIONS = [
@@ -256,16 +256,17 @@ MOOD_OPTIONS = [
 ]
 
 # PERSPECTIVE_OPTIONS for AI responses
-# Note: The first 6 options (index 0-5) are used for replay analysis
+# Note: The first 7 options (index 0-6) are used for replay analysis
 # All replay analysis prompts include anti-hallucination instructions to use ONLY the Winners/Losers data provided
 PERSPECTIVE_OPTIONS = [
     "talk about build order or units lost in a very short poem of 20 words or less. If mentioning game results, use only the Winners/Losers data provided.",
-    "find something interesting in the replay summary, limit to 15 words. If mentioning game results, use only the Winners/Losers data provided.",
-    "point out the most killed total and units for each player based on replay summary, limit to 15 words. If mentioning game results, use only the Winners/Losers data provided.",
+    "identify and name the hero unit from 'Units Lost by' section (e.g. 'Void Ray', 'Siege Tank'), mention its count if shown, limit to 12 words",
+    "pick a specific strategic detail from build order or units lost (mention actual unit names/buildings/numbers), limit to 18 words",
+    "mention specific unit types and counts from 'Units Lost by' section (e.g. '183 drones vs 43'), highlight biggest differences, limit to 20 words",
     "write game summary in haiku using specific units and even the map name, limit to 25 words. Include who won/lost based on the Winners/Losers data.",
     "Based on the EXACT game results shown (Winners/Losers), mention the game duration minutes, and make a gamer joke about it, keeping in mind average game time is 15 minutes. Use ONLY the Winners/Losers data provided - do NOT make assumptions about who won.",
-    "do a friendly roast to either player based on something in their build order, units created or lost, limit to 25 words. Remember who actually won/lost from the Winners/Losers data.",
-    # above are the first 6 for replay analysis (index 0-5), per PERSPECTIVE_INDEX_CUTOFF = 6
+    "do a friendly roast citing specific units/buildings/numbers from build order or units lost (e.g. 'built 8 Spine Crawlers'), limit to 25 words. Remember who actually won/lost from the Winners/Losers data.",
+    # above are the first 7 for replay analysis (index 0-6), per PERSPECTIVE_INDEX_CUTOFF = 7
     # All replay analysis prompts include anti-hallucination instructions to prevent AI from making up wrong winners/losers
     "respond casually and concisely in only 15 words",
     "be extremely short in response, at most 16 words",

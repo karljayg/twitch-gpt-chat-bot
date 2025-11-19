@@ -389,6 +389,15 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         logger.debug(
             "================================================SHUTTING DOWN BOT========================================")
         
+        # Set a failsafe timer to force exit if graceful shutdown hangs
+        def force_exit():
+            logger.warning("Graceful shutdown took too long - forcing exit")
+            sys.exit(0)
+        
+        failsafe_timer = threading.Timer(3.0, force_exit)
+        failsafe_timer.daemon = True
+        failsafe_timer.start()
+        
         # Check if IRC connection exists before trying to disconnect
         if hasattr(self, 'connection') and self.connection:
             try:
@@ -953,12 +962,52 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                         print("✓ High confidence match!")
                         print()
                         print("To accept, type in Twitch:  player comment yes")
+                        
+                        # Send pattern match commentary to Twitch chat (with OpenAI variation)
+                        if hasattr(self, 'connection') and hasattr(self.connection, 'privmsg'):
+                            base_message = f"Pattern learning shows {similarity:.0f}% match: {pattern_comment}. Does this match what they did?"
+                            
+                            # Get OpenAI to rephrase naturally while keeping key elements
+                            try:
+                                from api.chat_utils import process_ai_message
+                                rephrase_prompt = f"Rephrase casually but KEEP exact percentage ({similarity:.0f}%), pattern name ('{pattern_comment}'), and ask if this MATCHES/describes what the opponent did (not opinion about the strategy). Max 25 words: {base_message}"
+                                varied_message = process_ai_message(rephrase_prompt, "normal", None, "twitch", logger)
+                                chat_message = varied_message if varied_message else base_message
+                            except Exception as e:
+                                logger.debug(f"OpenAI rephrase failed, using base message: {e}")
+                                chat_message = base_message
+                            
+                            try:
+                                self.connection.privmsg(self.channel, chat_message)
+                                logger.debug(f"Sent pattern match commentary to Twitch: {chat_message}")
+                            except Exception as e:
+                                logger.error(f"Error sending pattern match to Twitch chat: {e}")
                     else:
                         # Clear any previous suggestion
                         self.suggested_pattern_comment = None
                         print("⚠ Low confidence match - please provide custom comment")
                         print()
                         print("To add custom, type in Twitch:  player comment <your text>")
+                        
+                        # Send low confidence pattern match commentary to Twitch chat (with OpenAI variation)
+                        if hasattr(self, 'connection') and hasattr(self.connection, 'privmsg'):
+                            base_message = f"Found something similar ({similarity:.0f}%): {pattern_comment}. Is this close to what they did?"
+                            
+                            # Get OpenAI to rephrase naturally while keeping key elements
+                            try:
+                                from api.chat_utils import process_ai_message
+                                rephrase_prompt = f"Rephrase casually but KEEP exact percentage ({similarity:.0f}%), pattern name ('{pattern_comment}'), and ask if this is SIMILAR/close to what the opponent did. Max 25 words: {base_message}"
+                                varied_message = process_ai_message(rephrase_prompt, "normal", None, "twitch", logger)
+                                chat_message = varied_message if varied_message else base_message
+                            except Exception as e:
+                                logger.debug(f"OpenAI rephrase failed, using base message: {e}")
+                                chat_message = base_message
+                            
+                            try:
+                                self.connection.privmsg(self.channel, chat_message)
+                                logger.debug(f"Sent low confidence pattern match commentary to Twitch: {chat_message}")
+                            except Exception as e:
+                                logger.error(f"Error sending pattern match to Twitch chat: {e}")
                 else:
                     # No patterns matched
                     self.suggested_pattern_comment = None
@@ -967,6 +1016,26 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                     print()
                     print("Please describe this strategy in Twitch:")
                     print("  player comment <your description>")
+                    
+                    # Send no pattern match commentary to Twitch chat (with OpenAI variation)
+                    if hasattr(self, 'connection') and hasattr(self.connection, 'privmsg'):
+                        base_message = f"Pattern learning found no matches for {opponent_name}'s build. What strategy was this?"
+                        
+                        # Get OpenAI to rephrase naturally while keeping key elements
+                        try:
+                            from api.chat_utils import process_ai_message
+                            rephrase_prompt = f"Rephrase this casually but KEEP the opponent name ('{opponent_name}') and questioning tone. Max 20 words: {base_message}"
+                            varied_message = process_ai_message(rephrase_prompt, "normal", None, "twitch", logger)
+                            chat_message = varied_message if varied_message else base_message
+                        except Exception as e:
+                            logger.debug(f"OpenAI rephrase failed, using base message: {e}")
+                            chat_message = base_message
+                        
+                        try:
+                            self.connection.privmsg(self.channel, chat_message)
+                            logger.debug(f"Sent no pattern match commentary to Twitch: {chat_message}")
+                        except Exception as e:
+                            logger.error(f"Error sending pattern match to Twitch chat: {e}")
             else:
                 # No analysis data (no patterns exist yet)
                 self.suggested_pattern_comment = None
@@ -974,6 +1043,26 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 print("Building pattern database - please add your first comment!")
                 print()
                 print("Type in Twitch:  player comment <your description>")
+                
+                # Send no patterns available commentary to Twitch chat (with OpenAI variation)
+                if hasattr(self, 'connection') and hasattr(self.connection, 'privmsg'):
+                    base_message = f"Pattern learning database is empty - describe {opponent_name}'s strategy to start building the database!"
+                    
+                    # Get OpenAI to rephrase naturally while keeping key elements
+                    try:
+                        from api.chat_utils import process_ai_message
+                        rephrase_prompt = f"Rephrase this casually but KEEP the opponent name ('{opponent_name}') and the call to action about describing the strategy. Max 20 words: {base_message}"
+                        varied_message = process_ai_message(rephrase_prompt, "normal", None, "twitch", logger)
+                        chat_message = varied_message if varied_message else base_message
+                    except Exception as e:
+                        logger.debug(f"OpenAI rephrase failed, using base message: {e}")
+                        chat_message = base_message
+                    
+                    try:
+                        self.connection.privmsg(self.channel, chat_message)
+                        logger.debug(f"Sent no patterns available commentary to Twitch: {chat_message}")
+                    except Exception as e:
+                        logger.error(f"Error sending pattern match to Twitch chat: {e}")
             
             print()
             print("To skip, don't type anything (DB will remain empty)")

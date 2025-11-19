@@ -15,15 +15,57 @@ def game_started(self, current_game, contextHistory, logger):
     
     # prevent the array brackets from being included
     game_player_names = ', '.join(current_game.get_player_names())
+    
+    # Validate that we have actual players before processing
+    if current_game.total_players == 0 or not game_player_names or game_player_names.strip() == '':
+        logger.debug(f"Ignoring game start event - no players detected (total_players: {current_game.total_players}, names: '{game_player_names}')")
+        return game_player_names
+    
     try:
-        # if game_type == "1v1":
         if current_game.total_players == 2:
+            # 1v1 game
             logger.debug("1v1 game, checking the players")
             game_player_names = [name.strip()
                                     for name in game_player_names.split(',')]
             if config.STREAMER_NICKNAME not in game_player_names:
-            # streamer is neither player, likely observing
-                msg = f" \n New match starting between these players: {game_player_names} \n"
+                # Observing mode - provide analysis of both players based on database records
+                logger.debug(f"Observer mode: {config.STREAMER_NICKNAME} not playing, analyzing {game_player_names}")
+                
+                player1, player2 = game_player_names[0], game_player_names[1]
+                player1_race = current_game.get_player_race(player1)
+                player2_race = current_game.get_player_race(player2)
+                
+                # Get head-to-head record from database (reusing existing chat command function)
+                head_to_head = self.db.get_head_to_head_matchup(player1, player2)
+                
+                msg = f"[OBSERVER MODE - You are observing, not playing in this match]\n\n"
+                msg += f"Match starting: {player1} ({player1_race}) vs {player2} ({player2_race})\n\n"
+                
+                if head_to_head and len(head_to_head) > 0:
+                    # head_to_head is a list like: ["Player1 (Race1) vs Player2 (Race2), X wins - Y wins", ...]
+                    msg += f"Based on our database records, their head-to-head matchup history:\n"
+                    for matchup in head_to_head:
+                        msg += f"  • {matchup}\n"
+                    msg += "\n"
+                else:
+                    msg += "Based on our database, these players have not faced each other before (or we haven't recorded their games).\n\n"
+                
+                # Get general info about each player from database (if they've played before)
+                player1_record = self.db.check_player_and_race_exists(player1, player1_race)
+                player2_record = self.db.check_player_and_race_exists(player2, player2_race)
+                
+                if player1_record:
+                    msg += f"From our database, {player1} last played on {player1_record.get('Date_Played', 'unknown date')}.\n"
+                    if player1_record.get('Player_Comments'):
+                        msg += f"Strategic notes on {player1}: {player1_record['Player_Comments'][:200]}\n"
+                
+                if player2_record:
+                    msg += f"From our database, {player2} last played on {player2_record.get('Date_Played', 'unknown date')}.\n"
+                    if player2_record.get('Player_Comments'):
+                        msg += f"Strategic notes on {player2}: {player2_record['Player_Comments'][:200]}\n"
+                
+                msg += "\n[INSTRUCTIONS: Provide natural commentary on this observed match. Focus ONLY on the two players competing. Do NOT reference the streamer's record or the streamer playing. This is observer commentary only.]"
+                
                 processMessageForOpenAI(self, msg, "in_game", logger, contextHistory)
             else:
                 self.play_SC2_sound("start")
@@ -91,19 +133,29 @@ def game_started(self, current_game, contextHistory, logger):
                             raw_records = self.db.get_player_records(player_name)
                             logger.debug(f"[RECORD DEBUG] Raw records for {player_name}: {raw_records}")
                             
-                            # Parse first row to extract wins/losses (don't trust AI to do math)
+                            # Parse the row that matches KJ (don't just assume first row)
                             opponent_wins = 0
                             opponent_losses = 0
+                            import re
                             if raw_records:
-                                first_row = raw_records[0]
-                                logger.debug(f"[RECORD DEBUG] First row (vs {config.STREAMER_NICKNAME}): {first_row}")
-                                # Parse: "SirMalagant, KJ, 129 wins, 203 losses"
-                                import re
-                                match = re.search(r'(\d+)\s+wins?,\s*(\d+)\s+losses?', first_row)
-                                if match:
-                                    opponent_wins = int(match.group(1))
-                                    opponent_losses = int(match.group(2))
-                                    logger.debug(f"[RECORD DEBUG] Parsed: opponent has {opponent_wins} wins, {opponent_losses} losses")
+                                # Find the row that contains the streamer's name
+                                streamer_row = None
+                                for row in raw_records:
+                                    # Check if this row is vs the streamer (case-insensitive)
+                                    if config.STREAMER_NICKNAME.lower() in row.lower():
+                                        streamer_row = row
+                                        break
+                                
+                                if streamer_row:
+                                    logger.debug(f"[RECORD DEBUG] Found row vs {config.STREAMER_NICKNAME}: {streamer_row}")
+                                    # Parse: "SirMalagant, KJ, 129 wins, 203 losses"
+                                    match = re.search(r'(\d+)\s+wins?,\s*(\d+)\s+losses?', streamer_row)
+                                    if match:
+                                        opponent_wins = int(match.group(1))
+                                        opponent_losses = int(match.group(2))
+                                        logger.debug(f"[RECORD DEBUG] Parsed: opponent has {opponent_wins} wins, {opponent_losses} losses vs {config.STREAMER_NICKNAME}")
+                                else:
+                                    logger.warning(f"[RECORD DEBUG] No record found for {player_name} vs {config.STREAMER_NICKNAME}")
                             
                             player_record = "past results:\n" + '\n'.join(raw_records)
 
@@ -214,6 +266,9 @@ def game_started(self, current_game, contextHistory, logger):
                                 msg += f"Mention all details here, do not exclude any info: {config.STREAMER_NICKNAME} as {streamer_picked_race} played the {player_current_race} player "                                 
                             msg += f"{player_name} {how_long_ago} in {{Map name}},"
                             msg += f" a {{Win/Loss for {config.STREAMER_NICKNAME}}} in {{game duration}}. \n"
+                            msg += f"CRITICAL: In the replay summary below, {config.STREAMER_NICKNAME} is YOUR player. {player_name} is the OPPONENT. "
+                            msg += f"When mentioning units/buildings, make sure you correctly identify which player built them. "
+                            msg += f"Look at the section headers (e.g., '{config.STREAMER_NICKNAME}'s Build Order' vs '{player_name}'s Build Order'). "
                             msg += "As a StarCraft 2 expert, comment on last game summary. Be concise with only 2 sentences total of 25 words or less. \n"
                             msg += "-----\n"
                             msg += f" \n {result['Replay_Summary']} \n"
@@ -224,16 +279,18 @@ def game_started(self, current_game, contextHistory, logger):
                                 # Get race-specific strategic items from config
                                 race_items = config.SC2_STRATEGIC_ITEMS.get(player_current_race, {'buildings': '', 'units': '', 'upgrades': ''})
                                 
-                                msg = f"The opponent {player_name}'s build order: {first_few_build_steps} \n"
+                                msg = f"CRITICAL: This is the OPPONENT {player_name}'s build order (NOT {config.STREAMER_NICKNAME}'s): {first_few_build_steps} \n"
+                                msg += f"These units/buildings belong to {player_name}, the opponent. "
                                 msg += "Keep it short 25 words or less: \n"
-                                msg += f"Mention any of these found in the opponent's build order: "
+                                msg += f"Mention any of these found in the OPPONENT's build order: "
                                 msg += f"{race_items['buildings']}\n"
                                 msg += f"{race_items['units']}\n"
                                 msg += f"{race_items['upgrades']}\n"
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
 
                                 msg = "Keep it concise in 400 characters or less: \n"
-                                msg += f"<{player_name}>'s build order: "
+                                msg += f"IMPORTANT: {player_name} is the OPPONENT (not {config.STREAMER_NICKNAME}). "
+                                msg += f"The build order below shows what {player_name} (opponent) built: "
                                 msg += f"Summarize in chronological order:\n"
                                 msg += "- Show the first 10-15 key steps in order\n"
                                 msg += "- Group consecutive identical items with counts (e.g., 'SCV x3')\n"
@@ -242,8 +299,8 @@ def game_started(self, current_game, contextHistory, logger):
                                 msg += "- Format: 'SCV x3, Barracks, SCV x2, Marine x2, Orbital, Marine x3, Reactor'\n"
                                 msg += "- This shows: 3 SCVs, then Barracks, then 2 more SCVs, then 2 Marines, then Orbital, then 3 more Marines, then Reactor\n"
                                 msg += "-----\n"
-                                msg += f"{player_name}'s build order versus {config.STREAMER_NICKNAME}'s {streamer_picked_race}: {first_few_build_steps} \n"
-                                msg += f"omit {config.STREAMER_NICKNAME}'s build order. \n"                                
+                                msg += f"OPPONENT {player_name}'s build order versus {config.STREAMER_NICKNAME}'s {streamer_picked_race}: {first_few_build_steps} \n"
+                                msg += f"DO NOT mention {config.STREAMER_NICKNAME}'s build order - ONLY the opponent's. \n"                                
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
                             else:
                                 if streamer_picked_race == "Random":
@@ -274,6 +331,79 @@ def game_started(self, current_game, contextHistory, logger):
                             #self.processMessageForOpenAI(msg, "in_game")
                             processMessageForOpenAI(self, msg, "in_game", logger, contextHistory)
                         break  # avoid processingMessageForOpenAI again below
+        
+        else:
+            # Team game (2v2, 3v3, 4v4, etc.)
+            logger.debug(f"Team game detected: {current_game.total_players} players")
+            
+            player_list = [name.strip() for name in game_player_names.split(',')]
+            
+            # Check if streamer is actually playing (not observing)
+            if config.STREAMER_NICKNAME not in player_list:
+                logger.debug(f"Team game observer mode - {config.STREAMER_NICKNAME} not playing")
+                msg = f"Team match starting with {current_game.total_players} players: {', '.join(player_list)}. "
+                msg += "You are observing this team game. Provide brief 2-sentence commentary."
+                processMessageForOpenAI(self, msg, "in_game", logger, contextHistory)
+            else:
+                # Streamer is playing - identify teammates
+                logger.debug(f"{config.STREAMER_NICKNAME} is playing in team game")
+                
+                teammates = [p for p in player_list if p != config.STREAMER_NICKNAME]
+                teammate_str = ', '.join(teammates) if teammates else "unknown"
+                
+                # Get races for all players
+                player_races = {}
+                for player in player_list:
+                    try:
+                        player_races[player] = current_game.get_player_race(player)
+                    except:
+                        player_races[player] = 'Unknown'
+                
+                streamer_race = player_races.get(config.STREAMER_NICKNAME, 'Unknown')
+                
+                # Build commentary message
+                msg = f"Team game starting! {config.STREAMER_NICKNAME} ({streamer_race}) is teaming up with: {teammate_str}.\n"
+                msg += f"All players: "
+                for player in player_list:
+                    msg += f"{player} ({player_races[player]}), "
+                msg = msg.rstrip(', ') + ".\n\n"
+                
+                # Check database for previous games with teammates
+                teammate_info = []
+                for teammate in teammates:
+                    teammate_race = player_races.get(teammate, 'Unknown')
+                    record = self.db.check_player_and_race_exists(teammate, teammate_race)
+                    if record:
+                        last_played = record.get('Date_Played')
+                        if last_played:
+                            try:
+                                time_diff = datetime.now() - last_played
+                                days_ago = time_diff.days
+                                if days_ago == 0:
+                                    time_ago = "today"
+                                elif days_ago == 1:
+                                    time_ago = "yesterday"
+                                else:
+                                    time_ago = f"{days_ago} days ago"
+                                teammate_info.append(f"Previously encountered {teammate} ({teammate_race}) - last seen {time_ago}")
+                            except:
+                                teammate_info.append(f"Previously encountered {teammate} ({teammate_race})")
+                        else:
+                            teammate_info.append(f"Previously encountered {teammate} ({teammate_race})")
+                    else:
+                        teammate_info.append(f"First time with {teammate} ({teammate_race})")
+                
+                if teammate_info:
+                    msg += "Teammate history:\n"
+                    for info in teammate_info:
+                        msg += f"  • {info}\n"
+                    msg += "\n"
+                
+                msg += "Based on the above, provide brief encouraging 2-sentence team commentary (max 30 words). "
+                msg += f"Focus on the team composition and wish {config.STREAMER_NICKNAME} and teammates good luck."
+                
+                logger.debug(f"Sending team game commentary to OpenAI: {msg}")
+                processMessageForOpenAI(self, msg, "in_game", logger, contextHistory)
 
     except Exception as e:
         logger.debug(f"error with find if player exists: {e}")

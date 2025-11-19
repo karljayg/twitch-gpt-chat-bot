@@ -288,11 +288,21 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
             self.total_seconds = game_duration_result["totalSeconds"]
             replay_summary += f"Game Duration: {game_duration_result['gameDuration']}\n\n"
 
+            # Dynamic build order depth based on game length
+            # Strategy is determined by early-mid game (first ~10 minutes)
+            # Capture enough to see key tech transitions but not late-game pivots
+            if self.total_seconds < 600:  # < 10 minutes (early all-ins, rushes)
+                base_build_count = 60  # Capture full game
+            else:  # >= 10 minutes (longer games)
+                base_build_count = 90  # Capture ~8-10 minutes (key tech choices)
+            
+            logger.debug(f"Game duration: {self.total_seconds}s - using {base_build_count} build order steps")
+            
             # Total Players greater than 2, usually gets the total token size to 6k, and max is 4k so we divide by 2 to be safe
             if current_game.total_players > 2:
-                build_order_count = config.BUILD_ORDER_COUNT_TO_ANALYZE / 2
+                build_order_count = base_build_count / 2
             else:
-                build_order_count = config.BUILD_ORDER_COUNT_TO_ANALYZE
+                build_order_count = base_build_count
 
             units_lost_summary = {player_key: player_data['unitsLost'] for player_key, player_data in replay_data['players'].items()}
             for player_key, units_lost in units_lost_summary.items():
@@ -378,6 +388,15 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
                     # Check if we have replay data available
                     if hasattr(self, 'last_replay_data') and self.last_replay_data:
                         logger.info("Replay data available - triggering pattern learning system")
+                        
+                        # Check if streamer was observing (not playing)
+                        player_names_list = [name.strip() for name in captured_game_player_names.split(',')]
+                        player_accounts_lower = [name.lower() for name in config.SC2_PLAYER_ACCOUNTS]
+                        streamer_is_playing = any(name.lower() in player_accounts_lower for name in player_names_list)
+                        
+                        if not streamer_is_playing:
+                            logger.info("Streamer was observing (not playing) - skipping pattern learning and comment prompt")
+                            return
                         
                         # Prepare game data for comment prompt
                         logger.debug(f"DEBUG: captured_game_player_names before _prepare_game_data_for_comment: {repr(captured_game_player_names)}")
@@ -465,6 +484,15 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
                     # Check if we have replay data available
                     if hasattr(self, 'last_replay_data') and self.last_replay_data:
                         logger.info("Replay data available - triggering pattern learning system")
+                        
+                        # Check if streamer was observing (not playing)
+                        player_names_list = [name.strip() for name in captured_game_player_names.split(',')]
+                        player_accounts_lower = [name.lower() for name in config.SC2_PLAYER_ACCOUNTS]
+                        streamer_is_playing = any(name.lower() in player_accounts_lower for name in player_names_list)
+                        
+                        if not streamer_is_playing:
+                            logger.info("Streamer was observing (not playing) - skipping pattern learning and comment prompt")
+                            return
                         
                         # Prepare game data for comment prompt
                         game_data = self._prepare_game_data_for_comment(captured_game_player_names, captured_winning_players, captured_losing_players, logger)
