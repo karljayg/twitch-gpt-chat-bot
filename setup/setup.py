@@ -58,9 +58,9 @@ try:
             print(f"Executing statement {i}/{len(statements)}...")
             cursor.execute(statement)
             connection.commit()
-            print(f"✓ Statement {i} completed successfully")
+            print(f"[OK] Statement {i} completed successfully")
         except mysql.connector.Error as stmt_err:
-            print(f"✗ Error in statement {i}: {stmt_err}")
+            print(f"[X] Error in statement {i}: {stmt_err}")
             print(f"Statement: {statement[:100]}...")
             connection.rollback()
             

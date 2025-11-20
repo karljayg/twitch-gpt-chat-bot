@@ -265,7 +265,7 @@ PERSPECTIVE_OPTIONS = [
     "mention specific unit types and counts from 'Units Lost by' section (e.g. '183 drones vs 43'), highlight biggest differences, limit to 20 words",
     "write game summary in haiku using specific units and even the map name, limit to 25 words. Include who won/lost based on the Winners/Losers data.",
     "Based on the EXACT game results shown (Winners/Losers), mention the game duration minutes, and make a gamer joke about it, keeping in mind average game time is 15 minutes. Use ONLY the Winners/Losers data provided - do NOT make assumptions about who won.",
-    "do a friendly roast citing specific units/buildings/numbers from build order or units lost (e.g. 'built 8 Spine Crawlers'), limit to 25 words. Remember who actually won/lost from the Winners/Losers data.",
+    "do a friendly roast using ONLY actual specific units/buildings/numbers from THIS GAME's build order or units lost data provided, limit to 25 words. DO NOT invent units not in the data. Remember who actually won/lost from the Winners/Losers data.",
     # above are the first 7 for replay analysis (index 0-6), per PERSPECTIVE_INDEX_CUTOFF = 7
     # All replay analysis prompts include anti-hallucination instructions to prevent AI from making up wrong winners/losers
     "respond casually and concisely in only 15 words",
@@ -342,3 +342,58 @@ SC2REPLAY_STATS_TIMESTAMP = ""
 # Other settings
 TOXIC_KEYWORDS = ["cussword"]
 TOXIC_RESPONSE = "I'd respond to that but I don't think I should."
+
+# Unit/Building/Upgrade Abbreviations for Twitch Chat
+# Used to make build orders more readable by replacing full names with common slang
+UNIT_ABBREVIATIONS = {
+    # TERRAN
+    'Siege Tank': 'Tank',
+    'Battlecruiser': 'BC',
+    'Widow Mine': 'Mine',
+    'CommandCenter': 'CC',
+    'Orbital Command': 'Orbital',
+    'SupplyDepot': 'Depot',
+    'Barracks': 'Rax',
+    'BarracksReactor': 'Rax Reactor',
+    'BarracksTechLab': 'Rax Tech',
+    'Factory': 'Fact',
+    'FactoryTechLab': 'Fact Tech',
+    'Refinery': 'Gas',
+    'EngineeringBay': 'Ebay',
+    'MissileTurret': 'Turret',
+    
+    # PROTOSS
+    'Dark Templar': 'DT',
+    'Void Ray': 'VoidRay',
+    'Warp Prism': 'Prism',
+    'Observer': 'Obs',
+    'Assimilator': 'Gas',
+    'Gateway': 'Gate',
+    'CyberneticsCore': 'Cyber',
+    'PhotonCannon': 'Cannon',
+    'ShieldBattery': 'Battery',
+    'TwilightCouncil': 'Twilight',
+    'Stargate': 'SG',
+    'RoboticsFacility': 'Robo',
+    'RoboticsBay': 'Robo Bay',
+    'FleetBeacon': 'Fleet',
+    'Extended Thermal Lance': 'Range',
+    
+    # ZERG
+    'Zergling': 'Ling',
+    'Baneling': 'Bane',
+    'Hydralisk': 'Hydra',
+    'Mutalisk': 'Muta',
+    'Ultralisk': 'Ultra',
+    'Overlord': 'OL',
+    'Hatchery': 'Hatch',
+    'Extractor': 'Gas',
+    'SpawningPool': 'Pool',
+    'BanelingNest': 'Bane Nest',
+    'RoachWarren': 'Roach Warren',
+    'HydraliskDen': 'Hydra Den',
+    'SpineCrawler': 'Spine',
+    'SporeCrawler': 'Spore',
+    'EvolutionChamber': 'Evo',
+    'Metabolic Boost': 'Ling Speed',
+}

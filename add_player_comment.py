@@ -46,7 +46,7 @@ def main():
         elif command == "add":
             # Add a comment for a specific game
             if len(sys.argv) < 6:
-                print("❌ Usage: python add_player_comment.py add <opponent> <map> <date> <comment>")
+                print("[X] Usage: python add_player_comment.py add <opponent> <map> <date> <comment>")
                 print("   Example: python add_player_comment.py add DKeyAbuser \"Royal Blood LE\" \"2025-09-01 23:45\" \"cannon rush into DT\"")
                 return
             
@@ -61,12 +61,12 @@ def main():
             if success:
                 print(f"✅ Comment added successfully: {comment}")
             else:
-                print(f"❌ Failed to add comment. Game not found or error occurred.")
+                print(f"[X] Failed to add comment. Game not found or error occurred.")
         
         elif command == "edit":
             # Edit an AI comment with a player comment
             if len(sys.argv) < 6:
-                print("❌ Usage: python add_player_comment.py edit <opponent> <map> <date> <new_comment>")
+                print("[X] Usage: python add_player_comment.py edit <opponent> <map> <date> <new_comment>")
                 print("   Example: python add_player_comment.py edit DKeyAbuser \"Royal Blood LE\" \"2025-09-01 23:45\" \"cannon rush into DT to collosus\"")
                 return
             
@@ -81,17 +81,17 @@ def main():
             if success:
                 print(f"✅ Comment edited successfully: {new_comment}")
             else:
-                print(f"❌ Failed to edit comment. Game not found or error occurred.")
+                print(f"[X] Failed to edit comment. Game not found or error occurred.")
         
         elif command == "help":
             show_usage()
         
         else:
-            print(f"❌ Unknown command: {command}")
+            print(f"[X] Unknown command: {command}")
             show_usage()
             
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"[X] Error: {e}")
         import traceback
         traceback.print_exc()
 

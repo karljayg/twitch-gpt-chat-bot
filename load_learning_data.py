@@ -73,7 +73,7 @@ class LearningDataRegenerator:
             filepath = os.path.join('data', filename)
             if os.path.exists(filepath):
                 os.remove(filepath)
-                print(f"  ❌ Deleted: {filename}")
+                print(f"  [X] Deleted: {filename}")
         
         print("🧹 Data files cleared!")
     
@@ -97,7 +97,7 @@ class LearningDataRegenerator:
             return replays
             
         except Exception as e:
-            print(f"❌ Error querying database: {e}")
+            print(f"[X] Error querying database: {e}")
             return []
     
     def extract_player_names_from_summary(self, replay_summary):
@@ -181,7 +181,7 @@ class LearningDataRegenerator:
             return build_order
             
         except Exception as e:
-            print(f"    ⚠️  Error parsing build order: {e}")
+            print(f"    [!]  Error parsing build order: {e}")
             return []
     
     def detect_comment_about_opponent(self, comment, opponent_name):
@@ -219,7 +219,7 @@ class LearningDataRegenerator:
             return False
             
         except Exception as e:
-            print(f"    ⚠️  Error detecting comment type: {e}")
+            print(f"    [!]  Error detecting comment type: {e}")
             return False
 
     def create_game_data_from_replay(self, replay_record):
@@ -229,7 +229,7 @@ class LearningDataRegenerator:
             parsed_data = self.extract_player_names_from_summary(replay_record['Replay_Summary'])
             
             if not parsed_data['parsing_success']:
-                print(f"  ⚠️  Failed to parse player names: {parsed_data.get('error', 'Unknown error')}")
+                print(f"  [!]  Failed to parse player names: {parsed_data.get('error', 'Unknown error')}")
                 return None
             
             # Create game_player_names string as it would be in the real system
@@ -255,7 +255,7 @@ class LearningDataRegenerator:
                     game_data['opponent_name'] = 'Unknown'
                     game_data['opponent_race'] = 'Unknown'
             else:
-                print(f"  ⚠️  Streamer '{config.STREAMER_NICKNAME}' not found in: {game_player_names}")
+                print(f"  [!]  Streamer '{config.STREAMER_NICKNAME}' not found in: {game_player_names}")
                 return None
             
             # Determine game result for the streamer
@@ -300,12 +300,12 @@ class LearningDataRegenerator:
                 print(f"    🔨 Extracted {len(build_order)} build steps for {target_player}")
             else:
                 target_player = game_data['opponent_name'] if is_about_opponent else config.STREAMER_NICKNAME
-                print(f"    ⚠️  No build order found for {target_player}")
+                print(f"    [!]  No build order found for {target_player}")
             
             return game_data
             
         except Exception as e:
-            print(f"  ❌ Error creating game data: {str(e)}")
+            print(f"  [X] Error creating game data: {str(e)}")
             return None
     
     def regenerate_all_learning_data(self):
@@ -328,7 +328,7 @@ class LearningDataRegenerator:
         replays = self.get_replays_with_comments()
         
         if not replays:
-            print("❌ No replays found with comments. Exiting.")
+            print("[X] No replays found with comments. Exiting.")
             return
         
         # Step 5: Process each replay
@@ -350,7 +350,7 @@ class LearningDataRegenerator:
                 game_data = self.create_game_data_from_replay(replay)
                 
                 if game_data is None:
-                    print(f"  ❌ Failed to create game data")
+                    print(f"  [X] Failed to create game data")
                     error_count += 1
                     continue
                 
@@ -369,7 +369,7 @@ class LearningDataRegenerator:
                     print(f"\n📊 Progress: {i}/{len(replays)} processed ({success_count} success, {error_count} errors)")
                 
             except Exception as e:
-                print(f"  ❌ Error processing replay: {str(e)}")
+                print(f"  [X] Error processing replay: {str(e)}")
                 error_count += 1
                 continue
         
@@ -379,7 +379,7 @@ class LearningDataRegenerator:
         print("=" * 70)
         print(f"📊 Total replays processed: {len(replays)}")
         print(f"✅ Successful: {success_count}")
-        print(f"❌ Errors: {error_count}")
+        print(f"[X] Errors: {error_count}")
         print(f"📊 Success rate: {(success_count/len(replays)*100):.1f}%")
         
         # Step 7: Show generated files
@@ -421,7 +421,7 @@ class LearningDataRegenerator:
                     except:
                         pass
             else:
-                print(f"  ❌ {filename}: Not generated")
+                print(f"  [X] {filename}: Not generated")
     
 def main():
     print("🚀 StarCraft 2 Learning Data Regenerator")
@@ -431,9 +431,9 @@ def main():
     print()
     
     # Confirm with user
-    response = input("⚠️  This will backup and replace all data/*.json files. Continue? (y/N): ").strip().lower()
+    response = input("[!]  This will backup and replace all data/*.json files. Continue? (y/N): ").strip().lower()
     if response not in ['y', 'yes']:
-        print("❌ Operation cancelled by user.")
+        print("[X] Operation cancelled by user.")
         return
     
     try:
@@ -458,11 +458,11 @@ def main():
                             comment_text = comment.get('comment', '')[:40]
                             print(f"   {i+1}. {opponent} - \"{comment_text}...\"")
                     else:
-                        print("⚠️  No comments found in regenerated data")
+                        print("[!]  No comments found in regenerated data")
             except Exception as e:
-                print(f"⚠️  Could not verify data: {e}")
+                print(f"[!]  Could not verify data: {e}")
         else:
-            print(f"\n❌ No replays were successfully processed.")
+            print(f"\n[X] No replays were successfully processed.")
             
     except Exception as e:
         print(f"\n💥 Script failed with error: {e}")

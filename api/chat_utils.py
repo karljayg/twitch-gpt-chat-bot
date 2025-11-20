@@ -269,9 +269,69 @@ def process_pubmsg(self, event, logger, contextHistory):
                 self.pending_player_comment = None
             return
 
-    # Handle player comments from channel owner via Twitch chat
+    # NEW: Check if we're in pattern learning context and process ANY message naturally
+    if sender.lower() == config.PAGE.lower() and hasattr(self, 'pattern_learning_context') and self.pattern_learning_context:
+        import time
+        
+        # Check if context has expired (5 minute timeout)
+        context_age = time.time() - self.pattern_learning_context['timestamp']
+        if context_age > 300:  # 5 minutes
+            logger.debug(f"Pattern learning context expired ({context_age:.0f}s old), clearing")
+            self.pattern_learning_context = None
+        else:
+            # Process natural language response
+            logger.info(f"Processing natural language pattern learning response: '{original_msg}'")
+            
+            action, comment_text = self._process_natural_language_pattern_response(original_msg, logger)
+            logger.debug(f"NLP interpreted as: action='{action}', comment='{comment_text}'")
+            
+            if action == 'skip':
+                msgToChannel(self, "Skipping - no comment saved.", logger)
+                self.pattern_learning_context = None
+                return
+            
+            # We have a comment to save (from pattern, AI, or custom)
+            if not comment_text:
+                msgToChannel(self, "No valid comment extracted - skipping.", logger)
+                self.pattern_learning_context = None
+                return
+            
+            # Save the comment using the existing save logic
+            try:
+                game_data = self.pattern_learning_context['game_data']
+                opponent = game_data.get('opponent_name', 'Unknown')
+                map_name = game_data.get('map', 'Unknown')
+                game_date = game_data.get('date', 'Unknown')
+                
+                # Save to database
+                if hasattr(self, 'pattern_learner') and self.pattern_learner:
+                    success = self.db.update_player_comments_in_last_replay(comment_text)
+                    
+                    if success:
+                        self.pattern_learner._process_new_comment(game_data, comment_text)
+                        self.pattern_learner.save_patterns_to_file()
+                        
+                        source_label = "pattern" if action == "use_pattern" else ("AI" if action == "use_ai_summary" else "custom")
+                        response = f"[OK] Saved {source_label} comment: '{comment_text}'"
+                        logger.info(response)
+                        msgToChannel(self, response, logger)
+                    else:
+                        msgToChannel(self, f"Failed to save comment", logger)
+                else:
+                    msgToChannel(self, "Pattern learning system not available", logger)
+                    
+            except Exception as e:
+                logger.error(f"Error saving NLP pattern comment: {e}")
+                msgToChannel(self, f"Error saving comment: {str(e)}", logger)
+            finally:
+                # Clear context after processing
+                self.pattern_learning_context = None
+            
+            return
+    
+    # OLD: Handle explicit "player comment X" commands (fallback/override)
     if msg.startswith('player comment') and sender.lower() == config.PAGE.lower():
-        logger.info(f"Player comment received from {sender} in Twitch chat")
+        logger.info(f"Explicit player comment command from {sender}")
         
         # Extract comment text after "player comment" or "player comments"
         if original_msg.lower().startswith('player comments '):
@@ -286,16 +346,29 @@ def process_pubmsg(self, event, logger, contextHistory):
             msgToChannel(self, "Please provide comment text after 'player comment'", logger)
             return
         
-        # Check if accepting suggested pattern
+        # Check if accepting suggested pattern (backward compatibility)
         if comment_text.lower() == 'yes':
             if hasattr(self, 'suggested_pattern_comment') and self.suggested_pattern_comment:
                 comment_text = self.suggested_pattern_comment
                 logger.info(f"User accepted suggested pattern: '{comment_text}'")
-                msgToChannel(self, f"✓ Using suggested pattern: '{comment_text}'", logger)
+                msgToChannel(self, f"[OK] Using suggested pattern: '{comment_text}'", logger)
                 # Clear suggestion after use
                 self.suggested_pattern_comment = None
             else:
                 msgToChannel(self, "No pattern suggestion available. Please provide a comment.", logger)
+                return
+        elif comment_text in ['1', '2']:
+            # Quick selection shortcuts
+            if comment_text == '1' and hasattr(self, 'suggested_pattern_comment') and self.suggested_pattern_comment:
+                comment_text = self.suggested_pattern_comment
+                logger.info(f"User selected option 1 (pattern): '{comment_text}'")
+                msgToChannel(self, f"[OK] Using pattern: '{comment_text}'", logger)
+            elif comment_text == '2' and hasattr(self, 'suggested_ai_summary') and self.suggested_ai_summary:
+                comment_text = self.suggested_ai_summary
+                logger.info(f"User selected option 2 (AI): '{comment_text}'")
+                msgToChannel(self, f"[OK] Using AI summary: '{comment_text}'", logger)
+            else:
+                msgToChannel(self, "Option not available. Please provide a comment.", logger)
                 return
         
         try:

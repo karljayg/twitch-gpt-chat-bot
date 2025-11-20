@@ -266,7 +266,7 @@ class SC2ReplayAnalyzer:
         if win_rate > 0.7:
             advice.append("✅ Strong matchup - continue current strategies")
         elif win_rate < 0.4:
-            advice.append("⚠️ Difficult opponent - consider strategy changes")
+            advice.append("[!] Difficult opponent - consider strategy changes")
         else:
             advice.append("📊 Balanced matchup - adapt based on their opening")
         
@@ -328,7 +328,7 @@ class SC2ReplayAnalyzer:
             if opponent_intel['recent_games']:
                 print("🕐 Recent games:")
                 for game in opponent_intel['recent_games'][:3]:
-                    result_emoji = "✅" if game['result'] == 'Victory' else "❌"
+                    result_emoji = "[W]" if game['result'] == 'Victory' else "[L]"
                     print(f"   {result_emoji} {game['date'][:10]} on {game['map']}: \"{game['comment'][:50]}...\"")
         else:
             print("❓ Unknown opponent - no historical data available")
@@ -386,7 +386,7 @@ class SC2ReplayAnalyzer:
         recommendations = []
         
         if opponent_intel['known_opponent'] and opponent_intel['win_rate'] < 0.5:
-            recommendations.append("⚠️ Consider strategy adjustment - low historical success rate")
+            recommendations.append("[!] Consider strategy adjustment - low historical success rate")
         
         if pattern_analysis['strategic_classification'] in ['aggressive_opening', 'all_in']:
             recommendations.append("🛡️ Prepare for early pressure - prioritize defense")

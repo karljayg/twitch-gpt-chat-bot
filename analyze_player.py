@@ -55,10 +55,10 @@ def test_ml_analysis_for_opponent(opponent_name, opponent_race):
                 print(f"\n🎯 TWITCH CHAT SUMMARY:")
                 print(f"💬 ML Analysis: {result.get('opponent_name', 'Unknown')} ({result.get('opponent_race', 'Unknown')}) - Analysis available")
         else:
-            print("❌ No ML Analysis generated")
+            print("[X] No ML Analysis generated")
             
     except Exception as e:
-        print(f"❌ Error during analysis: {e}")
+        print(f"[X] Error during analysis: {e}")
         import traceback
         traceback.print_exc()
 

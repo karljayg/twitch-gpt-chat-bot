@@ -13,6 +13,11 @@ def game_started(self, current_game, contextHistory, logger):
     contextHistory.clear()
     logger.debug("Cleared conversation context for new game")
     
+    # Clear pattern learning context when new game starts
+    if hasattr(self, 'pattern_learning_context'):
+        self.pattern_learning_context = None
+        logger.debug("Cleared pattern learning context for new game")
+    
     # prevent the array brackets from being included
     game_player_names = ', '.join(current_game.get_player_names())
     
@@ -276,31 +281,57 @@ def game_started(self, current_game, contextHistory, logger):
 
                             # if there is a previous game with same race matchup
                             if first_few_build_steps is not None:
-                                # Get race-specific strategic items from config
-                                race_items = config.SC2_STRATEGIC_ITEMS.get(player_current_race, {'buildings': '', 'units': '', 'upgrades': ''})
+                                # Apply abbreviations to build order before sending to OpenAI
+                                from utils.sc2_abbreviations import abbreviate_unit_name
                                 
-                                msg = f"CRITICAL: This is the OPPONENT {player_name}'s build order (NOT {config.STREAMER_NICKNAME}'s): {first_few_build_steps} \n"
-                                msg += f"These units/buildings belong to {player_name}, the opponent. "
-                                msg += "Keep it short 25 words or less: \n"
-                                msg += f"Mention any of these found in the OPPONENT's build order: "
-                                msg += f"{race_items['buildings']}\n"
-                                msg += f"{race_items['units']}\n"
-                                msg += f"{race_items['upgrades']}\n"
-                                processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
-
-                                msg = "Keep it concise in 400 characters or less: \n"
-                                msg += f"IMPORTANT: {player_name} is the OPPONENT (not {config.STREAMER_NICKNAME}). "
-                                msg += f"The build order below shows what {player_name} (opponent) built: "
-                                msg += f"Summarize in chronological order:\n"
-                                msg += "- Show the first 10-15 key steps in order\n"
-                                msg += "- Group consecutive identical items with counts (e.g., 'SCV x3')\n"
-                                msg += "- Use abbreviations for common units (SCV, Marine, Marauder, etc.)\n"
-                                msg += "- Keep it under 150 characters total\n"
-                                msg += "- Format: 'SCV x3, Barracks, SCV x2, Marine x2, Orbital, Marine x3, Reactor'\n"
-                                msg += "- This shows: 3 SCVs, then Barracks, then 2 more SCVs, then 2 Marines, then Orbital, then 3 more Marines, then Reactor\n"
-                                msg += "-----\n"
-                                msg += f"OPPONENT {player_name}'s build order versus {config.STREAMER_NICKNAME}'s {streamer_picked_race}: {first_few_build_steps} \n"
-                                msg += f"DO NOT mention {config.STREAMER_NICKNAME}'s build order - ONLY the opponent's. \n"                                
+                                # Parse "Unit at Supply" format and abbreviate
+                                abbreviated_steps = []
+                                for step in first_few_build_steps:
+                                    # Parse "Probe at 12" format
+                                    parts = step.split(" at ")
+                                    if len(parts) == 2:
+                                        unit_name = parts[0]
+                                        abbreviated_steps.append(abbreviate_unit_name(unit_name))
+                                    else:
+                                        abbreviated_steps.append(step)
+                                
+                                # Group consecutive duplicates with counts
+                                grouped_build = []
+                                prev_unit = None
+                                count = 0
+                                for unit in abbreviated_steps:
+                                    if unit == prev_unit:
+                                        count += 1
+                                    else:
+                                        if prev_unit:
+                                            if count > 1:
+                                                grouped_build.append(f"{prev_unit} x{count}")
+                                            else:
+                                                grouped_build.append(prev_unit)
+                                        prev_unit = unit
+                                        count = 1
+                                # Add last unit
+                                if prev_unit:
+                                    if count > 1:
+                                        grouped_build.append(f"{prev_unit} x{count}")
+                                    else:
+                                        grouped_build.append(prev_unit)
+                                
+                                abbreviated_build_string = ", ".join(grouped_build)
+                                
+                                # Merged prompt: Summarize build order with strategic focus
+                                msg = f"CRITICAL: Analyze ONLY the OPPONENT {player_name}'s build (NOT {config.STREAMER_NICKNAME}'s).\n"
+                                msg += f"Build order (abbreviated): {abbreviated_build_string}\n\n"
+                                msg += f"Requirements:\n"
+                                msg += f"1. Identify 2-3 KEY strategic elements from the build (tech buildings, timing, army composition)\n"
+                                msg += f"2. Describe the strategy in one concise sentence (max 25 words)\n"
+                                msg += f"3. Focus on what makes this build distinctive\n"
+                                msg += f"4. Example outputs:\n"
+                                msg += f"   - 'Fast expand into roach timing with third base'\n"
+                                msg += f"   - 'Gateway expand into blink stalker pressure'\n"
+                                msg += f"   - '2 base banshee into mech turtle'\n"
+                                msg += f"5. DO NOT list all units/buildings - summarize the STRATEGY\n"
+                                msg += f"6. DO NOT mention {config.STREAMER_NICKNAME}'s play - ONLY describe {player_name}'s build\n"
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
                             else:
                                 if streamer_picked_race == "Random":

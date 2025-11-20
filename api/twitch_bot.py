@@ -875,6 +875,164 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             logger.error(f"Error preparing game data for comment: {e}")
             return {}
     
+    def _detect_build_discrepancy(self, pattern_comment, ai_summary, logger):
+        """
+        Detect if pattern match and AI summary significantly differ
+        Returns True if discrepancy detected, False otherwise
+        """
+        try:
+            # Convert both to lowercase for comparison
+            pattern_lower = pattern_comment.lower()
+            ai_lower = ai_summary.lower()
+            
+            # Define opposing keywords that indicate discrepancy
+            opposing_pairs = [
+                (['all-in', 'all in', 'rush', 'cheese', 'aggressive', 'pressure', 'timing'], 
+                 ['defensive', 'macro', 'economic', 'expand', 'greedy', 'passive']),
+                (['fast', 'early', 'quick'], 
+                 ['slow', 'late', 'delayed']),
+                (['air', 'sky', 'flying'], 
+                 ['ground', 'melee']),
+            ]
+            
+            # Check if one contains keywords from one side and the other from opposing side
+            for side_a, side_b in opposing_pairs:
+                pattern_has_a = any(kw in pattern_lower for kw in side_a)
+                pattern_has_b = any(kw in pattern_lower for kw in side_b)
+                ai_has_a = any(kw in ai_lower for kw in side_a)
+                ai_has_b = any(kw in ai_lower for kw in side_b)
+                
+                # If pattern has A but AI has B, or vice versa
+                if (pattern_has_a and ai_has_b and not pattern_has_b) or (pattern_has_b and ai_has_a and not pattern_has_a):
+                    logger.debug(f"Discrepancy detected: pattern '{pattern_comment}' vs AI '{ai_summary}'")
+                    return True
+            
+            return False
+        except Exception as e:
+            logger.debug(f"Error detecting discrepancy: {e}")
+            return False
+    
+    def _process_natural_language_pattern_response(self, user_message, logger):
+        """
+        Process natural language response for pattern learning using OpenAI to interpret intent
+        Returns: tuple (action, comment_text) where action is 'use_pattern', 'use_ai_summary', 'custom', or 'skip'
+        """
+        try:
+            import json
+            import re
+            from api.chat_utils import process_ai_message
+            
+            ctx = self.pattern_learning_context
+            pattern_text = f"Pattern Match ({ctx['pattern_similarity']:.0f}%): \"{ctx['pattern_match']}\"" if ctx['pattern_match'] else "No pattern match"
+            ai_text = f"AI Summary: \"{ctx['ai_summary']}\"" if ctx['ai_summary'] else "No AI summary"
+            
+            prompt = f"""You are interpreting a user's response for StarCraft 2 build order labeling.
+
+Context:
+- Opponent: {ctx['opponent_name']}
+- {pattern_text}
+- {ai_text}
+
+User's response: "{user_message}"
+
+Determine the user's intent and respond with ONLY valid JSON (use double quotes):
+
+1. If choosing pattern match AS-IS (keywords: first, 1, pattern, yes it's right, pattern is correct):
+   {{"action": "use_pattern"}}
+
+2. If choosing AI summary AS-IS (keywords: second, 2, AI is right, AI summary is correct):
+   {{"action": "use_ai_summary"}}
+
+3. If user REFINES option 1 or 2 with additional details (keywords: "but", "except", "actually", "close but", "pretty close" + extra description):
+   {{"action": "custom", "text": "<extract the refined/corrected description from user's message>"}}
+   Example: "2nd is close but it was roach rush" → {{"action": "custom", "text": "roach rush"}}
+
+4. If providing completely custom description (descriptive text without choosing option 1 or 2):
+   {{"action": "custom", "text": "<extract the strategy description>"}}
+
+5. If declining/skipping (keywords: skip, no, neither, ignore, pass):
+   {{"action": "skip"}}
+
+CRITICAL: Respond with VALID JSON using double quotes, not single quotes.
+Respond ONLY with JSON on one line. No explanation, no markdown."""
+            
+            response = process_ai_message(prompt, "normal", None, "twitch", logger)
+            if not response:
+                logger.debug("No response from OpenAI for pattern learning interpretation")
+                return ('skip', None)
+            
+            # Clean response - remove markdown code blocks if present
+            response_clean = response.strip()
+            response_clean = re.sub(r'^```json?\s*', '', response_clean, flags=re.IGNORECASE)
+            response_clean = re.sub(r'\s*```$', '', response_clean)
+            response_clean = response_clean.strip()
+            
+            # Try to parse JSON
+            parsed = None
+            try:
+                parsed = json.loads(response_clean)
+            except json.JSONDecodeError as je:
+                logger.warning(f"JSON parse error: {je}. Attempting to fix malformed JSON.")
+                # Try to fix common issues: single quotes, missing quotes on keys/values
+                try:
+                    # Simple approach: Force OpenAI's common malformed patterns into valid JSON
+                    # Pattern: {action: value, text: more text} or {action: value}
+                    
+                    # Replace single quotes with double quotes first
+                    fixed = response_clean.replace("'", '"')
+                    
+                    # Try to extract action and text using regex patterns
+                    action_match = re.search(r'action\s*:\s*([^,}]+)', fixed, re.IGNORECASE)
+                    text_match = re.search(r'text\s*:\s*(.+?)\s*}', fixed, re.IGNORECASE)
+                    
+                    if action_match:
+                        action_value = action_match.group(1).strip().strip('"').strip("'")
+                        result = {"action": action_value}
+                        
+                        if text_match:
+                            text_value = text_match.group(1).strip().strip('"').strip("'")
+                            result["text"] = text_value
+                        
+                        logger.debug(f"Extracted from malformed JSON: {result}")
+                        parsed = result
+                    else:
+                        # Fallback: try standard fixes
+                        fixed = re.sub(r'(\{|,)\s*([a-zA-Z_]+)\s*:', r'\1"\2":', fixed)
+                        parsed = json.loads(fixed)
+                    
+                    if parsed:
+                        logger.debug(f"Successfully parsed after fixing: {parsed}")
+                except Exception as fix_error:
+                    logger.error(f"Could not fix malformed JSON: {fix_error}. Original: {response_clean}")
+                    return ('skip', None)
+            
+            if not parsed:
+                return ('skip', None)
+            
+            action = parsed.get('action', 'skip')
+            
+            if action == 'use_pattern' and ctx['pattern_match']:
+                return ('use_pattern', ctx['pattern_match'])
+            elif action == 'use_ai_summary' and ctx['ai_summary']:
+                return ('use_ai_summary', ctx['ai_summary'])
+            elif action == 'custom':
+                custom_text = parsed.get('text', '').strip()
+                if not custom_text:
+                    # Fallback: extract anything descriptive from user message
+                    custom_text = user_message.strip()
+                return ('custom', custom_text)
+            else:
+                # Default to skip if uncertain or no valid option
+                logger.debug(f"Pattern learning response defaulting to skip: {parsed.get('reason', 'no valid option')}")
+                return ('skip', None)
+                
+        except Exception as e:
+            logger.error(f"Error processing natural language pattern response: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            # Default to skip on any error
+            return ('skip', None)
+    
     def _display_pattern_validation(self, game_data, logger):
         """Display pattern learning validation and store suggestion if confidence is high"""
         try:
@@ -908,22 +1066,17 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             } if matched_patterns else None
             
             # Extract opponent's build from replay
-            build_summary = []
+            build_summary_string = ""
             if 'build_order' in game_data and game_data['build_order']:
-                # Get opponent's build order
+                # Get opponent's build order and format with abbreviations
                 build_order = game_data['build_order']
-                unit_counts = {}
-                for step in build_order:
-                    unit_name = step.get('name', '')
-                    if unit_name:
-                        unit_counts[unit_name] = unit_counts.get(unit_name, 0) + 1
                 
-                # Format as "Unit x count"
-                for unit, count in sorted(unit_counts.items(), key=lambda x: -x[1])[:10]:  # Top 10
-                    if count > 1:
-                        build_summary.append(f"{unit} x{count}")
-                    else:
-                        build_summary.append(unit)
+                # Use the proper function that shows sequential build with worker abbreviation
+                from utils.sc2_abbreviations import format_build_order_for_chat
+                build_summary_string = format_build_order_for_chat(build_order, max_items=12)
+            
+            # For backwards compatibility, also create a list version (used later in code)
+            build_summary = build_summary_string.split(", ") if build_summary_string else []
             
             # Display validation report in stdout
             print("\n" + "=" * 60)
@@ -933,10 +1086,41 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             print(f"Result: {result} | Duration: {duration} | Map: {map_name}")
             print()
             
+            # Generate AI build summary
+            ai_summary = None
             if build_summary:
                 print("--- OPPONENT'S BUILD (from replay) ---")
                 print(", ".join(build_summary))
                 print()
+                
+                # Ask OpenAI to summarize the build strategy
+                try:
+                    from api.chat_utils import process_ai_message
+                    
+                    # Extract key strategic buildings for better AI analysis (not just early workers)
+                    build_order = game_data.get('build_order', [])
+                    strategic_buildings = []
+                    expansion_structures = {'CommandCenter', 'Nexus', 'Hatchery'}
+                    tech_structures = {'Factory', 'Starport', 'Gateway', 'CyberneticsCore', 'RoboticsFacility', 'Stargate',
+                                     'SpawningPool', 'RoachWarren', 'Spire', 'BanelingNest', 'HydraliskDen'}
+                    
+                    for step in build_order[:50]:  # First 50 steps
+                        unit_name = step.get('name', '')
+                        if unit_name in expansion_structures or unit_name in tech_structures:
+                            timing = step.get('time', 0)
+                            strategic_buildings.append(f"{unit_name} ({timing}s)")
+                    
+                    if strategic_buildings:
+                        build_string = ", ".join(strategic_buildings[:10])  # Top 10 strategic buildings with timing
+                        ai_prompt = f"Analyze this StarCraft 2 build order and describe the strategy in ONE concise sentence (max 20 words). Focus on key tech/timing/composition.\n\nKey buildings with timing: {build_string}\n\nExamples:\n- 'Fast expand into roach timing with third base'\n- '2 base blink stalker pressure'\n- 'Defensive ling-bane with fast spire transition'\n\nYour one-sentence summary:"
+                        
+                        ai_summary = process_ai_message(ai_prompt, "normal", None, "twitch", logger)
+                        if ai_summary:
+                            # Clean up any extra formatting
+                            ai_summary = ai_summary.strip().strip('"').strip("'")
+                except Exception as e:
+                    logger.debug(f"Failed to generate AI build summary: {e}")
+                    ai_summary = None
             
             # Display pattern matching results
             if analysis_data:
@@ -955,112 +1139,200 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                         print(f"Keywords matched: {', '.join(keywords[:5])}")
                     print()
                     
+                    # Display AI summary if available
+                    if ai_summary:
+                        print(f"--- AI BUILD SUMMARY (Generated from this game) ---")
+                        print(f'Summary: "{ai_summary}"')
+                        print()
+                        
+                        # Compare pattern vs AI summary for discrepancies
+                        discrepancy_detected = self._detect_build_discrepancy(pattern_comment, ai_summary, logger)
+                        if discrepancy_detected:
+                            print("--- COMPARISON ---")
+                            print("[!] Discrepancy detected - pattern and AI summary differ significantly!")
+                            print("Review both options carefully.")
+                            print()
+                    
                     # Check if confidence is high enough to suggest
                     if similarity >= config.PATTERN_SUGGESTION_MIN_SIMILARITY * 100:
-                        # Store suggestion for Twitch chat handler
-                        self.suggested_pattern_comment = pattern_comment
-                        print("✓ High confidence match!")
-                        print()
-                        print("To accept, type in Twitch:  player comment yes")
+                        # Store context for natural language response handler
+                        import time
+                        self.pattern_learning_context = {
+                            'opponent_name': opponent_name,
+                            'pattern_match': pattern_comment,
+                            'pattern_similarity': similarity,
+                            'ai_summary': ai_summary,
+                            'build_summary': ', '.join(build_summary[:15]) if build_summary else '',
+                            'game_data': game_data,
+                            'timestamp': time.time(),  # For 5-minute timeout
+                            'discrepancy_detected': self._detect_build_discrepancy(pattern_comment, ai_summary, logger) if ai_summary else False
+                        }
                         
-                        # Send pattern match commentary to Twitch chat (with OpenAI variation)
+                        # Store suggestions for backward compatibility
+                        self.suggested_pattern_comment = pattern_comment
+                        self.suggested_ai_summary = ai_summary
+                        
+                        print("[OK] High confidence match!")
+                        print()
+                        if ai_summary:
+                            print("--- YOUR OPTIONS ---")
+                            print("Respond naturally in Twitch chat with your choice:")
+                            print("  - Agree with pattern (e.g., 'pattern is right', 'yes', 'first one')")
+                            print("  - Prefer AI summary (e.g., 'AI is closer', 'second one', 'I like #2')")
+                            print("  - Provide custom description (e.g., 'it was roach ravager macro')")
+                            print("  - Skip (e.g., 'skip', 'neither', 'ignore')")
+                        else:
+                            print("To accept, type in Twitch:  player comment yes")
+                        
+                        # Send TWO conversational messages to Twitch chat
                         if hasattr(self, 'connection') and hasattr(self.connection, 'privmsg'):
-                            base_message = f"Pattern learning shows {similarity:.0f}% match: {pattern_comment}. Does this match what they did?"
-                            
-                            # Get OpenAI to rephrase naturally while keeping key elements
                             try:
-                                from api.chat_utils import process_ai_message
-                                rephrase_prompt = f"Rephrase casually but KEEP exact percentage ({similarity:.0f}%), pattern name ('{pattern_comment}'), and ask if this MATCHES/describes what the opponent did (not opinion about the strategy). Max 25 words: {base_message}"
-                                varied_message = process_ai_message(rephrase_prompt, "normal", None, "twitch", logger)
-                                chat_message = varied_message if varied_message else base_message
-                            except Exception as e:
-                                logger.debug(f"OpenAI rephrase failed, using base message: {e}")
-                                chat_message = base_message
-                            
-                            try:
-                                self.connection.privmsg(self.channel, chat_message)
-                                logger.debug(f"Sent pattern match commentary to Twitch: {chat_message}")
+                                # Message 1: Pattern match with build preview
+                                build_preview = f"{opponent_name}'s build: {', '.join(build_summary[:8])}. " if build_summary else ""
+                                msg1 = f"{build_preview}Pattern learning found {similarity:.0f}% match: '{pattern_comment}'."
+                                self.connection.privmsg(self.channel, msg1)
+                                logger.debug(f"Sent pattern match to Twitch: {msg1}")
+                                
+                                # Message 2: AI summary + prompt for response (if AI summary exists)
+                                if ai_summary:
+                                    import time
+                                    time.sleep(1)  # Brief delay between messages
+                                    discrepancy_note = " (Note: these differ - review carefully!)" if self.pattern_learning_context['discrepancy_detected'] else ""
+                                    msg2 = f"AI analysis sees: '{ai_summary}'{discrepancy_note}. Thoughts? Or just describe what you saw."
+                                    self.connection.privmsg(self.channel, msg2)
+                                    logger.debug(f"Sent AI summary to Twitch: {msg2}")
+                                
                             except Exception as e:
                                 logger.error(f"Error sending pattern match to Twitch chat: {e}")
                     else:
-                        # Clear any previous suggestion
-                        self.suggested_pattern_comment = None
-                        print("⚠ Low confidence match - please provide custom comment")
-                        print()
-                        print("To add custom, type in Twitch:  player comment <your text>")
+                        # Store context for natural language response (even for low confidence)
+                        import time
+                        self.pattern_learning_context = {
+                            'opponent_name': opponent_name,
+                            'pattern_match': pattern_comment,
+                            'pattern_similarity': similarity,
+                            'ai_summary': ai_summary,
+                            'build_summary': ', '.join(build_summary[:15]) if build_summary else '',
+                            'game_data': game_data,
+                            'timestamp': time.time(),
+                            'discrepancy_detected': self._detect_build_discrepancy(pattern_comment, ai_summary, logger) if ai_summary else False
+                        }
                         
-                        # Send low confidence pattern match commentary to Twitch chat (with OpenAI variation)
+                        self.suggested_pattern_comment = pattern_comment
+                        self.suggested_ai_summary = ai_summary
+                        
+                        print("[!] Low confidence match - please provide input")
+                        print()
+                        if ai_summary:
+                            print("--- YOUR OPTIONS ---")
+                            print("Respond naturally in Twitch chat:")
+                            print("  - Use pattern if close enough")
+                            print("  - Use AI summary if better")
+                            print("  - Describe what you actually saw")
+                            print("  - Skip if neither fits")
+                        else:
+                            print("To add custom, type in Twitch:  player comment <your text>")
+                        
+                        # Send TWO messages to Twitch
                         if hasattr(self, 'connection') and hasattr(self.connection, 'privmsg'):
-                            base_message = f"Found something similar ({similarity:.0f}%): {pattern_comment}. Is this close to what they did?"
-                            
-                            # Get OpenAI to rephrase naturally while keeping key elements
                             try:
-                                from api.chat_utils import process_ai_message
-                                rephrase_prompt = f"Rephrase casually but KEEP exact percentage ({similarity:.0f}%), pattern name ('{pattern_comment}'), and ask if this is SIMILAR/close to what the opponent did. Max 25 words: {base_message}"
-                                varied_message = process_ai_message(rephrase_prompt, "normal", None, "twitch", logger)
-                                chat_message = varied_message if varied_message else base_message
-                            except Exception as e:
-                                logger.debug(f"OpenAI rephrase failed, using base message: {e}")
-                                chat_message = base_message
-                            
-                            try:
-                                self.connection.privmsg(self.channel, chat_message)
-                                logger.debug(f"Sent low confidence pattern match commentary to Twitch: {chat_message}")
+                                build_preview = f"{opponent_name}'s build: {', '.join(build_summary[:8])}. " if build_summary else ""
+                                msg1 = f"{build_preview}Weak pattern match ({similarity:.0f}%): '{pattern_comment}'."
+                                self.connection.privmsg(self.channel, msg1)
+                                logger.debug(f"Sent low confidence pattern to Twitch: {msg1}")
+                                
+                                if ai_summary:
+                                    import time
+                                    time.sleep(1)
+                                    msg2 = f"AI analysis: '{ai_summary}'. What's your take?"
+                                    self.connection.privmsg(self.channel, msg2)
+                                    logger.debug(f"Sent AI summary to Twitch: {msg2}")
                             except Exception as e:
                                 logger.error(f"Error sending pattern match to Twitch chat: {e}")
                 else:
-                    # No patterns matched
+                    # No patterns matched - AI summary becomes primary option
+                    import time
+                    self.pattern_learning_context = {
+                        'opponent_name': opponent_name,
+                        'pattern_match': None,
+                        'pattern_similarity': 0,
+                        'ai_summary': ai_summary,
+                        'build_summary': ', '.join(build_summary[:15]) if build_summary else '',
+                        'game_data': game_data,
+                        'timestamp': time.time(),
+                        'discrepancy_detected': False
+                    }
+                    
                     self.suggested_pattern_comment = None
+                    self.suggested_ai_summary = ai_summary
+                    
                     print("--- NO PATTERN MATCH ---")
                     print("This build doesn't match existing patterns.")
                     print()
-                    print("Please describe this strategy in Twitch:")
-                    print("  player comment <your description>")
+                    if ai_summary:
+                        print(f"AI suggests: '{ai_summary}'")
+                        print()
+                        print("Respond naturally in Twitch chat:")
+                        print("  - Agree with AI summary")
+                        print("  - Refine or correct it")
+                        print("  - Skip if not sure")
+                    else:
+                        print("Please describe this strategy in Twitch:")
+                        print("  player comment <your description>")
                     
-                    # Send no pattern match commentary to Twitch chat (with OpenAI variation)
+                    # Send message(s) to Twitch
                     if hasattr(self, 'connection') and hasattr(self.connection, 'privmsg'):
-                        base_message = f"Pattern learning found no matches for {opponent_name}'s build. What strategy was this?"
-                        
-                        # Get OpenAI to rephrase naturally while keeping key elements
                         try:
-                            from api.chat_utils import process_ai_message
-                            rephrase_prompt = f"Rephrase this casually but KEEP the opponent name ('{opponent_name}') and questioning tone. Max 20 words: {base_message}"
-                            varied_message = process_ai_message(rephrase_prompt, "normal", None, "twitch", logger)
-                            chat_message = varied_message if varied_message else base_message
-                        except Exception as e:
-                            logger.debug(f"OpenAI rephrase failed, using base message: {e}")
-                            chat_message = base_message
-                        
-                        try:
-                            self.connection.privmsg(self.channel, chat_message)
-                            logger.debug(f"Sent no pattern match commentary to Twitch: {chat_message}")
+                            build_preview = f"{opponent_name}'s build: {', '.join(build_summary[:8])}. " if build_summary else ""
+                            
+                            if ai_summary:
+                                msg = f"{build_preview}No pattern match. AI suggests: '{ai_summary}'. Agree?"
+                            else:
+                                msg = f"{build_preview}No pattern match. What strategy was this?"
+                            
+                            self.connection.privmsg(self.channel, msg)
+                            logger.debug(f"Sent no pattern match to Twitch: {msg}")
                         except Exception as e:
                             logger.error(f"Error sending pattern match to Twitch chat: {e}")
             else:
-                # No analysis data (no patterns exist yet)
+                # No analysis data (no patterns exist yet) - use AI summary
+                import time
+                self.pattern_learning_context = {
+                    'opponent_name': opponent_name,
+                    'pattern_match': None,
+                    'pattern_similarity': 0,
+                    'ai_summary': ai_summary,
+                    'build_summary': ', '.join(build_summary[:15]) if build_summary else '',
+                    'game_data': game_data,
+                    'timestamp': time.time(),
+                    'discrepancy_detected': False
+                }
+                
                 self.suggested_pattern_comment = None
+                self.suggested_ai_summary = ai_summary
+                
                 print("--- NO PATTERNS AVAILABLE ---")
                 print("Building pattern database - please add your first comment!")
                 print()
-                print("Type in Twitch:  player comment <your description>")
+                if ai_summary:
+                    print(f"AI suggests: '{ai_summary}'")
+                    print()
+                    print("Respond naturally - accept it, refine it, or provide your own description.")
+                else:
+                    print("Type in Twitch:  player comment <your description>")
                 
-                # Send no patterns available commentary to Twitch chat (with OpenAI variation)
+                # Send message to Twitch
                 if hasattr(self, 'connection') and hasattr(self.connection, 'privmsg'):
-                    base_message = f"Pattern learning database is empty - describe {opponent_name}'s strategy to start building the database!"
-                    
-                    # Get OpenAI to rephrase naturally while keeping key elements
                     try:
-                        from api.chat_utils import process_ai_message
-                        rephrase_prompt = f"Rephrase this casually but KEEP the opponent name ('{opponent_name}') and the call to action about describing the strategy. Max 20 words: {base_message}"
-                        varied_message = process_ai_message(rephrase_prompt, "normal", None, "twitch", logger)
-                        chat_message = varied_message if varied_message else base_message
-                    except Exception as e:
-                        logger.debug(f"OpenAI rephrase failed, using base message: {e}")
-                        chat_message = base_message
-                    
-                    try:
-                        self.connection.privmsg(self.channel, chat_message)
-                        logger.debug(f"Sent no patterns available commentary to Twitch: {chat_message}")
+                        build_preview = f"{opponent_name}'s build: {', '.join(build_summary[:8])}. " if build_summary else ""
+                        
+                        if ai_summary:
+                            msg = f"{build_preview}Pattern DB empty. AI suggests: '{ai_summary}'. Thoughts?"
+                        else:
+                            msg = f"{build_preview}Pattern DB empty - describe {opponent_name}'s strategy!"
+                        
+                        self.connection.privmsg(self.channel, msg)
+                        logger.debug(f"Sent no patterns available to Twitch: {msg}")
                     except Exception as e:
                         logger.error(f"Error sending pattern match to Twitch chat: {e}")
             

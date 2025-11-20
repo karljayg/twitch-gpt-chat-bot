@@ -433,7 +433,7 @@ class MLOpponentAnalyzer:
             summary_parts = [f"ML Analysis: {opponent_name} ({opponent_race})"]
             
             if strategic_elements:
-                summary_parts.append(f"Build: {' → '.join(strategic_elements[:3])}")
+                summary_parts.append(f"Build: {' -> '.join(strategic_elements[:3])}")
             
             if top_pattern:
                 comment = top_pattern['comment']
@@ -598,6 +598,11 @@ class MLOpponentAnalyzer:
                 'factory', 'starport', 'fusioncore', 'ghostacademy'
             }
             
+            # Define expansion structures - CRITICAL for determining all-in vs macro strategies
+            expansion_structures = {
+                'commandcenter', 'nexus', 'hatchery'
+            }
+            
             # DIRECTION 1: Pattern → New Build (How well does new build match the pattern?)
             pattern_total_weight = 0.0
             pattern_matched_weight = 0.0
@@ -677,10 +682,72 @@ class MLOpponentAnalyzer:
             new_similarity = new_matched_weight / new_total_weight if new_total_weight > 0 else 0.0
             
             # Use harmonic mean (penalizes mismatches more than arithmetic mean)
+            # Combined with critical tech and expansion penalties, this provides balanced matching
             if pattern_similarity > 0 and new_similarity > 0:
                 similarity = 2 * (pattern_similarity * new_similarity) / (pattern_similarity + new_similarity)
             else:
                 similarity = 0.0
+            
+            # CRITICAL TECH MISMATCH PENALTY: If pattern has critical tech buildings that new build lacks, apply extra penalty
+            # Critical tech buildings define the strategy (e.g., Forge = cannon rush, Stargate = air, Robo = robo bay)
+            critical_tech = {
+                # Protoss - tech that defines strategy
+                'forge', 'stargate', 'roboticsfacility', 'darkshrine', 'templararchive', 'fleetbeacon',
+                # Zerg - tech that defines strategy (roach/bane/spire are BIG differentiators)
+                'roachwarren', 'banelingnest', 'spire', 'hydraliskden', 'infestationpit', 'ultraliskcavern', 'lurkerden',
+                # Terran - tech that defines strategy
+                'factory', 'starport', 'ghostacademy', 'fusioncore'
+            }
+            
+            pattern_critical = set(item for item in pattern_dict.keys() if item in critical_tech)
+            new_critical = set(item for item in new_build_dict.keys() if item in critical_tech)
+            
+            missing_critical = pattern_critical - new_critical  # Critical tech in pattern but not in new build
+            
+            if missing_critical and similarity > 0:
+                # Calculate penalty based on ratio of matching critical tech
+                # If pattern has 2 critical techs and new build has 1, penalty = 0.5
+                # If pattern has 2 critical techs and new build has 0, penalty = 0.0
+                matching_critical_count = len(pattern_critical & new_critical)
+                total_critical_count = len(pattern_critical)
+                
+                if total_critical_count > 0:
+                    critical_ratio = matching_critical_count / total_critical_count
+                    # At least 50% match required to avoid heavy penalty
+                    if critical_ratio < 0.5:
+                        critical_penalty = critical_ratio * 0.4  # Scale 0-0.5 ratio to 0-0.2 penalty
+                    else:
+                        critical_penalty = 0.2 + (critical_ratio - 0.5) * 1.6  # Scale 0.5-1.0 to 0.2-1.0
+                    
+                    similarity *= critical_penalty
+                    
+                    if logger:
+                        logger.debug(f"Critical tech: pattern has {pattern_critical}, new has {new_critical}. "
+                                   f"Matching {matching_critical_count}/{total_critical_count}, penalty: {critical_penalty:.1%}")
+            
+            # EXPANSION PENALTY: Number of bases is CRITICAL - heavily penalize mismatches
+            # Count expansion structures in each build (OrbitalCommand/PlanetaryFortress don't count - they're upgrades)
+            # NOTE: Use original lists, not dicts, to count multiple expansions correctly
+            pattern_expansions = sum(1 for item in pattern_items if item['name'] in expansion_structures)
+            new_expansions = sum(1 for item in new_build_items if item['name'] in expansion_structures)
+            
+            # Apply expansion penalty based on difference
+            expansion_diff = abs(pattern_expansions - new_expansions)
+            if expansion_diff == 0:
+                expansion_multiplier = 1.0  # Perfect match
+            elif expansion_diff == 1:
+                expansion_multiplier = 0.6  # 1 base difference = 40% penalty
+            elif expansion_diff == 2:
+                expansion_multiplier = 0.3  # 2 base difference = 70% penalty
+            else:
+                expansion_multiplier = 0.1  # 3+ base difference = 90% penalty (almost no match)
+            
+            # Apply the expansion penalty
+            similarity *= expansion_multiplier
+            
+            if logger and expansion_diff > 0:
+                logger.debug(f"Expansion mismatch: pattern={pattern_expansions} bases, new={new_expansions} bases, "
+                           f"diff={expansion_diff}, penalty multiplier={expansion_multiplier:.1%}")
             
             return similarity
             
@@ -882,7 +949,7 @@ class MLOpponentAnalyzer:
                 
                 if data.get('build_order_preview'):
                     build_preview = [step['name'] for step in data['build_order_preview'][:5]]
-                    msg += f"Their opening: {' → '.join(build_preview)}\n"
+                    msg += f"Their opening: {' -> '.join(build_preview)}\n"
             
             # Send to OpenAI for natural language generation
             if logger:
