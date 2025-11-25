@@ -360,11 +360,13 @@ class MLOpponentAnalyzer:
                 if any(indicator in comment for indicator in generic_indicators):
                     continue
                 
-                # Get pattern race from signature
+                # Get pattern race - prefer explicit race field, fallback to signature detection
                 pattern_signature = pattern.get('signature', {})
-                pattern_race = self._determine_pattern_race_from_signature(pattern_signature)
+                pattern_race = pattern.get('race', '').lower()  # Use explicit race field first
+                if not pattern_race or pattern_race == 'unknown':
+                    pattern_race = self._determine_pattern_race_from_signature(pattern_signature)
                 
-                # Filter by race
+                # Filter by race - strict filtering, skip if race doesn't match
                 opponent_race_lower = opponent_race.lower() if opponent_race else 'unknown'
                 if pattern_race and pattern_race != 'unknown' and pattern_race != opponent_race_lower:
                     if logger:
@@ -631,6 +633,13 @@ class MLOpponentAnalyzer:
                 # If this item exists in new build, add to matched weight
                 if item_name in matching_items:
                     new_timing = new_build_dict[item_name]['timing']
+                    # Defensive: Ensure timing is numeric
+                    try:
+                        new_timing = float(new_timing) if not isinstance(new_timing, (int, float)) else new_timing
+                        timing = float(timing) if not isinstance(timing, (int, float)) else timing
+                    except (ValueError, TypeError):
+                        new_timing = 0
+                        timing = 0
                     
                     # Timing similarity bonus (closer timing = higher score)
                     timing_diff = abs(new_timing - timing)
@@ -673,6 +682,11 @@ class MLOpponentAnalyzer:
                 # If this item exists in pattern, add to matched weight
                 if item_name in matching_items:
                     pattern_timing = pattern_dict[item_name]['timing']
+                    # Defensive: Ensure timing is numeric
+                    try:
+                        pattern_timing = float(pattern_timing) if not isinstance(pattern_timing, (int, float)) else pattern_timing
+                    except (ValueError, TypeError):
+                        pattern_timing = 0
                     
                     # Timing similarity bonus
                     timing_diff = abs(timing - pattern_timing)
