@@ -147,24 +147,43 @@ class FSLIntegration:
             logger.info(f"Getting FSL reviewer link by attempting creation: {reviewer_name}")
             response = requests.post(url, headers=headers, json=payload, timeout=10, verify=config.FSL_VERIFY_SSL)
             
+            logger.info(f"FSL API raw response status: {response.status_code}")
+            logger.info(f"FSL API raw response body: {response.text}")
+            
             if response.status_code == 200:
                 result = response.json()
                 logger.info(f"FSL API response for link retrieval: {result}")
+                logger.info(f"FSL API 'data' field: {result.get('data')}")
+                logger.info(f"FSL API 'success' field: {result.get('success')}")
+                logger.info(f"FSL API 'error' field: {result.get('error')}")
                 
-                if result.get('success', False):
-                    # Creation succeeded, extract link from response
-                    voting_link = result.get('data', {}).get('link')
-                    if voting_link:
+                # Check for link regardless of success status (API may return link even for existing reviewers)
+                # The API returns the link as 'full_url', not 'link'
+                voting_link = result.get('data', {}).get('full_url')
+                logger.info(f"Extracted voting_link (raw): {voting_link}")
+                
+                # Replace localhost with actual domain
+                if voting_link and 'localhost' in voting_link:
+                    voting_link = voting_link.replace('http://localhost/', 'https://')
+                    logger.info(f"Replaced localhost with actual domain: {voting_link}")
+                
+                if voting_link:
+                    if result.get('success', False):
                         logger.info(f"Got FSL reviewer link from creation response: {voting_link}")
-                        return voting_link
                     else:
-                        logger.warning(f"FSL reviewer created but no link in response")
-                        return None
+                        # Link found even though success=false (reviewer already exists)
+                        logger.info(f"Got FSL reviewer link for existing reviewer: {voting_link}")
+                    return voting_link
+                
+                # No link in response - check what happened
+                if result.get('success', False):
+                    logger.warning(f"FSL reviewer created but no link in response")
+                    return None
                 else:
                     # Check if this is an "already exists" error
                     error_msg = str(result.get('error', '')).lower()
                     if any(phrase in error_msg for phrase in ['already exists', 'already exist', 'duplicate', 'exists']):
-                        logger.info(f"FSL reviewer {reviewer_name} already exists, but can't get link (API limitation)")
+                        logger.warning(f"FSL reviewer {reviewer_name} already exists but no link in response: {result}")
                         return None
                     else:
                         logger.error(f"FSL API returned error getting link: {result}")

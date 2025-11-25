@@ -1,0 +1,42 @@
+
+[DEVELOPMENT NOTES]
+
+[CURRENT STATUS]
+- Architecture: Hybrid (New BotCore/Services wrapping Legacy Components)
+- Testing: Pytest framework, Asyncio simulation, Mock services
+- Legacy Integration: TwitchBot, DiscordBot, SC2 API fully wrapped and functional
+- Critical Issues Fixed:
+    - Missing core/events.py restored
+    - JSON parsing bug in pattern learning (Fixed by using raw OpenAI call)
+    - Database heartbeat (Implemented in SC2Adapter)
+    - Conversation mode sync (Implemented in BotCore)
+    - Context history (Managed by legacy bot)
+    - Prompt Injection in Pattern Learning (Fixed by bypassing process_ai_message)
+
+[RECENT COMPLETED TASKS]
+- TDD Service Creation: Pattern Learning Service (NLP logic extracted)
+- TDD Service Creation: Game Result Service (Replay processing flow)
+- TDD Service Creation: Command Service (Dispatcher + Handlers)
+- TDD Handler Creation: WikiHandler, CareerHandler, CommentHandler, AnalyzeHandler
+- TDD Repository Creation: SqlPlayerRepository, SqlReplayRepository
+- TDD Service Creation: Audio Service (Wrapper for TTS/SFX)
+- TDD Adapter Testing: DiscordAdapter verified
+- TDD Service Creation: Analysis Service (Wrapper for MLOpponentAnalyzer)
+- Integration: Wired all new Services and Repositories into BotCore and Adapters in `run_core.py`.
+
+[TECHNICAL DEBT / TODO]
+- OpenAiAdapter: Still uses process_ai_message (potential prompt injection risk for system calls). Needs refactor to support raw mode.
+- Legacy Cleanup: Eventually remove api/twitch_bot.py and api/sc2_game_utils.py once all logic is migrated and verified live.
+
+[ARCHITECTURAL DECISIONS]
+- Event-Driven: BotCore uses a unified event queue for all inputs (Chat, Game State).
+- Dependency Injection: All external services (Chat, SC2, DB, AI, Audio) are injected via interfaces.
+- Adapters: Legacy code is wrapped in Adapters to conform to new interfaces.
+- Synchronous Legacy Code: Run in asyncio executors to preventing blocking the main loop.
+- Database Access: Repository pattern used to abstract legacy MySQL wrapper.
+
+[KNOWN BUGS]
+- None currently active.
+
+[NEXT STEPS]
+- Perform Live Testing.

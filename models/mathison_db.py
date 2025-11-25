@@ -1,5 +1,5 @@
 import mysql.connector.pooling
-from mysql.connector import Error
+from mysql.connector import Error, OperationalError
 import time
 import sys
 import re
@@ -58,6 +58,9 @@ class Database:
             if not self.connection or not self.connection.is_connected():
                 self.logger.debug("Re-establishing a lost database connection.")
                 self.connection = self.pool.get_connection()
+                # IMPORTANT: Re-create cursor when connection is re-established
+                if self.connection:
+                    self.cursor = self.connection.cursor(dictionary=True, buffered=True)
         except Error as e:
             self.logger.error(f"Error while re-establishing connection: {e}")
             raise  # Raise the exception to indicate a failure in re-establishing the connection
@@ -141,8 +144,10 @@ class Database:
 
     def get_latest_replay(self):
         """Get information about the most recent replay"""
-        self.cursor.reset()
         try:
+            self.ensure_connection()
+            self.cursor.reset()
+            
             # First get the latest replay data
             sql = """
                 SELECT r.UnixTimestamp, r.Player1_Id, r.Player2_Id, 
@@ -185,8 +190,10 @@ class Database:
             return None
     
     def update_player_comments_in_last_replay(self, comment):
-        self.cursor.reset()  # Ensure the cursor is in a clean state
         try:
+            self.ensure_connection()
+            self.cursor.reset()  # Ensure the cursor is in a clean state
+            
             # Fetch the latest UnixTimestamp
             self.logger.debug("Fetching the latest UnixTimestamp.")
             self.cursor.execute("SELECT MAX(UnixTimestamp) AS latest_timestamp FROM Replays")
@@ -206,7 +213,10 @@ class Database:
             self.logger.debug(f"Successfully updated Player_Comments for UnixTimestamp: {latest_timestamp}")
             return True
         except Exception as e:
-            self.connection.rollback()
+            try:
+                self.connection.rollback()
+            except:
+                pass
             self.logger.error(f"SQL Error: {e}")
             raise
 
@@ -216,8 +226,10 @@ class Database:
         Prioritizes replays with player_comments, then by most recent date.
         Filters to only return games where the player played as the specified race.
         """
-        self.cursor.reset()
         try:
+            self.ensure_connection()
+            self.cursor.reset()
+            
             query = """
                 SELECT 
                     r.*, 
@@ -255,8 +267,10 @@ class Database:
             return None
 
     def check_player_exists(self, player_name):
-        self.cursor.reset()
         try:
+            self.ensure_connection()
+            self.cursor.reset()
+            
             # Define the query with JOIN to include player names
             # Prioritize replays with player_comments, then by most recent date
             query = """
@@ -316,7 +330,8 @@ class Database:
         JOIN 
             Players p2 ON r.Player2_Id = p2.Id
         WHERE 
-            p1.SC2_UserId = %s OR p2.SC2_UserId = %s
+            (p1.SC2_UserId = %s OR p2.SC2_UserId = %s)
+            AND r.GameType = '1v1'
         GROUP BY 
             Opponent
         ORDER BY 
@@ -415,8 +430,9 @@ class Database:
             JOIN 
                 Players p2 ON r.Player2_Id = p2.Id
             WHERE 
-                (LOWER(p1.SC2_UserId) = LOWER(%s) AND LOWER(p2.SC2_UserId) = LOWER(%s)) OR 
-                (LOWER(p1.SC2_UserId) = LOWER(%s) AND LOWER(p2.SC2_UserId) = LOWER(%s))
+                ((LOWER(p1.SC2_UserId) = LOWER(%s) AND LOWER(p2.SC2_UserId) = LOWER(%s)) OR 
+                (LOWER(p1.SC2_UserId) = LOWER(%s) AND LOWER(p2.SC2_UserId) = LOWER(%s)))
+                AND r.GameType = '1v1'
             GROUP BY 
                 CASE 
                     WHEN LOWER(p1.SC2_UserId) = LOWER(%s) THEN r.Player1_Race
@@ -462,104 +478,132 @@ class Database:
         return date_played
 
     def insert_replay_info(self, replay_summary):
-        # The replay summary
-        # with open("temp/replay_summary.txt", "r") as file:
-        #    replay_summary = file.read()
+        retries = 3
+        delay = 2
+        
+        for attempt in range(retries):
+            try:
+                # Ensure connection is active before starting transaction
+                self.ensure_connection()
+                self.cursor.reset()
 
-        try:
+                # Extract details using regex
+                # player_matches = re.search(r"Players: (\w+): (\w+), (\w+): (\w+)", replay_summary)
+                player_matches = re.search(
+                    r"Players: (\w+[^:]+): (\w+), (\w+[^:]+): (\w+)", replay_summary)
 
-            # Extract details using regex
-            # player_matches = re.search(r"Players: (\w+): (\w+), (\w+): (\w+)", replay_summary)
-            player_matches = re.search(
-                r"Players: (\w+[^:]+): (\w+), (\w+[^:]+): (\w+)", replay_summary)
+                winners_matches = re.search(r"Winners: (.+?)\n", replay_summary)
+                losers_matches = re.search(r"Losers: (.+?)\n", replay_summary)
+                map_match = re.search(r"Map: (.+?)\n", replay_summary)
+                game_duration_match = re.search(
+                    r"Game Duration: (.+?)\n", replay_summary)
+                game_type_match = re.search(r"Game Type: (.+?)\n", replay_summary)
+                region_match = re.search(r"Region: (.+?)\n", replay_summary)
+                timestamp_match = re.search(r'Timestamp:\s*(\d+)', replay_summary)
 
-            winners_matches = re.search(r"Winners: (.+?)\n", replay_summary)
-            losers_matches = re.search(r"Losers: (.+?)\n", replay_summary)
-            map_match = re.search(r"Map: (.+?)\n", replay_summary)
-            game_duration_match = re.search(
-                r"Game Duration: (.+?)\n", replay_summary)
-            game_type_match = re.search(r"Game Type: (.+?)\n", replay_summary)
-            region_match = re.search(r"Region: (.+?)\n", replay_summary)
-            timestamp_match = re.search(r'Timestamp:\s*(\d+)', replay_summary)
+                # Extracted details
+                if not player_matches:
+                    self.logger.debug(
+                        f"Unable to find player matches in replay summary: {replay_summary}")
+                    return
+                player1_name, player1_race, player2_name, player2_race = player_matches.groups()
 
-            # Extracted details
-            if not player_matches:
-                self.logger.debug(
-                    f"Unable to find player matches in replay summary: {replay_summary}")
-                return
-            player1_name, player1_race, player2_name, player2_race = player_matches.groups()
+                winner = winners_matches.group(1)
+                loser = losers_matches.group(1)
+                game_map = map_match.group(1)
+                game_duration = game_duration_match.group(1)
+                game_type = game_type_match.group(1)
+                region = region_match.group(1)
+                timestamp = timestamp_match.group(1)
 
-            winner = winners_matches.group(1)
-            loser = losers_matches.group(1)
-            game_map = map_match.group(1)
-            game_duration = game_duration_match.group(1)
-            game_type = game_type_match.group(1)
-            region = region_match.group(1)
-            timestamp = timestamp_match.group(1)
-
-            # Check if UnixTimestamp already exists
-            self.cursor.execute(
-                "SELECT 1 FROM Replays WHERE UnixTimestamp = %s", (timestamp,))
-            existing_entry = self.cursor.fetchall()
-
-            date_played = self.convertUnixToDatetime(timestamp, "US/Eastern")
-
-            if existing_entry:
-                self.logger.debug(
-                    f"Entry with UnixTimestamp {timestamp} already exists in the database.")
-                return
-
-            # Insert players into the Players table
-            for player, race in [(player1_name, player1_race), (player2_name, player2_race)]:
+                # Check if UnixTimestamp already exists
                 self.cursor.execute(
-                    "INSERT IGNORE INTO Players (Id, SC2_UserId) VALUES (NULL, %s)", (player,))
+                    "SELECT 1 FROM Replays WHERE UnixTimestamp = %s", (timestamp,))
+                existing_entry = self.cursor.fetchall()
 
-            # Retrieve player IDs
-            self.cursor.execute(
-                "SELECT Id FROM Players WHERE SC2_UserId = %s", (player1_name,))
-            player1_result = self.cursor.fetchone()
-            if player1_result:
-                # Assuming you know the key:
-                # player1_id = player1_result['Id']
+                date_played = self.convertUnixToDatetime(timestamp, "US/Eastern")
 
-                # If you want the first value without knowing the key:
-                player1_id = next(iter(player1_result.values()))
-            else:
-                player1_id = None
+                if existing_entry:
+                    self.logger.debug(
+                        f"Entry with UnixTimestamp {timestamp} already exists in the database.")
+                    return
 
-            self.cursor.execute(
-                "SELECT Id FROM Players WHERE SC2_UserId = %s", (player2_name,))
-            player2_result = self.cursor.fetchone()
-            if player2_result:
-                # Assuming you know the key:
-                # player2_id = player2_result['Id']
+                # Insert players into the Players table
+                for player, race in [(player1_name, player1_race), (player2_name, player2_race)]:
+                    self.cursor.execute(
+                        "INSERT IGNORE INTO Players (Id, SC2_UserId) VALUES (NULL, %s)", (player,))
 
-                # If you want the first value without knowing the key:
-                player2_id = next(iter(player2_result.values()))
-            else:
-                player2_id = None
+                # Retrieve player IDs
+                self.cursor.execute(
+                    "SELECT Id FROM Players WHERE SC2_UserId = %s", (player1_name,))
+                player1_result = self.cursor.fetchone()
+                if player1_result:
+                    # Assuming you know the key:
+                    # player1_id = player1_result['Id']
 
-            # Insert replay details into the Replays table
-            self.cursor.execute("""
-                INSERT INTO Replays (
-                    UnixTimestamp, Player1_Id, Player2_Id, Player1_PickRace, Player2_PickRace,
-                    Player1_Race, Player2_Race, Player1_Result, Player2_Result,
-                    Date_Uploaded, Date_Played, Replay_Summary, Map, Region, GameType, GameDuration
-                ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), %s, %s, %s, %s, %s, %s
-                )
-            """, (timestamp, player1_id, player2_id, player1_race, player2_race, player1_race, player2_race,
-                  'Win' if winner == player1_name else 'Lose',
-                  'Win' if winner == player2_name else 'Lose',
-                  date_played, replay_summary, game_map, region, game_type, game_duration))
-            self.connection.commit()
-            self.logger.debug(
-                f"Inserted replay info with UnixTimestamp {timestamp}")
-            return True
+                    # If you want the first value without knowing the key:
+                    player1_id = next(iter(player1_result.values()))
+                else:
+                    player1_id = None
 
-        except Exception as e:
-            error_message = str(e) + "\n" + traceback.format_exc()
-            self.logger.error(f"Error inserting replay info: {error_message}")
+                self.cursor.execute(
+                    "SELECT Id FROM Players WHERE SC2_UserId = %s", (player2_name,))
+                player2_result = self.cursor.fetchone()
+                if player2_result:
+                    # Assuming you know the key:
+                    # player2_id = player2_result['Id']
+
+                    # If you want the first value without knowing the key:
+                    player2_id = next(iter(player2_result.values()))
+                else:
+                    player2_id = None
+
+                # Insert replay details into the Replays table
+                self.cursor.execute("""
+                    INSERT INTO Replays (
+                        UnixTimestamp, Player1_Id, Player2_Id, Player1_PickRace, Player2_PickRace,
+                        Player1_Race, Player2_Race, Player1_Result, Player2_Result,
+                        Date_Uploaded, Date_Played, Replay_Summary, Map, Region, GameType, GameDuration
+                    ) VALUES (
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), %s, %s, %s, %s, %s, %s
+                    )
+                """, (timestamp, player1_id, player2_id, player1_race, player2_race, player1_race, player2_race,
+                      'Win' if winner == player1_name else 'Lose',
+                      'Win' if winner == player2_name else 'Lose',
+                      date_played, replay_summary, game_map, region, game_type, game_duration))
+                self.connection.commit()
+                self.logger.debug(
+                    f"Inserted replay info with UnixTimestamp {timestamp}")
+                return True
+
+            except (OperationalError, Error) as e:
+                try:
+                    self.connection.rollback()
+                except:
+                    pass
+                    
+                if attempt < retries - 1:
+                    self.logger.warning(f"DB Error in insert_replay_info: {e}. Retrying {attempt+1}/{retries} in {delay}s...")
+                    time.sleep(delay)
+                    # Force reconnection logic
+                    try:
+                        if self.connection:
+                            self.connection.close()
+                    except:
+                        pass
+                    self.connection = None
+                else:
+                    error_message = str(e) + "\n" + traceback.format_exc()
+                    self.logger.error(f"Final Error inserting replay info: {error_message}")
+            
+            except Exception as e:
+                try:
+                    self.connection.rollback()
+                except:
+                    pass
+                error_message = str(e) + "\n" + traceback.format_exc()
+                self.logger.error(f"Error inserting replay info: {error_message}")
+                break # Don't retry generic exceptions
 
     def extract_opponent_build_order(self, opponent_name, opp_race, streamer_picked_race):
         self.logger.debug(f"searching in DB for {opponent_name} with race {opp_race} against {streamer_picked_race}")
@@ -637,6 +681,7 @@ class Database:
                 Players p ON r.Player1_Id = p.Id OR r.Player2_Id = p.Id
             WHERE 
                 p.SC2_UserId = %s
+                AND r.GameType = '1v1'
             GROUP BY 
                 p.SC2_UserId;
             """
@@ -679,6 +724,7 @@ class Database:
                         Replays r
                     WHERE 
                         EXISTS (SELECT 1 FROM Players WHERE SC2_UserId = %s AND Id = r.Player1_Id)
+                        AND r.GameType = '1v1'
                     GROUP BY 
                         Player_Race, Opponent_Race
                     UNION ALL
@@ -691,6 +737,7 @@ class Database:
                         Replays r
                     WHERE 
                         EXISTS (SELECT 1 FROM Players WHERE SC2_UserId = %s AND Id = r.Player2_Id)
+                        AND r.GameType = '1v1'
                     GROUP BY 
                         Player_Race, Opponent_Race
                 ) AS CombinedResults

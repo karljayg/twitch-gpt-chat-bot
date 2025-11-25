@@ -25,3 +25,6 @@ tiktoken
 pygame
 mysql-connector-python
 discord.py~=2.3.2
+pytest
+pytest-asyncio
+pytest-cov

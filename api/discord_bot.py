@@ -141,7 +141,8 @@ class DiscordBot(commands.Bot):
             timeout_hours = getattr(config, 'DISCORD_LAST_WORD_TIMEOUT_HOURS', 3)
             check_frequency_hours = getattr(config, 'DISCORD_LAST_WORD_CHECK_FREQUENCY_HOURS', 1)
             
-            twitch_logger.debug(f"Last word checker running - timeout: {timeout_hours}h, frequency: {check_frequency_hours}h")
+            # Print heartbeat indicator (silent - just the "w")
+            print("w", end="", flush=True)
             
             cutoff_time = datetime.now() - timedelta(hours=timeout_hours)
             
@@ -189,8 +190,7 @@ class DiscordBot(commands.Bot):
                             
                     except Exception as e:
                         twitch_logger.error(f"Error processing last word for message {message_id}: {e}")
-            elif not candidate_messages:
-                twitch_logger.debug("Last word checker found no new unreplied messages to process")
+            # Removed debug log for "no new messages" - just the "w" indicator is enough
                             
         except Exception as e:
             try:
@@ -325,132 +325,20 @@ class DiscordBot(commands.Bot):
             # Don't re-raise here - let the task end gracefully
 
     async def on_message(self, message):
-        """Handle Discord messages."""
-        try:
-            # Use the same logger as the Twitch bot to ensure logs go to the same file
-            from api.twitch_bot import logger as twitch_logger
-            
-            # Don't respond to own messages but track them for reply detection (only if last word feature is enabled)
-            if message.author == self.user:
-                # Track bot's own messages and mark previous messages as having replies
-                if getattr(config, 'DISCORD_LAST_WORD_ENABLED', True):
-                    # Mark all previous unreplied messages as having replies (bot activity counts as replies)
-                    # This prevents the last word feature from triggering when the bot is actively participating
-                    current_time = datetime.now()
-                    for msg_id, data in self.message_tracker.items():
-                        if not data['has_replies'] and data['timestamp'] < current_time:
-                            data['has_replies'] = True
-                            twitch_logger.debug(f"Marked message from {data['author']} as having replies due to bot response")
-                    
-                    # Track this bot message for future reply detection
-                    self.message_tracker[message.id] = {
-                        'timestamp': current_time,
-                        'has_replies': False,
-                        'content': message.content,
-                        'author': 'BOT',
-                        'bot_replied': True  # Mark as already replied since it's from the bot
-                    }
-                return
-                
-            # Only respond in the configured channel
-            if message.channel.id != self.channel_id:
-                return
-                
-            twitch_logger.info(f"Received Discord message from {message.author}: {message.content}")
-            
-            # Track message for last word feature (if enabled) - only track user messages, not bot messages
-            if getattr(config, 'DISCORD_LAST_WORD_ENABLED', True):
-                # Mark all previous unreplied messages as having replies (since someone just posted)
-                # This simulates real Discord behavior where people reply by posting new messages, not using formal replies
-                current_time = datetime.now()
-                for msg_id, data in self.message_tracker.items():
-                    if not data['has_replies'] and data['timestamp'] < current_time:
-                        data['has_replies'] = True
-                        twitch_logger.debug(f"Marked message from {data['author']} as having replies due to new message")
-                
-                # Add this new message to tracking for future last word processing
-                self.message_tracker[message.id] = {
-                    'timestamp': current_time,
-                    'has_replies': False,
-                    'content': message.content,
-                    'author': message.author.name,
-                    'bot_replied': False
-                }
-            
-            # Check if this is a formal reply to one of our messages (using Discord's reply feature)
-            is_reply_to_bot = False
-            if message.reference and getattr(config, 'DISCORD_RESPOND_TO_REPLIES', True):
-                try:
-                    replied_message = await message.channel.fetch_message(message.reference.message_id)
-                    if replied_message.author == self.user:
-                        is_reply_to_bot = True
-                        twitch_logger.info(f"Message is a formal reply to bot - will respond")
-                    
-                    # Mark the specifically replied message as having replies (this happens in addition to the general logic above)
-                    # This handles the less common case where people actually use Discord's reply button
-                    if message.reference.message_id in self.message_tracker:
-                        self.message_tracker[message.reference.message_id]['has_replies'] = True
-                        twitch_logger.debug(f"Marked specifically replied message as having replies")
-                except Exception as e:
-                    twitch_logger.debug(f"Could not fetch replied message: {e}")
-            
-            # Check if bot is mentioned
-            is_bot_mentioned = False
-            if getattr(config, 'DISCORD_RESPOND_TO_MENTIONS', True):
-                if self.user in message.mentions:
-                    is_bot_mentioned = True
-                    twitch_logger.info(f"Bot mentioned in message - will respond")
-            
-            # Check for special commands FIRST - this prevents double responses
-            # Commands like "wiki", "career", "history" always get responses regardless of dice roll
-            
-            # Clean message content by removing bot mentions for command detection
-            clean_content = message.content
-            if self.user in message.mentions:
-                # Remove the mention from the message content for command parsing
-                clean_content = message.content.replace(f'<@{self.user.id}>', '').replace(f'<@!{self.user.id}>', '').strip()
-            
-            msg_lower = clean_content.lower()
-            if self.should_always_respond(msg_lower):
-                twitch_logger.info(f"Processing Discord command: {clean_content}")
-                # Create a modified message object for command processing with clean content
-                original_content = message.content
-                message.content = clean_content  # Temporarily modify for command processing
-                await self.process_discord_command(message, twitch_logger)
-                message.content = original_content  # Restore original content
-                return  # Exit early - don't go through dice roll system
-            
-            # Determine if we should respond
-            should_respond = False
-            
-            # Always respond to mentions and replies (if enabled)
-            if is_bot_mentioned or is_reply_to_bot:
-                should_respond = True
-                twitch_logger.info(f"Responding due to mention/reply - mentioned: {is_bot_mentioned}, reply: {is_reply_to_bot}")
-            else:
-                # For regular messages (non-commands), use dice roll system with Discord-specific probability
-                # Discord gets lower probability than Twitch because Discord channels are typically more active
-                import random
-                roll = random.random()
-                discord_threshold = getattr(config, 'DISCORD_DICE_RESPONSE_PROBABILITY', 0.35)
-                
-                twitch_logger.debug(f"Discord dice roll: {roll:.2f} vs threshold: {discord_threshold}")
-                
-                if roll < discord_threshold:
-                    should_respond = True
-                    twitch_logger.info(f"Discord dice roll passed - will respond")
-                else:
-                    twitch_logger.debug(f"Discord dice roll failed - will not respond to: {message.content}")
-            
-            if should_respond:
-                await self.process_discord_ai_message(message, twitch_logger)
-                
-        except Exception as e:
-            twitch_logger.error(f"Error processing Discord message: {e}")
-            twitch_logger.exception("Discord message processing exception:")
-            
-        # Process commands (Discord.py built-in command processing)
-        await self.process_commands(message)
+        """Handle Discord messages.
+        
+        NOTE: This legacy handler has been stripped of logic to act only as a gateway
+        for the new DiscordAdapter. It no longer processes commands or AI itself.
+        """
+        # Allow listeners (like DiscordAdapter) to run
+        # This is crucial as DiscordAdapter registers its own listener
+        # discord.py automatically dispatches to listeners, but we override on_message to prevent legacy logic
+        
+        # Don't do anything here except potentially log debug
+        pass
+        
+    # Legacy methods below are effectively dead code now, but kept to prevent import errors
+    # if other parts of legacy system reference them.
     
     def should_always_respond(self, msg_lower):
         """Check if message contains commands that should always get a response."""
@@ -459,7 +347,8 @@ class DiscordBot(commands.Bot):
                 'commands' in msg_lower or
                 'wiki' in msg_lower or
                 'career' in msg_lower or
-                'history' in msg_lower)
+                'history' in msg_lower or
+                'head to head' in msg_lower)
     
     async def process_discord_command(self, message, logger):
         """Process Discord commands that should always respond."""
@@ -471,60 +360,24 @@ class DiscordBot(commands.Bot):
                 await message.channel.send("Available commands: `wiki <topic>`, `career <player>`, `history <player>`, `open sesame`")
                 return
             
-            # Handle wiki searches
+            # Handle wiki searches (defer to Core)
             if 'wiki' in msg_lower:
-                # Extract search query more precisely
-                parts = message.content.split()
-                wiki_index = next((i for i, part in enumerate(parts) if 'wiki' in part.lower()), None)
-                
-                if wiki_index is not None and wiki_index + 1 < len(parts):
-                    # Get everything after "wiki" as the search query
-                    wiki_query = ' '.join(parts[wiki_index + 1:])
-                    wiki_query = wiki_query.strip('@').strip()  # Clean up mentions
-                    if wiki_query:
-                        await self.handle_wiki_search(message, wiki_query, logger)
-                    else:
-                        await message.channel.send("Usage: `wiki <topic>` - Search for StarCraft 2 information")
-                else:
-                    await message.channel.send("Usage: `wiki <topic>` - Search for StarCraft 2 information")
+                logger.info("Detected 'wiki' command - deferring to BotCore logic.")
                 return
-                    
-            # Handle career searches
+
+            # Handle career searches (defer to Core)
             if 'career' in msg_lower:
-                # Extract player name more precisely
-                parts = message.content.lower().split()
-                career_index = next((i for i, part in enumerate(parts) if 'career' in part), None)
-                
-                if career_index is not None and career_index + 1 < len(parts):
-                    # Get the word immediately after "career"
-                    player_name = parts[career_index + 1]
-                    # Remove any @ mentions or special characters
-                    player_name = player_name.strip('@').strip()
-                    if player_name:
-                        await self.handle_career_search(message, player_name, logger)
-                    else:
-                        await message.channel.send("Usage: `career <player>` - Look up player career stats")
-                else:
-                    await message.channel.send("Usage: `career <player>` - Look up player career stats")
+                logger.info("Detected 'career' command - deferring to BotCore logic.")
                 return
-            
-            # Handle history searches
+
+            # Handle history searches (defer to Core)
             if 'history' in msg_lower:
-                # Extract player name more precisely, similar to Twitch bot
-                parts = message.content.lower().split()
-                history_index = next((i for i, part in enumerate(parts) if 'history' in part), None)
-                
-                if history_index is not None and history_index + 1 < len(parts):
-                    # Get the word immediately after "history"
-                    player_name = parts[history_index + 1]
-                    # Remove any @ mentions or special characters
-                    player_name = player_name.strip('@').strip()
-                    if player_name:
-                        await self.handle_history_search(message, player_name, logger)
-                    else:
-                        await message.channel.send("Usage: `history <player>` - Look up player game history")
-                else:
-                    await message.channel.send("Usage: `history <player>` - Look up player game history")
+                logger.info("Detected 'history' command - deferring to BotCore logic.")
+                return
+
+            # Handle head to head (defer to Core)
+            if 'head to head' in msg_lower:
+                logger.info("Detected 'head to head' command - deferring to BotCore logic.")
                 return
             
             # Handle open sesame and other AI triggers
@@ -821,4 +674,4 @@ async def start_discord_bot(twitch_bot_ref=None):
         twitch_logger.exception("Discord bot startup exception details:")
         return None
     
-    return discord_bot_instance 
+    return discord_bot_instance

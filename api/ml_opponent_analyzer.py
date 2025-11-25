@@ -609,6 +609,11 @@ class MLOpponentAnalyzer:
             
             for item_name, item_data in pattern_dict.items():
                 timing = item_data['timing']
+                # Defensive: Ensure timing is numeric
+                try:
+                    timing = float(timing) if not isinstance(timing, (int, float)) else timing
+                except (ValueError, TypeError):
+                    timing = 0
                 
                 # Extra weight for tech buildings
                 is_tech = item_name in tech_buildings
@@ -646,6 +651,11 @@ class MLOpponentAnalyzer:
             
             for item_name, item_data in new_build_dict.items():
                 timing = item_data['timing']
+                # Defensive: Ensure timing is numeric
+                try:
+                    timing = float(timing) if not isinstance(timing, (int, float)) else timing
+                except (ValueError, TypeError):
+                    timing = 0
                 
                 # Extra weight for tech buildings
                 is_tech = item_name in tech_buildings

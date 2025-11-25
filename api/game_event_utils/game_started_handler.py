@@ -13,8 +13,12 @@ def game_started(self, current_game, contextHistory, logger):
     contextHistory.clear()
     logger.debug("Cleared conversation context for new game")
     
-    # Clear pattern learning context when new game starts
-    if hasattr(self, 'pattern_learning_context'):
+    # Clear pattern learning context when new game starts OR if it's older than 5 minutes
+    if hasattr(self, 'pattern_learning_context') and self.pattern_learning_context:
+        import time
+        context_age = time.time() - self.pattern_learning_context.get('timestamp', 0)
+        if context_age > 300:  # 5 minutes
+            logger.info(f"Clearing stale pattern learning context (age: {context_age/60:.1f} minutes)")
         self.pattern_learning_context = None
         logger.debug("Cleared pattern learning context for new game")
     
@@ -73,7 +77,7 @@ def game_started(self, current_game, contextHistory, logger):
                 
                 processMessageForOpenAI(self, msg, "in_game", logger, contextHistory)
             else:
-                self.play_SC2_sound("start")
+                # self.play_SC2_sound("start") # Moved to BotCore.handle_game_state (TDD architecture)
                 player_accounts_lower = [name.lower() for name in config.SC2_PLAYER_ACCOUNTS]
                 for player_name in game_player_names:
                     logger.debug(f"looking for: {player_name}")
@@ -204,13 +208,6 @@ def game_started(self, current_game, contextHistory, logger):
                                 player_name = not_alias
                             else:
                                 logger.debug(f"no alias found for {player_name}")
-
-                            if result['Player_Comments'] is not None:
-                                msg = f"Restate this: 'The last game {how_long_ago} when {config.STREAMER_NICKNAME} played the opponent {player_name}: {result['Player_Comments']}'.\n"
-                                msg += "\n After restating, append these characters exactly as is: ' player comments warning'. \n"
-                                
-                                # Send the prompt to OpenAI
-                                processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
 
                             # Fetch comments for the player on actual current name, not alias
                             player_comments = self.db.get_player_comments(current_player_name, player_current_race)
@@ -354,7 +351,7 @@ def game_started(self, current_game, contextHistory, logger):
                             logger.debug(f"Full message length: {len(msg)}")
                             
                             processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
-
+                            
                         else:
                             msg = "Restate this without missing any details: \n "
                             msg += f"I think this is the first time {config.STREAMER_NICKNAME} is playing {player_name}, at least the {player_current_race} of {player_name}"

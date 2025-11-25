@@ -1,0 +1,205 @@
+import asyncio
+import logging
+import time
+from typing import Optional, Any
+from core.interfaces import IGameStateProvider
+from core.bot import BotCore
+from core.events import GameStateEvent
+from api.sc2_game_utils import check_SC2_game_status
+# from api.sc2_game_utils import handle_SC2_game_results # Completely disabled
+import settings.config as config
+
+logger = logging.getLogger(__name__)
+
+class SC2Adapter(IGameStateProvider):
+    def __init__(self, bot_core: BotCore, game_result_service=None):
+        self.bot_core = bot_core
+        self.game_result_service = game_result_service
+        self.current_game = None
+        self.previous_game = None
+        self.running = False
+        self.heartbeat_counter = 0
+        self.heartbeat_interval = config.HEARTBEAT_MYSQL  # Number of iterations before DB heartbeat
+        
+    def get_current_game_state(self) -> Any:
+        return self.current_game
+
+    def get_last_game_result(self) -> Any:
+        # Ideally this would return the result of the previous game
+        return self.previous_game
+        
+    def _get_legacy_twitch_bot(self):
+        """Helper to retrieve the legacy TwitchBot instance from the BotCore adapters"""
+        twitch_service = self.bot_core.chat_services.get('twitch')
+        if twitch_service and hasattr(twitch_service, 'twitch_bot'):
+            return twitch_service.twitch_bot
+        return None
+
+    async def start_monitoring(self):
+        """
+        Async loop to monitor SC2 game status. 
+        Replaces the threaded monitor_game in twitch_bot.py.
+        """
+        self.running = True
+        logger.info("SC2 Monitoring started")
+        
+        # Initial Poll to set baseline state without triggering events
+        # This prevents "Game Over" spam on bot restart if the game is already in 'MATCH_ENDED' state
+        try:
+            loop = asyncio.get_event_loop()
+            initial_game = await loop.run_in_executor(None, check_SC2_game_status, logger)
+            self.current_game = initial_game
+            self.previous_game = initial_game
+            status = initial_game.get_status() if initial_game else 'None'
+            logger.info(f"SC2 Monitoring initialized. Current state: {status}")
+        except Exception as e:
+            logger.error(f"Failed to initialize SC2 state: {e}")
+        
+        while self.running:
+            monitoring_success = True # Assume success
+            try:
+                # We wrap the synchronous check_SC2_game_status in executor
+                # to avoid blocking the async loop
+                loop = asyncio.get_event_loop()
+                
+                # Poll SC2 API
+                current_game = await loop.run_in_executor(None, check_SC2_game_status, logger)
+                
+                # Detect State Change
+                if self._has_state_changed(self.current_game, current_game):
+                    old_status = self.current_game.get_status() if self.current_game and hasattr(self.current_game, 'get_status') else "None"
+                    new_status = current_game.get_status() if current_game and hasattr(current_game, 'get_status') else "None"
+                    logger.info(f"SC2 State Change Detected: {old_status} -> {new_status}")
+                    
+                    # Special case: MATCH_STARTED -> REPLAY_ENDED means the match ended and user immediately watched replay
+                    # We need to synthesize a MATCH_ENDED event before the REPLAY_ENDED
+                    if old_status == "MATCH_STARTED" and new_status == "REPLAY_ENDED":
+                        logger.info("Detected match end via replay viewing - synthesizing MATCH_ENDED event")
+                        # Create a MATCH_ENDED event using the current game data (which has the results)
+                        match_ended_event = GameStateEvent(
+                            event_type="game_ended",
+                            data={
+                                "status": "MATCH_ENDED",
+                                "raw_data": current_game
+                            }
+                        )
+                        self.bot_core.add_event(match_ended_event)
+                        logger.debug("Pushed synthetic game_ended event to BotCore")
+                        
+                        # Trigger GameResultService
+                        if self.game_result_service:
+                            logger.info("Triggering GameResultService.process_game_end (Async Task)")
+                            asyncio.create_task(self.game_result_service.process_game_end(current_game))
+                    
+                    # 1. Notify Core (for status updates)
+                    event = self._create_game_event(current_game)
+                    self.bot_core.add_event(event)
+                    logger.debug(f"Pushed {event.event_type} event to BotCore")
+                    
+                    # 2. Trigger GameResultService for normal MATCH_ENDED
+                    status = current_game.get_status() if current_game else "None"
+                    if status == "MATCH_ENDED" and self.game_result_service:
+                        logger.info("Triggering GameResultService.process_game_end (Async Task)")
+                        # Run as task to not block monitoring loop
+                        asyncio.create_task(self.game_result_service.process_game_end(current_game))
+                    
+                    # Note: Legacy logic (handle_SC2_game_results) is intentionally disabled
+                    # to prevent double processing of game results. All logic is now in GameResultService.
+
+                self.previous_game = self.current_game
+                self.current_game = current_game
+                
+            except Exception as e:
+                monitoring_success = False
+                # Handle specific known error that indicates connection failure/GameInfo crash
+                if "isReplay" in str(e):
+                    print("o", end="", flush=True)
+                else:
+                    logger.error(f"Error in SC2 monitoring: {e}")
+                    print("o", end="", flush=True)
+            
+            # Increment heartbeat counter
+            self.heartbeat_counter += 1
+            
+            # Check if it's time to send a database heartbeat
+            if self.heartbeat_counter >= self.heartbeat_interval:
+                try:
+                    twitch_bot = self._get_legacy_twitch_bot()
+                    if twitch_bot and hasattr(twitch_bot, 'db'):
+                        twitch_bot.db.keep_connection_alive()
+                        self.heartbeat_counter = 0  # Reset after successful heartbeat
+                        print("+", end="", flush=True)  # DB heartbeat indicator
+                    else:
+                        # No DB available, just reset counter
+                        self.heartbeat_counter = 0
+                        if monitoring_success:
+                            print(".", end="", flush=True)
+                except Exception as e:
+                    logger.error(f"Error during database heartbeat: {e}")
+                    self.heartbeat_counter = 0
+                    print("o", end="", flush=True)
+            else:
+                # Normal heartbeat indicator
+                if monitoring_success:
+                    print(".", end="", flush=True)
+            
+            # Sleep interval from config
+            await asyncio.sleep(config.MONITOR_GAME_SLEEP_SECONDS)
+
+    def stop(self):
+        self.running = False
+
+    def _has_state_changed(self, old_game, new_game):
+        """
+        Determine if significant state change occurred.
+        Check both status change AND if it's a different game (different players or time).
+        """
+        old_status = old_game.get_status() if old_game and hasattr(old_game, 'get_status') else "None"
+        new_status = new_game.get_status() if new_game and hasattr(new_game, 'get_status') else "None"
+        
+        # Check if status changed
+        if old_status != new_status:
+            return True
+        
+        # If both are MATCH_STARTED, check if it's a different game (different players)
+        if old_status == "MATCH_STARTED" and new_status == "MATCH_STARTED":
+            if old_game and new_game:
+                try:
+                    old_players = set(old_game.get_player_names())
+                    new_players = set(new_game.get_player_names())
+                    # Different players = different game
+                    if old_players != new_players:
+                        logger.debug(f"Different game detected: old players {old_players} != new players {new_players}")
+                        return True
+                    
+                    # Also check display time - if time reset to 0 or very small, it's a new game
+                    old_time = getattr(old_game, 'displayTime', None)
+                    new_time = getattr(new_game, 'displayTime', None)
+                    if old_time and new_time and old_time > 60 and new_time < 30:
+                        logger.debug(f"Game restart detected: time went from {old_time}s to {new_time}s")
+                        return True
+                except Exception as e:
+                    logger.debug(f"Error comparing games: {e}")
+        
+        return False
+
+    def _create_game_event(self, game_data) -> GameStateEvent:
+        """
+        Convert SC2 game object into a Core Event.
+        """
+        status = game_data.get_status() if game_data and hasattr(game_data, 'get_status') else "unknown"
+        
+        # Map SC2 status to Event Type
+        event_type = "status_change"
+        if status == "MATCH_STARTED":
+            event_type = "game_started"
+        elif status == "MATCH_ENDED": # Or whatever the end status is
+            event_type = "game_ended"
+            
+        return GameStateEvent(
+            event_type=event_type,
+            data={
+                "status": status,
+                "raw_data": game_data
+            }
+        )

@@ -185,6 +185,10 @@ def replace_non_ascii(s, replacement='?'):
     return "".join(c if ord(c) < 128 else replacement for c in s)
 
 def truncate_to_byte_limit(input_string, byte_limit):
+    """
+    Truncate a string to a specific byte limit, handling potential multi-byte character cuts.
+    Appends '... (truncated)' if truncation occurs.
+    """
     encoded_string = input_string.encode('utf-8')
     current_byte_total = len(encoded_string)
 
@@ -192,10 +196,25 @@ def truncate_to_byte_limit(input_string, byte_limit):
         print(f"Current byte total: {current_byte_total} bytes (within limit)")
         return input_string
     else:
-        truncated_string = encoded_string[:byte_limit].decode('utf-8', 'ignore').rstrip()
-        new_byte_total = len(truncated_string.encode('utf-8'))
+        # Reserve space for the truncation indicator
+        trunc_indicator = " ... (truncated)"
+        trunc_bytes = len(trunc_indicator.encode('utf-8'))
+        effective_limit = byte_limit - trunc_bytes
+        
+        if effective_limit <= 0:
+            effective_limit = byte_limit # Fallback if limit is extremely small
+            trunc_indicator = ""
+
+        # Truncate and decode, ignoring errors to handle partial multi-byte chars at the cut
+        truncated_bytes = encoded_string[:effective_limit]
+        truncated_string = truncated_bytes.decode('utf-8', 'ignore').rstrip()
+        
+        # Add indicator
+        final_string = truncated_string + trunc_indicator
+        
+        new_byte_total = len(final_string.encode('utf-8'))
         print(f"Current byte total: {current_byte_total} bytes, truncated to {new_byte_total} bytes")
-        return truncated_string
+        return final_string
 
 def num_tokens_from_string(string: str, encoding_name: str) -> int:
     # Returns the number of tokens in a text string depending on tokenizer used

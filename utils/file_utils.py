@@ -62,10 +62,16 @@ def find_recent_file_within_time(folder, file_extension, minutes, retries, logge
             if latest_file:
                 file_timestamp = os.path.getmtime(latest_file)
                 is_recent = datetime.now() - datetime.fromtimestamp(file_timestamp) <= timedelta(minutes=minutes)
-                is_newer_than_last = last_processed_file is None or file_timestamp > os.path.getmtime(last_processed_file)
-
-                if is_recent or is_newer_than_last:
-                    logger.debug(f"New file found: {latest_file}")
+                
+                # Logic fixed to correctly handle "ignore old files on startup"
+                if last_processed_file:
+                    # If we are already running, we just need a file newer than the last one we processed
+                    if file_timestamp > os.path.getmtime(last_processed_file):
+                        logger.debug(f"New file found (newer than last): {latest_file}")
+                        return latest_file
+                elif is_recent:
+                    # If it's the first run (last_processed_file is None), strictly enforce the time window
+                    logger.debug(f"New file found (recent enough): {latest_file}")
                     return latest_file
 
             logger.debug(f"No new file found in folder '{folder}'.")

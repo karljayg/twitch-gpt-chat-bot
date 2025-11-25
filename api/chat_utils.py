@@ -478,13 +478,13 @@ def process_pubmsg(self, event, logger, contextHistory):
 
                     From the above, say it exactly like this format:
 
-                        overall: 425-394, each matchup: PvP: 15-51 PvT: 11-8 PvZ: 1-1 TvP: 8-35 TvT: 3-1 TvZ: 4-3 ZvP: 170-137 ZvT: 138-100 ZvZ: 75-58
+                        overall: 425-394, each matchup: PvP: 15-51 PvT: 11-8 PvZ: 1-1 TvP: 8-35 TvT: 3-1 TvZ: 4-3 ZvP: 170-137 ZvT: 138-100 ZvZ: 75-58. Strong Zerg performance with balanced racial distribution.
 
                 Now do the same but only using this data:
 
                     {player_name} : {trimmed_msg}.
 
-                Then add a 10 word comment about the matchup, after.
+                Include a period and space before your 10 word comment.
             '''
             
         else:
@@ -811,12 +811,25 @@ def process_ai_message(user_message, conversation_mode="normal", contextHistory=
         pass
     else:
         # add complete array as msg to OpenAI
-        msg = msg + \
-            tokensArray.get_printed_array("reversed", contextHistory)
+        try:
+            context_str = tokensArray.get_printed_array("reversed", contextHistory)
+            if not isinstance(context_str, str):
+                logger.error(f"get_printed_array returned non-string: {type(context_str)}")
+                context_str = str(context_str)
+            msg = msg + context_str
+        except Exception as e:
+            logger.error(f"Error appending context history: {e}")
+            # Continue without context
+            pass
         
         # Choose a random mood and perspective from the selected options
-        selected_moods = [config.MOOD_OPTIONS[i] for i in config.BOT_MOODS]
-        mood = random.choice(selected_moods)
+        try:
+            selected_moods = [config.MOOD_OPTIONS[i] for i in config.BOT_MOODS]
+            mood = random.choice(selected_moods)
+            logger.debug(f"Selected mood: {mood} (type: {type(mood).__name__})")
+        except (IndexError, KeyError) as e:
+            logger.error(f"Error selecting mood: {e}. Using default.")
+            mood = "casual"
 
         if conversation_mode == "replay_analysis":
             # say cutoff is 4, then select indices 0-3
@@ -825,9 +838,14 @@ def process_ai_message(user_message, conversation_mode="normal", contextHistory=
             # Select indices 4-onwards
             perspective_indices = config.BOT_PERSPECTIVES[config.PERSPECTIVE_INDEX_CUTOFF:]
 
-        selected_perspectives = [
-            config.PERSPECTIVE_OPTIONS[i] for i in perspective_indices]
-        perspective = random.choice(selected_perspectives)
+        try:
+            selected_perspectives = [
+                config.PERSPECTIVE_OPTIONS[i] for i in perspective_indices]
+            perspective = random.choice(selected_perspectives)
+            logger.debug(f"Selected perspective: {perspective[:50]}... (type: {type(perspective).__name__})")
+        except (IndexError, KeyError) as e:
+            logger.error(f"Error selecting perspective: {e}. Using default.")
+            perspective = "respond naturally"
 
         if (conversation_mode == "normal"):
             # if contextHistory has > 15 tuples, clear it
@@ -837,8 +855,15 @@ def process_ai_message(user_message, conversation_mode="normal", contextHistory=
             else:
                 pass
             # Mathison is an AI bot watching the stream with everyone else, not referencing the streamer
-            msg = (f"As a {mood} AI bot named Mathison watching this StarCraft 2 stream, {perspective}, "
-                    + msg)
+            try:
+                # Ensure mood and perspective are strings
+                mood_str = str(mood) if mood is not None else "casual"
+                perspective_str = str(perspective) if perspective is not None else "respond naturally"
+                msg = (f"As a {mood_str} AI bot named Mathison watching this StarCraft 2 stream, {perspective_str}, "
+                        + msg)
+            except Exception as e:
+                logger.error(f"Error building prompt with mood={mood} (type: {type(mood)}), perspective={perspective} (type: {type(perspective)}): {e}")
+                raise
         else:
             if (conversation_mode == "in_game"):
                 msg = (f"As a {mood} observer of matches in StarCraft 2, {perspective}, comment on this statement: "
