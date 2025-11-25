@@ -25,10 +25,13 @@ from settings import config
 # Force shutdown handler to prevent hanging on Ctrl+C
 def force_shutdown(sig, frame):
     print('\nReceived interrupt signal - forcing immediate exit...')
+    # If force shutdown is called, we just exit. Cleanup happens in main loop's finally block
+    # or via a daemon thread.
     sys.exit(0)
 
-# Register the signal handler
-signal.signal(signal.SIGINT, force_shutdown)
+# Register the signal handler - only in main thread and if not Windows sometimes
+# But here we want to catch it if it bubbles up.
+# signal.signal(signal.SIGINT, force_shutdown) 
 
 # Initialize basic logger for import warnings
 import logging
@@ -231,7 +234,10 @@ player_names = config.SC2_PLAYER_ACCOUNTS
 
 
 class TwitchBot(irc.bot.SingleServerIRCBot):
-    def __init__(self):
+    def __init__(self, start_monitor=True):
+        # Initialize logger first to avoid UnboundLocalError
+        logger = logging.getLogger(__name__)
+        
         self.first_run = True
         self.last_replay_file = None
         self.conversation_mode = "normal"
@@ -245,12 +251,19 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         # handle KeyboardInterrupt in a more graceful way by setting a flag when Ctrl-C is pressed and checking that
         # flag in threads that need to be terminated
         self.shutdown_flag = False
-        signal.signal(signal.SIGINT, self.signal_handler)
+        # signal.signal(signal.SIGINT, self.signal_handler) # Handled by main run loop now
 
         # threads to be terminated as soon as the main program finishes when set as daemon threads
-        monitor_thread = threading.Thread(target=self.monitor_game)
-        monitor_thread.daemon = True
-        monitor_thread.start()
+        if start_monitor:
+            monitor_thread = threading.Thread(target=self.monitor_game)
+            monitor_thread.daemon = True
+            monitor_thread.start()
+        else:
+            # Use _import_logger if logger is not yet initialized, or just print
+            if '_import_logger' in globals():
+                _import_logger.info("Legacy SC2 monitoring thread disabled (using external adapter)")
+            else:
+                print("Legacy SC2 monitoring thread disabled (using external adapter)")
 
         # Start the speech listener thread only if speech-to-text is enabled and imports are available
         if (getattr(config, 'ENABLE_AUDIO', True) and 
@@ -362,6 +375,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             if config.IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN and self.first_run:
                 logger.debug(
                     "Per config, ignoring previous game on the first run, so no sound will be played")
+                self.first_run = False  # Clear flag after ignoring first game
                 return
             try:
                 self.sound_player.play_sound(game_event, logger)
@@ -392,22 +406,35 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         # Set a failsafe timer to force exit if graceful shutdown hangs
         def force_exit():
             logger.warning("Graceful shutdown took too long - forcing exit")
-            sys.exit(0)
+            import os
+            os._exit(0)
         
         failsafe_timer = threading.Timer(3.0, force_exit)
         failsafe_timer.daemon = True
         failsafe_timer.start()
         
-        # Check if IRC connection exists before trying to disconnect
-        if hasattr(self, 'connection') and self.connection:
+        # Perform graceful shutdown
+        self.die("Shutdown requested.")
+        
+        # Only exit if this was a signal interrupt, not a manual call
+        if signal:
+            sys.exit(0)
+
+    def die(self, msg="Bye, world!"):
+        """Override die to not sys.exit, allowing clean shutdown by orchestrator."""
+        self.shutdown_flag = True
+        # Ensure connection is closed
+        if hasattr(self, 'connection') and self.connection and self.connection.is_connected():
             try:
-                self.die("Shutdown requested.")
+                self.connection.quit(msg)
+                # Explicitly disconnect reactor to break process_forever loop
+                if hasattr(self, 'reactor'):
+                    self.reactor.disconnect_all()
             except Exception as e:
                 logger.error(f"Error during IRC disconnect: {e}")
-        else:
-            logger.info("No IRC connection to disconnect - shutting down directly")
         
-        sys.exit(0)
+        # Do NOT call sys.exit(0) here to allow run_core.py to manage the lifecycle
+        logger.info("TwitchBot die() called - connection closed, stopping monitor.")
 
     def listen_for_speech_whisperAI(self):
         # Safety check - don't run if STT imports aren't available
@@ -431,8 +458,13 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             try:
                 chunk_duration = 3  # Initial recording duration in seconds
                 fs = 16000  # Sample rate
+                
+                # Check if we're shutting down before starting loop
+                if self.shutdown_flag: break
 
                 while True:
+                    if self.shutdown_flag: break
+                    
                     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
                         temp_filename = tmp_file.name
 
@@ -726,9 +758,50 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         connection.join(self.channel)
         message_on_welcome(self, logger)
 
+    def set_message_handler(self, handler):
+        """Set a handler to receive messages (e.g., TwitchAdapter)"""
+        self.message_handler = handler
+
     # This function is a listerner whenever there is a publish message on twitch chat room
     def on_pubmsg(self, connection, event):
+        # Ignore messages from myself (prevents infinite loops)
+        source = event.source.split('!')[0]
+        if source.lower() == self.username.lower():
+            return
+
+        # Get message content
+        msg = event.arguments[0]
         
+        # Forward to adapter if registered
+        if hasattr(self, 'message_handler') and self.message_handler:
+            # Send to BotCore
+            # Note: This is fire-and-forget to the async core
+            try:
+                self.message_handler(source, msg, self.channel)
+            except Exception as e:
+                logger.error(f"Error forwarding message to adapter: {e}")
+            
+            # Check if this is a command that should be handled ONLY by BotCore
+            # This prevents double-processing for migrated commands
+            msg_lower = msg.lower()
+            migrated_commands = [
+                'wiki', 'career', 'history', 'head to head', 
+                'player comment', 'analyze', 'fsl_review'
+            ]
+            
+            # CommandService uses strict prefix matching usually, but legacy was loose.
+            # We'll check if it starts with any of these to be safe and prefer the new system.
+            # For 'player comment', we check both 'player comment' and 'player comments'
+            is_migrated = False
+            for cmd in migrated_commands:
+                if cmd in msg_lower:
+                    is_migrated = True
+                    break
+            
+            if is_migrated:
+                logger.debug(f"Skipping legacy processing for migrated command: {msg}")
+                return
+
         #process the message sent by the viewers in the twitch chat room
         process_pubmsg(self, event, logger, contextHistory)
 
@@ -920,7 +993,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
         try:
             import json
             import re
-            from api.chat_utils import process_ai_message
+            from api.chat_utils import send_prompt_to_openai
             
             ctx = self.pattern_learning_context
             pattern_text = f"Pattern Match ({ctx['pattern_similarity']:.0f}%): \"{ctx['pattern_match']}\"" if ctx['pattern_match'] else "No pattern match"
@@ -928,37 +1001,50 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             
             prompt = f"""You are interpreting a user's response for StarCraft 2 build order labeling.
 
-Context:
-- Opponent: {ctx['opponent_name']}
-- {pattern_text}
-- {ai_text}
+The user was presented with two options:
+OPTION 1 (Pattern Match): "{ctx.get('pattern_match', 'N/A')}"
+OPTION 2 (AI Analysis): "{ctx.get('ai_summary', 'N/A')}"
 
+Opponent: {ctx['opponent_name']}
 User's response: "{user_message}"
 
-Determine the user's intent and respond with ONLY valid JSON (use double quotes):
+Your task: Intelligently determine what the user wants based on their response compared to the two options above.
 
-1. If choosing pattern match AS-IS (keywords: first, 1, pattern, yes it's right, pattern is correct):
+Rules:
+1. If user's response is essentially agreeing with OPTION 1 (same meaning, similar wording, or explicit choice like "1", "first", "pattern"):
    {{"action": "use_pattern"}}
 
-2. If choosing AI summary AS-IS (keywords: second, 2, AI is right, AI summary is correct):
+2. If user's response is essentially agreeing with OPTION 2 (same meaning, similar wording, or explicit choice like "2", "second", "AI"):
    {{"action": "use_ai_summary"}}
 
-3. If user REFINES option 1 or 2 with additional details (keywords: "but", "except", "actually", "close but", "pretty close" + extra description):
-   {{"action": "custom", "text": "<extract the refined/corrected description from user's message>"}}
-   Example: "2nd is close but it was roach rush" → {{"action": "custom", "text": "roach rush"}}
-
-4. If providing completely custom description (descriptive text without choosing option 1 or 2):
-   {{"action": "custom", "text": "<extract the strategy description>"}}
-
-5. If declining/skipping (keywords: skip, no, neither, ignore, pass):
+3. If user wants to skip (keywords: skip, no, neither, ignore, pass):
    {{"action": "skip"}}
 
-CRITICAL: Respond with VALID JSON using double quotes, not single quotes.
-Respond ONLY with JSON on one line. No explanation, no markdown."""
+4. If user provides MORE SPECIFIC details, corrections, or different description than both options:
+   {{"action": "custom", "text": "<user's exact description>"}}
+
+5. If user combines/refines one option with additional details:
+   {{"action": "custom", "text": "<combined description using user's refinements>"}}
+
+Examples:
+- User: "proxy 3 gateway zealot all in" vs AI: "Gateway heavy zealot pressure" → CUSTOM (user more specific)
+- User: "yeah the gateway pressure one" vs AI: "Gateway heavy zealot pressure" → USE AI SUMMARY (agreeing)
+- User: "first one looks good" → USE PATTERN
+- User: "roach rush not zealot" → CUSTOM (correcting)
+
+Be smart: Compare the MEANING and SPECIFICITY of the user's text against both options.
+Respond with VALID JSON using double quotes. One line only. No markdown, no explanation."""
             
-            response = process_ai_message(prompt, "normal", None, "twitch", logger)
-            if not response:
-                logger.debug("No response from OpenAI for pattern learning interpretation")
+            # Use send_prompt_to_openai directly to avoid persona/emote injection from process_ai_message
+            try:
+                completion = send_prompt_to_openai(prompt)
+                if completion and completion.choices and completion.choices[0].message:
+                    response = completion.choices[0].message.content
+                else:
+                    logger.debug("No valid response content from OpenAI")
+                    return ('skip', None)
+            except Exception as e:
+                logger.error(f"Error calling OpenAI: {e}")
                 return ('skip', None)
             
             # Clean response - remove markdown code blocks if present
@@ -966,6 +1052,44 @@ Respond ONLY with JSON on one line. No explanation, no markdown."""
             response_clean = re.sub(r'^```json?\s*', '', response_clean, flags=re.IGNORECASE)
             response_clean = re.sub(r'\s*```$', '', response_clean)
             response_clean = response_clean.strip()
+            
+            # Extract just the JSON object (in case OpenAI adds extra text after)
+            # Look for the first { and find its matching }
+            json_start = response_clean.find('{')
+            if json_start != -1:
+                brace_count = 0
+                json_end = -1
+                for i in range(json_start, len(response_clean)):
+                    if response_clean[i] == '{':
+                        brace_count += 1
+                    elif response_clean[i] == '}':
+                        brace_count -= 1
+                        if brace_count == 0:
+                            json_end = i + 1
+                            break
+                
+                if json_end != -1:
+                    response_clean = response_clean[json_start:json_end]
+                    logger.debug(f"Extracted JSON object: {response_clean}")
+            
+            # Extract just the JSON object (in case OpenAI adds extra text after)
+            # Look for the first { and find its matching }
+            json_start = response_clean.find('{')
+            if json_start != -1:
+                brace_count = 0
+                json_end = -1
+                for i in range(json_start, len(response_clean)):
+                    if response_clean[i] == '{':
+                        brace_count += 1
+                    elif response_clean[i] == '}':
+                        brace_count -= 1
+                        if brace_count == 0:
+                            json_end = i + 1
+                            break
+                
+                if json_end != -1:
+                    response_clean = response_clean[json_start:json_end]
+                    logger.debug(f"Extracted JSON object: {response_clean}")
             
             # Try to parse JSON
             parsed = None
@@ -1029,9 +1153,7 @@ Respond ONLY with JSON on one line. No explanation, no markdown."""
         except Exception as e:
             logger.error(f"Error processing natural language pattern response: {e}")
             import traceback
-            logger.error(traceback.format_exc())
-            # Default to skip on any error
-            return ('skip', None)
+            logger.error(f"Traceback: {traceback.format_exc()}")
     
     def _display_pattern_validation(self, game_data, logger):
         """Display pattern learning validation and store suggestion if confidence is high"""
@@ -1097,27 +1219,52 @@ Respond ONLY with JSON on one line. No explanation, no markdown."""
                 try:
                     from api.chat_utils import process_ai_message
                     
-                    # Extract key strategic buildings for better AI analysis (not just early workers)
+                    # Extract key strategic buildings AND units for better AI analysis
                     build_order = game_data.get('build_order', [])
-                    strategic_buildings = []
-                    expansion_structures = {'CommandCenter', 'Nexus', 'Hatchery'}
+                    strategic_items = []
+                    expansion_structures = {'CommandCenter', 'Nexus', 'Hatchery', 'OrbitalCommand'}
                     tech_structures = {'Factory', 'Starport', 'Gateway', 'CyberneticsCore', 'RoboticsFacility', 'Stargate',
-                                     'SpawningPool', 'RoachWarren', 'Spire', 'BanelingNest', 'HydraliskDen'}
+                                     'SpawningPool', 'RoachWarren', 'Spire', 'BanelingNest', 'HydraliskDen', 'FactoryTechLab', 'StarportTechLab',
+                                     'TwilightCouncil', 'DarkShrine', 'TemplarArchives', 'FleetBeacon', 'RoboticsBay',
+                                     'FusionCore', 'GhostAcademy', 'Armory',
+                                     'LurkerDen', 'InfestationPit', 'UltraliskCavern', 'GreaterSpire'}
+                    # Cheese/rush structures - critical for detecting cannon rush, bunker rush, spine rush, proxy, etc.
+                    cheese_structures = {'Forge', 'PhotonCannon', 'ShieldBattery',
+                                        'EngineeringBay', 'Bunker', 'MissileTurret', 'PlanetaryFortress', 'SensorTower',
+                                        'SpineCrawler', 'SporeCrawler', 'NydusNetwork', 'NydusWorm'}
+                    combat_units = {'Marine', 'Marauder', 'SiegeTank', 'SiegeTankSieged', 'Medivac', 'Liberator', 'Hellion', 'Hellbat',
+                                   'Thor', 'Battlecruiser', 'Viking', 'Banshee', 'Raven', 'Ghost', 'Cyclone', 'WidowMine',
+                                   'Zealot', 'Stalker', 'Adept', 'Immortal', 'Colossus', 'VoidRay', 'Phoenix', 'Oracle',
+                                   'Tempest', 'Carrier', 'Disruptor', 'HighTemplar', 'DarkTemplar', 'Archon', 'Sentry', 'WarpPrism',
+                                   'Zergling', 'Baneling', 'Roach', 'Ravager', 'Hydralisk', 'Mutalisk', 'Corruptor',
+                                   'Lurker', 'Infestor', 'SwarmHost', 'Viper', 'Ultralisk', 'BroodLord'}
                     
-                    for step in build_order[:50]:  # First 50 steps
+                    # Count total bases (expansions + starting base)
+                    base_count = 1  # Starting base
+                    for step in build_order[:60]:  # First 60 steps
                         unit_name = step.get('name', '')
-                        if unit_name in expansion_structures or unit_name in tech_structures:
-                            timing = step.get('time', 0)
-                            strategic_buildings.append(f"{unit_name} ({timing}s)")
+                        timing = step.get('time', 0)
+                        # Count expansions for accurate base count
+                        if unit_name in {'Hatchery', 'Nexus', 'CommandCenter'}:
+                            base_count += 1
+                        # Include expansions, tech structures, cheese structures, and combat units
+                        if unit_name in expansion_structures or unit_name in tech_structures or unit_name in cheese_structures or unit_name in combat_units:
+                            strategic_items.append(f"{unit_name} ({timing}s)")
                     
-                    if strategic_buildings:
-                        build_string = ", ".join(strategic_buildings[:10])  # Top 10 strategic buildings with timing
-                        ai_prompt = f"Analyze this StarCraft 2 build order and describe the strategy in ONE concise sentence (max 20 words). Focus on key tech/timing/composition.\n\nKey buildings with timing: {build_string}\n\nExamples:\n- 'Fast expand into roach timing with third base'\n- '2 base blink stalker pressure'\n- 'Defensive ling-bane with fast spire transition'\n\nYour one-sentence summary:"
+                    if strategic_items:
+                        build_string = ", ".join(strategic_items[:30])  # Up to 30 strategic items (workers/supply already filtered out)
+                        base_info = f"Total bases: {base_count}. " if base_count > 1 else ""
+                        ai_prompt = f"Analyze this StarCraft 2 build order and describe the strategy in ONE concise sentence (max 20 words). Use ONLY the units and structures shown - do NOT guess or infer units not in the list.\n\n{base_info}Actual build order: {build_string}\n\nCRITICAL: Only mention units that appear in the list above. Do not assume or guess. Use the EXACT base count provided.\n\nExamples:\n- '3 base roach ravager timing'\n- '2 base blink stalker all-in'\n- 'Marine tank with medivac drop play'\n\nYour one-sentence summary (using ONLY units shown above and correct base count):"
                         
-                        ai_summary = process_ai_message(ai_prompt, "normal", None, "twitch", logger)
-                        if ai_summary:
-                            # Clean up any extra formatting
-                            ai_summary = ai_summary.strip().strip('"').strip("'")
+                        # Use send_prompt_to_openai directly to avoid perspective/mood injection
+                        # Pattern learning should be analytical, not funny/personalized
+                        from api.chat_utils import send_prompt_to_openai
+                        completion = send_prompt_to_openai(ai_prompt)
+                        if completion and completion.choices and completion.choices[0].message:
+                            ai_summary = completion.choices[0].message.content
+                            if ai_summary:
+                                # Clean up any extra formatting
+                                ai_summary = ai_summary.strip().strip('"').strip("'")
                 except Exception as e:
                     logger.debug(f"Failed to generate AI build summary: {e}")
                     ai_summary = None
@@ -1187,8 +1334,8 @@ Respond ONLY with JSON on one line. No explanation, no markdown."""
                         # Send TWO conversational messages to Twitch chat
                         if hasattr(self, 'connection') and hasattr(self.connection, 'privmsg'):
                             try:
-                                # Message 1: Pattern match with build preview
-                                build_preview = f"{opponent_name}'s build: {', '.join(build_summary[:8])}. " if build_summary else ""
+                                # Message 1: Pattern match with build preview (just first 3 steps)
+                                build_preview = f"{opponent_name}'s build: {', '.join(build_summary[:3])}. " if build_summary else ""
                                 msg1 = f"{build_preview}Pattern learning found {similarity:.0f}% match: '{pattern_comment}'."
                                 self.connection.privmsg(self.channel, msg1)
                                 logger.debug(f"Sent pattern match to Twitch: {msg1}")
@@ -1283,7 +1430,7 @@ Respond ONLY with JSON on one line. No explanation, no markdown."""
                     # Send message(s) to Twitch
                     if hasattr(self, 'connection') and hasattr(self.connection, 'privmsg'):
                         try:
-                            build_preview = f"{opponent_name}'s build: {', '.join(build_summary[:8])}. " if build_summary else ""
+                            build_preview = f"{opponent_name}'s build: {', '.join(build_summary[:3])}. " if build_summary else ""
                             
                             if ai_summary:
                                 msg = f"{build_preview}No pattern match. AI suggests: '{ai_summary}'. Agree?"
@@ -1321,10 +1468,11 @@ Respond ONLY with JSON on one line. No explanation, no markdown."""
                 else:
                     print("Type in Twitch:  player comment <your description>")
                 
-                # Send message to Twitch
+                # Send message(s) to Twitch
                 if hasattr(self, 'connection') and hasattr(self.connection, 'privmsg'):
                     try:
-                        build_preview = f"{opponent_name}'s build: {', '.join(build_summary[:8])}. " if build_summary else ""
+                        # Just show first 3 build steps for context, not 8 (avoids spam)
+                        build_preview = f"{opponent_name}'s build: {', '.join(build_summary[:3])}. " if build_summary else ""
                         
                         if ai_summary:
                             msg = f"{build_preview}Pattern DB empty. AI suggests: '{ai_summary}'. Thoughts?"
@@ -1332,7 +1480,7 @@ Respond ONLY with JSON on one line. No explanation, no markdown."""
                             msg = f"{build_preview}Pattern DB empty - describe {opponent_name}'s strategy!"
                         
                         self.connection.privmsg(self.channel, msg)
-                        logger.debug(f"Sent no patterns available to Twitch: {msg}")
+                        logger.info(f"Sent pattern learning prompt to Twitch: {msg[:100]}...")
                     except Exception as e:
                         logger.error(f"Error sending pattern match to Twitch chat: {e}")
             

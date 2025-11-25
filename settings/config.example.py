@@ -184,17 +184,17 @@ PATTERN_SUGGESTION_MIN_SIMILARITY = 0.60
 # Used when analyzing opponent builds to identify key tech paths and strategies
 SC2_STRATEGIC_ITEMS = {
     'Zerg': {
-        'buildings': 'RoachWarren, BanelingNest, Spire, NydusNetwork, HydraliskDen, InfestationPit, UltraliskCavern, LurkerDen, EvolutionChamber',
+        'buildings': 'RoachWarren, BanelingNest, Spire, GreaterSpire, NydusNetwork, NydusWorm, HydraliskDen, InfestationPit, UltraliskCavern, LurkerDen, EvolutionChamber, SpineCrawler, SporeCrawler',
         'units': 'Roach, Baneling, Mutalisk, Lurker, Hydralisk, Broodlord, SwarmHost, Viper, Infestor, Ultralisk, Corruptor, Ravager',
         'upgrades': 'Metabolic Boost, Adrenal Glands, Pneumatized Carapace, Glial Reconstitution, Burrow, Tunneling Claws, Grooved Spines, Muscular Augments, Zerg Melee Attacks, Zerg Missile Attacks, Zerg Ground Carapace'
     },
     'Terran': {
-        'buildings': 'Starport, FusionCore, Factory, GhostAcademy, Armory, TechLab, Reactor, EngineeringBay',
+        'buildings': 'Starport, FusionCore, Factory, GhostAcademy, Armory, TechLab, Reactor, EngineeringBay, Bunker, MissileTurret, SensorTower, PlanetaryFortress',
         'units': 'Ghost, Cyclone, Liberator, Banshee, Battlecruiser, Widow Mine, Raven, Hellion, Hellbat, Siege Tank, Thor, Marauder, Reaper, Viking, Medivac',
         'upgrades': 'Stimpack, Combat Shields, Concussive Shells, Siege Tech, Drilling Claws, Smart Servos, Banshee Cloak, Terran Infantry Weapons, Terran Infantry Armor, Terran Vehicle Weapons, Terran Vehicle Plating, Terran Ship Weapons, Terran Ship Plating, Hi-Sec Auto Tracking, Hyperflight Rotors, Mag-Field Accelerator'
     },
     'Protoss': {
-        'buildings': 'Forge, TwilightCouncil, DarkShrine, Stargate, RoboticsFacility, TemplarArchive, FleetBeacon, RoboticsBay',
+        'buildings': 'Forge, TwilightCouncil, DarkShrine, Stargate, RoboticsFacility, TemplarArchive, FleetBeacon, RoboticsBay, PhotonCannon, ShieldBattery',
         'units': 'Dark Templar, Immortal, Void Ray, Oracle, Phoenix, Colossus, Disruptor, Tempest, Carrier, High Templar, Archon, Adept, Sentry, Stalker, Warp Prism, Observer',
         'upgrades': 'Charge, Blink, Resonating Glaives, Extended Thermal Lance, Protoss Ground Weapons, Protoss Ground Armor, Protoss Air Weapons, Protoss Air Armor, Protoss Shields'
     }
