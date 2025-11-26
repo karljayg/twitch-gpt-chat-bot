@@ -539,9 +539,19 @@ class MLOpponentAnalyzer:
             
             # Extract from key_timings (critical strategic buildings)
             if 'key_timings' in signature:
-                for unit_name, timing in signature['key_timings'].items():
+                for unit_name, raw_timing in signature['key_timings'].items():
                     unit_lower = unit_name.lower()
                     if unit_lower in strategic_item_names:
+                        # Convert time string '1:28' to seconds (88)
+                        if isinstance(raw_timing, str) and ':' in raw_timing:
+                            try:
+                                parts = raw_timing.split(':')
+                                timing = int(parts[0]) * 60 + int(parts[1])
+                            except:
+                                timing = 0
+                        else:
+                            timing = raw_timing if isinstance(raw_timing, (int, float)) else 0
+                        
                         seen_items[unit_lower] = {
                             'name': unit_lower,
                             'timing': timing,
@@ -554,11 +564,22 @@ class MLOpponentAnalyzer:
                 for i, step in enumerate(signature['early_game']):
                     unit_name = step.get('unit', '').lower()
                     if unit_name in strategic_item_names:
+                        # Convert time string '1:28' to seconds (88)
+                        raw_time = step.get('time', 0)
+                        if isinstance(raw_time, str) and ':' in raw_time:
+                            try:
+                                parts = raw_time.split(':')
+                                timing = int(parts[0]) * 60 + int(parts[1])
+                            except:
+                                timing = 0
+                        else:
+                            timing = raw_time if isinstance(raw_time, (int, float)) else 0
+                        
                         # Only add if not already seen, or if this is earlier
                         if unit_name not in seen_items:
                             seen_items[unit_name] = {
                                 'name': unit_name,
-                                'timing': step.get('time', 0),
+                                'timing': timing,
                                 'position': i
                             }
             

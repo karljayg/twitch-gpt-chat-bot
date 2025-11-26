@@ -184,8 +184,8 @@ PATTERN_SUGGESTION_MIN_SIMILARITY = 0.60
 # Used when analyzing opponent builds to identify key tech paths and strategies
 SC2_STRATEGIC_ITEMS = {
     'Zerg': {
-        'buildings': 'SpawningPool, RoachWarren, BanelingNest, Spire, GreaterSpire, NydusNetwork, NydusWorm, HydraliskDen, InfestationPit, UltraliskCavern, LurkerDen, EvolutionChamber, SpineCrawler, SporeCrawler',
-        'units': 'Zergling, Roach, Baneling, Mutalisk, Lurker, Hydralisk, Broodlord, SwarmHost, Viper, Infestor, Ultralisk, Corruptor, Ravager',
+        'buildings': 'RoachWarren, BanelingNest, Spire, GreaterSpire, NydusNetwork, NydusWorm, HydraliskDen, InfestationPit, UltraliskCavern, LurkerDen, EvolutionChamber, SpineCrawler, SporeCrawler',
+        'units': 'Roach, Baneling, Mutalisk, Lurker, Hydralisk, Broodlord, SwarmHost, Viper, Infestor, Ultralisk, Corruptor, Ravager',
         'upgrades': 'Metabolic Boost, Adrenal Glands, Pneumatized Carapace, Glial Reconstitution, Burrow, Tunneling Claws, Grooved Spines, Muscular Augments, Zerg Melee Attacks, Zerg Missile Attacks, Zerg Ground Carapace'
     },
     'Terran': {
