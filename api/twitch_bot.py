@@ -999,55 +999,125 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             pattern_text = f"Pattern Match ({ctx['pattern_similarity']:.0f}%): \"{ctx['pattern_match']}\"" if ctx['pattern_match'] else "No pattern match"
             ai_text = f"AI Summary: \"{ctx['ai_summary']}\"" if ctx['ai_summary'] else "No AI summary"
             
-            prompt = f"""You are interpreting KJ's response about StarCraft 2 build order suggestions. KJ is the streamer who just played the game and knows what actually happened.
+            prompt = f"""You help interpret KJ's response about StarCraft 2 build order suggestions. KJ is the streamer who just played the game and knows what actually happened.
 
-KJ was presented with two suggestions:
-OPTION 1 (Pattern Match): "{ctx.get('pattern_match', 'N/A')}"
-OPTION 2 (AI Analysis): "{ctx.get('ai_summary', 'N/A')}"
+You see three things:
 
-Opponent: {ctx['opponent_name']}
-KJ's response: "{user_message}"
+1. Pattern Match: "{ctx.get('pattern_match', 'N/A')}" (similarity: {ctx.get('pattern_similarity', 0):.0f}%)
 
-Your task: Determine what KJ wants.
+2. AI Analysis: "{ctx.get('ai_summary', 'N/A')}"
 
-CRITICAL: Look for MODIFICATION patterns FIRST - these are when KJ agrees with a suggestion but wants to add/remove/modify parts of it.
+3. KJ's response: "{user_message}"
 
-MODIFICATION PATTERNS (check these BEFORE custom comments):
-- "correct, add X" or "right, add X" → KJ agrees with AI suggestion but wants to ADD X
-- "correct, but no X" or "right, but no X" → KJ agrees with AI suggestion but wants to REMOVE X
-- "correct, except X" or "right, except X" → KJ agrees with AI suggestion but wants to CHANGE X
-- "correct, but X" → KJ agrees with AI suggestion but wants to MODIFY with X
+Your job: Decide what KJ wants to do with these suggestions.
 
-If KJ uses a modification pattern with OPTION 2 (AI Analysis):
-  → {{"action": "modify_ai", "modification": "<the modification part>"}}
-  Examples:
-  - "correct, add proxy 3 rax" → {{"action": "modify_ai", "modification": "add proxy 3 rax"}}
-  - "correct, but no timing attack" → {{"action": "modify_ai", "modification": "remove timing attack"}}
-  - "correct, except it was roach" → {{"action": "modify_ai", "modification": "change to roach"}}
+IMPORTANT:
 
-If KJ uses a modification pattern with OPTION 1 (Pattern Match):
-  → {{"action": "modify_pattern", "modification": "<the modification part>"}}
+If KJ describes what the strategy IS and talks about removing or changing parts of a suggestion, that is a MODIFICATION, not a custom description. In that case you must use a modify action, not custom.
 
-If KJ's response is a FULL custom description (no agreement words, just game terms):
-  → {{"action": "custom", "text": "<KJ's exact response>"}}
-  Examples: "fast expand immortal defense", "proxy 3 gateway zealot all in", "12 pool rush"
+INTENT CATEGORIES
 
-If KJ's response is ONLY agreement words with NO game terms:
-  - "1", "first", "pattern", "use pattern" → {{"action": "use_pattern"}}
-  - "2", "second", "AI", "use AI" → {{"action": "use_ai_summary"}}
-  - "correct", "right", "accurate" (no option specified) → {{"action": "use_ai_summary"}} (default to AI)
-  - "yes", "yeah", "y", "ok", "sure" (no option specified) → {{"action": "ask_clarification"}}
+1. MODIFICATION
 
-If KJ wants to skip: "skip", "no", "neither", "ignore", "pass" → {{"action": "skip"}}
+KJ is fixing or refining an existing suggestion by saying what to keep, remove, or change.
+
+Typical phrases: "no need to mention", "remove", "take out", "do not mention", "instead", "not X but Y", "correct but", "correct except", "X is redundant".
+
+- If KJ is clearly reacting to the AI Analysis (mentions something only in AI Analysis, or sounds like they are correcting that wording), use:
+
+  {{"action": "modify_ai", "modification": "<short description of what to change>"}}
+
+- If KJ is clearly reacting to the Pattern Match suggestion, use:
+
+  {{"action": "modify_pattern", "modification": "<short description of what to change>"}}
+
+The "modification" text should say what to change, not just repeat KJ's whole message.
 
 Examples:
-- "correct, add proxy 3 rax" → MODIFY_AI (agreement + modification)
-- "correct, but no timing attack" → MODIFY_AI (agreement + removal)
-- "fast expand immortal defense" → CUSTOM (full description, no agreement)
-- "correct" → USE_AI_SUMMARY (agreement only)
-- "first one" → USE_PATTERN (explicit choice)
 
-Respond with VALID JSON using double quotes. One line only. No markdown, no explanation."""
+- AI: "2 base Oracle-Adept harass into Zealot pressure with potential transition to Skytoss."
+
+  KJ: "it is a zealot charge all in. No need to mention potential transition to Skytoss. We only talk about what we see."
+
+  → {{"action": "modify_ai", "modification": "change to 'zealot charge all in' and remove any mention of a potential transition to Skytoss"}}
+
+- KJ: "take out the Twilight council because Charge is an upgrade that is from it, and is redundant."
+
+  → {{"action": "modify_ai", "modification": "remove Twilight Council since it is redundant with Charge"}}
+
+- KJ: "not adept but zealot with charge upgrade. No twilight either."
+
+  → {{"action": "modify_ai", "modification": "replace adepts with zealots with Charge, and remove Twilight Council"}}
+
+2. CUSTOM DESCRIPTION
+
+KJ gives their own full description and does not clearly talk about removing or fixing specific parts of a suggestion.
+
+Use this when KJ is basically replacing everything with their own wording, or when it is not clear what suggestion they are modifying.
+
+Use:
+
+{{"action": "custom", "text": "<final description to save>"}}
+
+Examples:
+
+- KJ: "fast expand immortal defense"
+
+  → {{"action": "custom", "text": "fast expand immortal defense"}}
+
+3. AGREEMENT
+
+KJ agrees with a suggestion as-is and does not ask for changes.
+
+Typical phrases: "correct", "right", "yes", "that is it", "use AI", "use pattern", "first one", "second one".
+
+- If they choose AI Analysis:
+
+  → {{"action": "use_ai_summary"}}
+
+- If they choose Pattern Match:
+
+  → {{"action": "use_pattern"}}
+
+Examples:
+
+- KJ: "correct"
+
+  → {{"action": "use_ai_summary"}}
+
+- KJ: "first one"
+
+  → {{"action": "use_pattern"}}
+
+4. SKIP
+
+KJ clearly does not want to save anything.
+
+Typical phrases: "skip", "no", "neither", "ignore", "pass".
+
+→ {{"action": "skip"}}
+
+5. FULL REFUTATION
+
+If KJ says the suggestion is completely wrong and gives a new description that should replace it entirely, treat this as CUSTOM:
+
+Examples:
+
+- AI: "2 base push"
+
+  KJ: "that is wrong, it was a late game carrier transition"
+
+  → {{"action": "custom", "text": "late game carrier transition"}}
+
+OUTPUT RULES
+
+Always output exactly one JSON object on a single line.
+
+Use double quotes for all keys and string values.
+
+No markdown, no extra commentary, no explanations.
+
+Just the JSON object."""
             
             # Use send_prompt_to_openai directly to avoid persona/emote injection from process_ai_message
             try:
@@ -1178,9 +1248,40 @@ Respond with VALID JSON using double quotes. One line only. No markdown, no expl
 
 KJ responded: "{user_message}"
 
-Understand what KJ wants and create the final comment. KJ knows what actually happened in the game, so interpret their response and apply it to the suggestion naturally.
+CRITICAL: KJ wants to MODIFY the AI suggestion. Your task is to understand what KJ wants and apply it to create the final accurate comment.
 
-Return ONLY the final comment text, nothing else. Keep it concise and natural."""
+Rules:
+1. Use the AI suggestion as the BASE/FRAMEWORK
+2. Understand KJ's intent:
+   - If KJ says "it is X" or "it was X", they're describing what the strategy actually is
+   - If KJ says "no need to mention Y" or "remove Y" or "don't mention Y", remove Y from the suggestion
+   - If KJ says "add X" or "include X", add X to the suggestion
+   - If KJ explains why something should be removed (e.g., "redundant", "we only talk about what we see"), apply that reasoning
+3. Keep the structure and flow natural
+4. The result should be ONE cohesive comment that reflects what actually happened, not KJ's explanation
+
+Examples:
+- AI: "2 base Oracle-Adept harass into Zealot pressure with potential transition to Skytoss."
+  KJ: "it is a zealot charge all in. No need to mention potential transition to Skytoss. We only talk about what we see."
+  Result: "2 base Oracle-Adept harass into Zealot charge all in."
+
+- AI: "2 base Oracle Adept pressure into Twilight Council for Zealot Charge timing attack."
+  KJ: "take out the Twilight council because Charge is an upgrade that is from it, and is redundant."
+  Result: "2 base Oracle Adept pressure to Zealot Charge timing attack."
+
+- AI: "2 base Stargate Oracle adept timing attack with Zealot support and Photon Cannon defense."
+  KJ: "yes but zealot has charge upgrade"
+  Result: "2 base Stargate Oracle adept timing attack with Zealot with charge upgrade and Photon Cannon defense."
+
+- AI: "3 base roach ravager macro"
+  KJ: "correct, add hydra transition"
+  Result: "3 base roach ravager macro with hydra transition"
+
+- AI: "2 base blink stalker all-in"
+  KJ: "right, but no all-in, it was macro"
+  Result: "2 base blink stalker macro"
+
+Return ONLY the final modified comment text, nothing else. Do NOT include KJ's explanation or reasoning - just the final strategy description. Keep it concise and natural."""
                     
                     modify_completion = send_prompt_to_openai(modify_prompt)
                     if modify_completion and modify_completion.choices and modify_completion.choices[0].message:
@@ -1206,9 +1307,28 @@ Return ONLY the final comment text, nothing else. Keep it concise and natural.""
 
 KJ responded: "{user_message}"
 
-Understand what KJ wants and create the final comment. KJ knows what actually happened in the game, so interpret their response and apply it to the suggestion naturally.
+CRITICAL: KJ is agreeing with the pattern match but wants to ADD or MODIFY it. Your task is to COMBINE the pattern match with KJ's modification into a single, natural comment.
 
-Return ONLY the final comment text, nothing else. Keep it concise and natural."""
+Rules:
+1. Use the pattern match as the BASE/FRAMEWORK
+2. Integrate KJ's modification naturally into that base
+3. The result should be ONE cohesive comment that includes both the pattern match AND the modification
+4. Do NOT just repeat what KJ said - merge it with the pattern match
+
+Examples:
+- Pattern: "2 base Stargate Oracle adept timing attack with Zealot support and Photon Cannon defense."
+  KJ: "yes but zealot has charge upgrade"
+  Result: "2 base Stargate Oracle adept timing attack with Zealot with charge upgrade and Photon Cannon defense."
+
+- Pattern: "3 base roach ravager macro"
+  KJ: "correct, add hydra transition"
+  Result: "3 base roach ravager macro with hydra transition"
+
+- Pattern: "2 base blink stalker all-in"
+  KJ: "right, but no all-in, it was macro"
+  Result: "2 base blink stalker macro"
+
+Return ONLY the final combined comment text, nothing else. Keep it concise and natural."""
                     
                     modify_completion = send_prompt_to_openai(modify_prompt)
                     if modify_completion and modify_completion.choices and modify_completion.choices[0].message:
@@ -1230,7 +1350,7 @@ Return ONLY the final comment text, nothing else. Keep it concise and natural.""
             
             # SAFETY CHECK: If NLP returned use_pattern or use_ai_summary but user message contains game terms,
             # AND it's not a modification pattern, override to custom (NLP might have misinterpreted)
-            if action in ('use_pattern', 'use_ai_summary') and action != 'modify_ai' and action != 'modify_pattern':
+            if action in ('use_pattern', 'use_ai_summary'):
                 user_lower = user_message.lower()
                 game_terms = ['expand', 'immortal', 'defense', 'proxy', 'pool', 'gateway', 'zealot', 'stalker', 'sentry', 
                              'roach', 'ling', 'muta', 'baneling', 'ravager', 'hydra', 'lurker', 'ultra', 'brood',
@@ -1238,11 +1358,11 @@ Return ONLY the final comment text, nothing else. Keep it concise and natural.""
                              'adept', 'archon', 'colossus', 'disruptor', 'tempest', 'carrier', 'void', 'oracle', 'phoenix',
                              'rush', 'all in', 'timing', 'push', 'macro', 'cheese', 'cannon', 'bunker', 'spine', 'spore']
                 # Check if it's a modification pattern (contains agreement word + game terms)
-                modification_patterns = ['correct,', 'right,', 'accurate,', 'but', 'except', 'add', 'remove', 'no ']
+                modification_patterns = ['correct,', 'right,', 'accurate,', 'yes but', 'yes, but', 'take out', 'remove', 'add', 'include']
                 is_modification = any(pattern in user_lower for pattern in modification_patterns) and any(term in user_lower for term in game_terms)
                 
                 if any(term in user_lower for term in game_terms) and not is_modification:
-                    # User provided descriptive text without agreement - override NLP and use as custom
+                    # User provided descriptive text without agreement/modification - override NLP and use as custom
                     logger.warning(f"NLP returned '{action}' but user message contains game terms (not modification) - overriding to custom")
                     return ('custom', user_message.strip())
             else:
