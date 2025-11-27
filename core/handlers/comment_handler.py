@@ -30,39 +30,69 @@ class CommentHandler(ICommandHandler):
             
             if context_age <= 300:  # 5 minutes
                 logger.info(f"Pattern learning context active (age: {context_age/60:.1f} min) - processing as NLP response")
-                # Process through legacy NLP system
-                loop = asyncio.get_running_loop()
-                try:
-                    action, interpreted_comment = await loop.run_in_executor(
-                        None,
-                        twitch_bot._process_natural_language_pattern_response,
-                        comment_text,
-                        logger
-                    )
-                    
-                    logger.debug(f"NLP interpretation: action={action}, comment={interpreted_comment}")
-                    
-                    # If NLP extracted a custom comment, use that instead of raw text
-                    if action == 'custom' and interpreted_comment:
-                        comment_text = interpreted_comment
-                        logger.info(f"Using NLP-extracted comment: {comment_text}")
-                    elif action == 'use_pattern':
+                
+                # Check if we're awaiting clarification from previous "yes" response
+                if twitch_bot.pattern_learning_context.get('awaiting_clarification', False):
+                    # User is responding to clarification question
+                    response_lower = comment_text.strip().lower()
+                    if response_lower in ['y', 'yes', 'yeah']:
+                        # User confirmed first option (pattern match)
                         comment_text = twitch_bot.pattern_learning_context.get('pattern_match', comment_text)
-                        logger.info(f"Using pattern match comment: {comment_text}")
-                    elif action == 'use_ai_summary':
+                        logger.info(f"User confirmed pattern match: {comment_text}")
+                        twitch_bot.pattern_learning_context['awaiting_clarification'] = False
+                    elif response_lower in ['n', 'no', 'nope']:
+                        # User wants second option (AI summary)
                         comment_text = twitch_bot.pattern_learning_context.get('ai_summary', comment_text)
-                        logger.info(f"Using AI summary comment: {comment_text}")
-                    elif action == 'skip':
-                        await context.chat_service.send_message(context.channel, "Skipping - no comment saved.")
-                        twitch_bot.pattern_learning_context = None  # Clear context
-                        return
+                        logger.info(f"User chose AI summary: {comment_text}")
+                        twitch_bot.pattern_learning_context['awaiting_clarification'] = False
+                    else:
+                        # Not a clear Y/N response, treat as custom
+                        logger.info(f"User provided custom response during clarification: {comment_text}")
+                        twitch_bot.pattern_learning_context['awaiting_clarification'] = False
+                else:
+                    # Process through legacy NLP system
+                    loop = asyncio.get_running_loop()
+                    try:
+                        action, interpreted_comment = await loop.run_in_executor(
+                            None,
+                            twitch_bot._process_natural_language_pattern_response,
+                            comment_text,
+                            logger
+                        )
+                        
+                        logger.debug(f"NLP interpretation: action={action}, comment={interpreted_comment}")
+                        
+                        # If NLP extracted a custom comment, use that instead of raw text
+                        if action == 'ask_clarification':
+                            # User said "yes" without specifying - ask for clarification
+                            pattern_match = twitch_bot.pattern_learning_context.get('pattern_match', 'pattern match')
+                            await context.chat_service.send_message(
+                                context.channel, 
+                                f"I think you want the first one ('{pattern_match}'), Y/N?"
+                            )
+                            # Set clarification flag in context
+                            twitch_bot.pattern_learning_context['awaiting_clarification'] = True
+                            return  # Wait for next response
+                        elif action == 'custom' and interpreted_comment:
+                            comment_text = interpreted_comment
+                            logger.info(f"Using NLP-extracted comment: {comment_text}")
+                        elif action == 'use_pattern':
+                            comment_text = twitch_bot.pattern_learning_context.get('pattern_match', comment_text)
+                            logger.info(f"Using pattern match comment: {comment_text}")
+                        elif action == 'use_ai_summary':
+                            comment_text = twitch_bot.pattern_learning_context.get('ai_summary', comment_text)
+                            logger.info(f"Using AI summary comment: {comment_text}")
+                        elif action == 'skip':
+                            await context.chat_service.send_message(context.channel, "Skipping - no comment saved.")
+                            twitch_bot.pattern_learning_context = None  # Clear context
+                            return
+                        
+                        # Clear the context after processing
+                        twitch_bot.pattern_learning_context = None
                     
-                    # Clear the context after processing
-                    twitch_bot.pattern_learning_context = None
-                    
-                except Exception as e:
-                    logger.error(f"Error processing NLP response: {e}")
-                    # Fall through to save raw comment
+                    except Exception as e:
+                        logger.error(f"Error processing NLP response: {e}")
+                        # Fall through to save raw comment
             else:
                 logger.info(f"Pattern learning context is stale (age: {context_age/60:.1f} min) - treating as direct comment")
                 twitch_bot.pattern_learning_context = None  # Clear stale context

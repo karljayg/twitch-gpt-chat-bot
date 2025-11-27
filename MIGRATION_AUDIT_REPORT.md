@@ -236,3 +236,6 @@ The migration to TDD architecture was **conceptually correct** but **poorly exec
 
 
 
+
+
+

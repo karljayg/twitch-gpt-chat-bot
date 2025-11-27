@@ -6,7 +6,7 @@ import time
 from typing import List, Optional, Any, Dict
 from core.interfaces import IChatService, IReplayRepository
 from models.game_info import GameInfo
-from utils.file_utils import find_recent_file_within_time
+from utils.file_utils import find_recent_file_within_time, find_latest_file
 from utils import tokensArray
 from settings import config
 import spawningtool.parser
@@ -21,90 +21,159 @@ class GameResultService:
         self.pattern_learner = pattern_learner
         self.last_processed_replay = None
         
-    async def process_game_end(self, game_info: GameInfo):
+    async def process_game_end(self, game_info: GameInfo, replay_data: Optional[dict] = None, skip_duplicate_check: bool = False):
+        logger.debug(f"process_game_end called: replay_data={'provided' if replay_data else 'None'}, skip_duplicate_check={skip_duplicate_check}")
         """
         Orchestrates the end-of-game processing:
-        1. Find and parse replay
+        1. Find and parse replay (or use provided replay_data)
         2. Update database
         3. Announce results
         4. Trigger pattern learning
+        
+        Args:
+            game_info: GameInfo object from SC2 API
+            replay_data: Optional pre-parsed replay data (for retry scenarios)
+            skip_duplicate_check: If True, process even if replay was already processed
         """
         logger.info("Processing game end results...")
         
-        # Wait for SC2 to finish writing replay file
-        # Polling optimization: check every 1s for up to 15s
-        logger.info("Waiting for replay file...")
-        replay_path = None
-        loop = asyncio.get_running_loop()
+        # Check if game is too short (for skipping analysis/ML, but still save to DB)
+        game_duration_seconds = game_info.displayTime
+        is_too_short = game_duration_seconds < 60
         
-        for _ in range(15):
-            await asyncio.sleep(1)
-            try:
-                replay_path = await loop.run_in_executor(
-                    None, 
-                    self._find_replay_file, 
-                    config.REPLAYS_FOLDER
-                )
-                if replay_path and replay_path != self.last_processed_replay:
-                    logger.info(f"Replay file detected immediately: {replay_path}")
-                    break
-            except Exception as e:
-                logger.debug(f"Replay search attempt failed: {e}")
-        
-        # Final check if loop finished without success
-        if not replay_path or replay_path == self.last_processed_replay:
-             # Try one last time if polling didn't catch it
-             pass # Logic flows to existing check below
-        
-        # 1. Find Replay (Final Confirmation)
-        if not replay_path:
-            try:
-                # Check settings to ignore previous results on startup
-                if config.IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN and self.last_processed_replay is None:
-                    # On first run, strictly check against bot start time logic or very tight window
-                    # If we are starting the bot, we only want results from NOW onwards.
-                    # Any replay created BEFORE the bot started (or 30 seconds ago) is "old history".
-                    time_window = 0.5 # 30 seconds - essentially "just happened"
-                else:
-                    # Normal operation - check last 2 mins
-                    time_window = 2
-                    
-                replay_path = await loop.run_in_executor(
-                    None, 
-                    find_recent_file_within_time, # Use the imported function directly
-                    config.REPLAYS_FOLDER,
-                    config.REPLAYS_FILE_EXTENSION,
-                    time_window, # minutes
-                    0, # retries
-                    logger,
-                    self.last_processed_replay
-                )
-            except Exception as e:
-                logger.error(f"Error finding replay file: {e}")
+        # If replay_data is provided, skip file finding/parsing
+        if not replay_data:
+            # Normal flow: find and parse replay file
+            # Wait for SC2 to finish writing replay file
+            # Polling optimization: check every 1s for up to 15s
+            logger.info("Waiting for replay file...")
+            replay_path = None
+            loop = asyncio.get_running_loop()
+            
+            for _ in range(15):
+                await asyncio.sleep(1)
+                try:
+                    replay_path = await loop.run_in_executor(
+                        None, 
+                        self._find_replay_file, 
+                        config.REPLAYS_FOLDER
+                    )
+                    if replay_path and replay_path != self.last_processed_replay:
+                        logger.info(f"Replay file detected immediately: {replay_path}")
+                        break
+                except Exception as e:
+                    logger.debug(f"Replay search attempt failed: {e}")
+            
+            # Final check if loop finished without success
+            if not replay_path or replay_path == self.last_processed_replay:
+                 # Try one last time if polling didn't catch it
+                 pass # Logic flows to existing check below
+            
+            # 1. Find Replay (Final Confirmation)
+            if not replay_path:
+                try:
+                    # Check settings to ignore previous results on startup
+                    if config.IGNORE_PREVIOUS_GAME_RESULTS_ON_FIRST_RUN and self.last_processed_replay is None:
+                        # On first run, strictly check against bot start time logic or very tight window
+                        # If we are starting the bot, we only want results from NOW onwards.
+                        # Any replay created BEFORE the bot started (or 30 seconds ago) is "old history".
+                        time_window = 0.5 # 30 seconds - essentially "just happened"
+                    else:
+                        # Normal operation - check last 2 mins
+                        time_window = 2
+                        
+                    replay_path = await loop.run_in_executor(
+                        None, 
+                        find_recent_file_within_time, # Use the imported function directly
+                        config.REPLAYS_FOLDER,
+                        config.REPLAYS_FILE_EXTENSION,
+                        time_window, # minutes
+                        0, # retries
+                        logger,
+                        self.last_processed_replay
+                    )
+                except Exception as e:
+                    logger.error(f"Error finding replay file: {e}")
+                    return
+            
+            if not replay_path:
+                logger.warning("No recent replay file found.")
                 return
-        
-        if not replay_path:
-            logger.warning("No recent replay file found.")
-            return
-            
-        if replay_path == self.last_processed_replay:
-            logger.info("Replay already processed. Skipping.")
-            return
-            
-        self.last_processed_replay = replay_path
-        logger.info(f"Found new replay: {replay_path}")
+                
+            if replay_path == self.last_processed_replay and not skip_duplicate_check:
+                logger.info("Replay already processed. Skipping.")
+                return
+                
+            if not skip_duplicate_check:
+                self.last_processed_replay = replay_path
+            logger.info(f"Found new replay: {replay_path}")
 
-        # 2. Parse Replay
-        try:
-            replay_data = await loop.run_in_executor(
-                None,
-                self._parse_replay,
-                replay_path
-            )
-            logger.debug(f"Successfully parsed replay: {replay_path}")
-        except Exception as e:
-            logger.error(f"Error parsing replay: {e}")
-            return
+            # 2. Parse Replay
+            # Validate file before parsing to avoid segfaults
+            if not os.path.exists(replay_path):
+                logger.error(f"Replay file does not exist: {replay_path}")
+                return
+            
+            file_size = os.path.getsize(replay_path)
+            if file_size == 0:
+                logger.error(f"Replay file is empty: {replay_path}")
+                return
+            
+            if file_size < 1000:  # SC2 replays are typically > 1KB
+                logger.warning(f"Replay file suspiciously small ({file_size} bytes): {replay_path}")
+            
+            # Check if file is locked (still being written by SC2)
+            # On Windows, try to open in exclusive mode to check if locked
+            file_locked = False
+            try:
+                # Try to open file in append mode - if locked, this will fail
+                with open(replay_path, 'a+b') as f:
+                    pass
+            except (IOError, OSError, PermissionError) as e:
+                file_locked = True
+                logger.warning(f"Replay file appears to be locked (still writing?): {replay_path} - {e}")
+                # Wait a bit more and retry once
+                await asyncio.sleep(2)
+                try:
+                    with open(replay_path, 'a+b') as f:
+                        pass
+                    file_locked = False
+                    logger.info(f"Replay file unlocked after additional wait: {replay_path}")
+                except (IOError, OSError, PermissionError):
+                    logger.error(f"Replay file still locked after retry, skipping: {replay_path}")
+                    return
+            
+            if file_locked:
+                logger.error(f"Cannot parse locked replay file: {replay_path}")
+                return
+            
+            try:
+                logger.debug(f"Attempting to parse replay: {replay_path} ({file_size} bytes)")
+                replay_data = await loop.run_in_executor(
+                    None,
+                    self._parse_replay,
+                    replay_path
+                )
+                logger.debug(f"Successfully parsed replay: {replay_path}")
+                
+                # Save JSON file for potential retry (even if processing fails later)
+                try:
+                    from api.game_event_utils.game_ended_handler import save_file
+                    save_file(replay_data, 'json', logger)
+                except Exception as e:
+                    logger.warning(f"Failed to save JSON file for retry: {e}")
+            except Exception as e:
+                logger.error(f"Error parsing replay: {e}", exc_info=True)
+                # Don't crash the bot - just skip this replay
+                return
+            except BaseException as e:
+                # Catch even SystemExit/KeyboardInterrupt to prevent crashes
+                logger.critical(f"Critical error parsing replay (may be segfault): {e}", exc_info=True)
+                return
+        else:
+            logger.info("Using provided replay data (retry mode)")
+        
+        # Continue with processing (both normal and retry paths converge here)
         
         # 3. Save to DB
         try:
@@ -113,6 +182,13 @@ class GameResultService:
             losing_players = ', '.join(game_info.get_player_names(result_filter='Defeat'))
             
             summary = GameSummarizer.generate_summary(replay_data, winning_players, losing_players)
+            
+            # Save summary to file for retry capability (created after parsing, used if processing fails)
+            try:
+                from api.game_event_utils.game_ended_handler import save_file
+                save_file(summary, 'summary', logger)
+            except Exception as e:
+                logger.warning(f"Failed to save replay summary file for retry: {e}")
             
             # Use Repository (handles executor/async)
             await self.replay_repo.save_replay(summary)
@@ -123,6 +199,56 @@ class GameResultService:
         except Exception as e:
             logger.error(f"Error saving to DB: {e}")
             # Continue execution even if DB fails (we still want to announce)
+        
+        # Check if game is too short - skip analysis/ML but still announce
+        if is_too_short:
+            logger.info(f"Game too short ({game_duration_seconds}s) - skipping analysis and ML, but DB saved")
+            
+            # Extract opponent info for skip message
+            opponent_name = "Unknown"
+            opponent_race = "Unknown"
+            map_name = replay_data.get('map', 'Unknown') if replay_data else "Unknown"
+            
+            try:
+                # Find opponent (not streamer)
+                for player in game_info.players:
+                    if not game_info._is_streamer_account(player.get('name', '')):
+                        opponent_name = player.get('name', 'Unknown')
+                        opponent_race = game_info.get_opponent_race(opponent_name)
+                        break
+            except Exception as e:
+                logger.debug(f"Error extracting opponent info for short game: {e}")
+            
+            # Generate varied skip message via OpenAI
+            try:
+                from api.chat_utils import send_prompt_to_openai
+                map_part = f" on {map_name}" if map_name != "Unknown" else ""
+                prompt = f"""Generate a short, casual message saying a game was skipped because it was too short (less than 1 minute). 
+Include: opponent race ({opponent_race}), opponent name ({opponent_name}){map_part}.
+Keep it brief and varied - don't use the exact same wording every time.
+Examples: "Game skipped, too short vs {opponent_race} {opponent_name}{map_part}" or "Skipped {opponent_name}'s {opponent_race} game{map_part} - ended too quickly"
+Generate ONE short message only, no explanation."""
+                
+                completion = send_prompt_to_openai(prompt)
+                if completion and completion.choices and completion.choices[0].message:
+                    skip_message = completion.choices[0].message.content.strip()
+                else:
+                    map_part = f" on {map_name}" if map_name != "Unknown" else ""
+                    skip_message = f"Game skipped, too short vs {opponent_race} {opponent_name}{map_part}"
+            except Exception as e:
+                logger.error(f"Error generating skip message: {e}")
+                map_part = f" on {map_name}" if map_name != "Unknown" else ""
+                skip_message = f"Game skipped, too short vs {opponent_race} {opponent_name}{map_part}"
+            
+            # Send skip message to all chat services
+            for service in self.chat_services:
+                try:
+                    await service.send_message("chat", skip_message)
+                except Exception as e:
+                    logger.error(f"Error sending skip message to {service.get_platform_name()}: {e}")
+            
+            # Skip AI commentary and pattern learning, but still announce result
+            # (Announcement happens below, so we'll let it continue)
         
         # 4. Announce Result (using legacy game_ended handler for proper observer logic)
         try:
@@ -187,8 +313,8 @@ class GameResultService:
         except Exception as e:
             logger.error(f"Error generating game end announcement: {e}")
         
-        # 5. Generate AI Commentary (concise one-sentence summary)
-        if not config.OPENAI_DISABLED and replay_data:
+        # 5. Generate AI Commentary (concise one-sentence summary) - Skip if game too short
+        if not is_too_short and not config.OPENAI_DISABLED and replay_data:
             try:
                 logger.debug("Generating AI replay analysis commentary...")
                 
@@ -246,8 +372,8 @@ class GameResultService:
             except Exception as e:
                 logger.error(f"Error generating AI commentary: {e}")
         
-        # 6. Trigger Pattern Learning (Migrated Logic)
-        if self.pattern_learner:
+        # 6. Trigger Pattern Learning (Migrated Logic) - Skip if game too short
+        if not is_too_short and self.pattern_learner:
             logger.info("Pattern Learning: Triggering (Async)")
             
             # Check requirements: 1v1 game, not abandoned
@@ -334,7 +460,9 @@ class GameResultService:
                         if 'players' in replay_data:
                             for p_key, p_data in replay_data['players'].items():
                                 if p_data['name'] == opponent_name:
-                                    game_data['build_order'] = p_data.get('buildOrder', [])
+                                    build_order = p_data.get('buildOrder', [])
+                                    logger.info(f"Extracted {len(build_order)} build order steps for {opponent_name} from replay_data")
+                                    game_data['build_order'] = build_order
                                     break
                         
                         # Trigger Display (Validation)
@@ -383,6 +511,456 @@ class GameResultService:
             else:
                 logger.info(f"Pattern Learning Skipped: 1v1={is_1v1}, Long={is_long_enough}, Streamer={streamer_played}")
 
+    async def retry_last_game(self):
+        """Retry processing - finds most recent replay and processes it normally"""
+        logger.info("Retrying last game processing...")
+        
+        # Find most recent replay file (for retry, just get the latest file regardless of age)
+        loop = asyncio.get_running_loop()
+        try:
+            replay_path = await loop.run_in_executor(
+                None,
+                find_latest_file,
+                config.REPLAYS_FOLDER,
+                config.REPLAYS_FILE_EXTENSION,
+                logger
+            )
+        except Exception as e:
+            logger.error(f"Error finding replay file for retry: {e}")
+            return False
+        
+        if not replay_path:
+            logger.warning("No replay file found for retry.")
+            return False
+        
+        # Verify replay file is recent (within last 24 hours) to avoid processing very old games
+        try:
+            file_mtime = os.path.getmtime(replay_path)
+            import time
+            age_seconds = time.time() - file_mtime
+            if age_seconds > 86400:  # 24 hours
+                logger.warning(f"Replay file is very old ({age_seconds/86400:.1f} days) - may be from previous session. Retry only works for recent failures.")
+                return False
+        except Exception as e:
+            logger.warning(f"Could not check replay file timestamp: {e}")
+        
+        # Parse replay to get GameInfo and replay_data
+        try:
+            logger.info(f"Parsing replay for retry: {replay_path}")
+            replay_data = await loop.run_in_executor(None, self._parse_replay, replay_path)
+            
+            if not replay_data:
+                logger.error("Failed to parse replay - replay_data is None")
+                return False
+            
+            logger.info(f"Successfully parsed replay, got {len(replay_data.get('players', {}))} players")
+            
+            # Reconstruct GameInfo from replay_data
+            players = []
+            for p_data in replay_data.get('players', {}).values():
+                result = 'Victory' if p_data.get('is_winner', False) else 'Defeat'
+                players.append({
+                    'name': p_data.get('name', 'Unknown'),
+                    'race': p_data.get('race', 'Unknown').lower(),
+                    'result': result
+                })
+            
+            frames = replay_data.get('frames', 0)
+            fps = replay_data.get('frames_per_second', 22.4)
+            display_time = frames / fps if fps > 0 else 0
+            
+            game_info = GameInfo({
+                'isReplay': False,
+                'players': players,
+                'displayTime': display_time
+            })
+            
+            logger.info(f"Reconstructed GameInfo: {len(players)} players, duration={display_time}s")
+        except Exception as e:
+            logger.error(f"Error parsing replay for retry: {e}", exc_info=True)
+            return False
+        
+        # Call process_game_end with replay_data - it will skip file finding/parsing and process normally
+        # skip_duplicate_check allows it to process the same replay again
+        try:
+            logger.info(f"Calling process_game_end with replay_data (skip_duplicate_check=True), replay_data type: {type(replay_data)}, has players: {bool(replay_data and 'players' in replay_data)}")
+            await self.process_game_end(game_info, replay_data=replay_data, skip_duplicate_check=True)
+            logger.info("Retry processing completed successfully")
+            return True
+        except Exception as e:
+            logger.error(f"Error during retry processing: {e}", exc_info=True)
+            return False
+    
+    def _parse_replay_summary(self, summary_text: str):
+        """Parse replay_summary.txt format to extract GameInfo and replay_data"""
+        lines = summary_text.strip().split('\n')
+        
+        # Parse header info
+        players_str = ""
+        map_name = "Unknown"
+        region = "Unknown"
+        game_type = "Unknown"
+        timestamp = 0
+        winners_str = ""
+        losers_str = ""
+        duration_str = ""
+        
+        # Find where build orders start
+        build_order_start_idx = None
+        for i, line in enumerate(lines):
+            if line.startswith("Players:"):
+                players_str = line.split(":", 1)[1].strip()
+            elif line.startswith("Map:"):
+                map_name = line.split(":", 1)[1].strip()
+            elif line.startswith("Region:"):
+                region = line.split(":", 1)[1].strip()
+            elif line.startswith("Game Type:"):
+                game_type = line.split(":", 1)[1].strip()
+            elif line.startswith("Timestamp:"):
+                timestamp = int(line.split(":", 1)[1].strip())
+            elif line.startswith("Winners:"):
+                winners_str = line.split(":", 1)[1].strip()
+            elif line.startswith("Losers:"):
+                losers_str = line.split(":", 1)[1].strip()
+            elif line.startswith("Game Duration:"):
+                duration_str = line.split(":", 1)[1].strip()
+            elif "Build Order" in line and build_order_start_idx is None:
+                build_order_start_idx = i
+                break  # Found start of build orders
+        
+        # Parse duration (e.g., "12m 57s")
+        display_time = 0
+        if duration_str:
+            import re
+            match = re.match(r'(\d+)m\s*(\d+)s', duration_str)
+            if match:
+                minutes = int(match.group(1))
+                seconds = int(match.group(2))
+                display_time = minutes * 60 + seconds
+        
+        # Parse players
+        players = []
+        player_dict = {}
+        
+        # Parse "Player1: Race1, Player2: Race2" format
+        for player_part in players_str.split(','):
+            player_part = player_part.strip()
+            if ':' in player_part:
+                name, race = player_part.split(':', 1)
+                name = name.strip()
+                race = race.strip()
+                player_dict[name] = race
+        
+        # Determine results
+        winners = [w.strip() for w in winners_str.split(',')] if winners_str else []
+        losers = [l.strip() for l in losers_str.split(',')] if losers_str else []
+        
+        # Build players list with results
+        for name, race in player_dict.items():
+            if name in winners:
+                result = 'Victory'
+            elif name in losers:
+                result = 'Defeat'
+            else:
+                result = 'Undecided'
+            
+            players.append({
+                'name': name,
+                'race': race.lower(),  # GameInfo expects lowercase
+                'result': result
+            })
+        
+        # Create GameInfo
+        game_info = GameInfo({
+            'isReplay': False,
+            'players': players,
+            'displayTime': display_time
+        })
+        
+        # Parse build orders from summary file
+        opponent_build_order = []
+        if build_order_start_idx is not None:
+            # Find opponent's build order section
+            current_player = None
+            for i in range(build_order_start_idx, len(lines)):
+                line = lines[i].strip()
+                if not line:
+                    continue
+                
+                # Check if this is a new player's build order section
+                if "'s Build Order" in line:
+                    # Extract player name
+                    current_player = line.split("'s Build Order")[0].strip()
+                    continue
+                
+                # Parse build order lines: "Time: 0:00, Name: Drone, Supply: 12"
+                if line.startswith("Time:") and current_player:
+                    try:
+                        # Parse: "Time: 0:00, Name: Drone, Supply: 12"
+                        parts = line.split(", ")
+                        time_part = parts[0].split(":")[1].strip()  # "0:00"
+                        name_part = parts[1].split(":")[1].strip()  # "Drone"
+                        
+                        # Convert time to seconds
+                        if ':' in time_part:
+                            minutes, seconds = map(int, time_part.split(':'))
+                            time_seconds = minutes * 60 + seconds
+                        else:
+                            time_seconds = int(time_part)
+                        
+                        # Find opponent (not streamer)
+                        is_opponent = False
+                        for p in players:
+                            if p['name'] == current_player and not game_info._is_streamer_account(current_player):
+                                is_opponent = True
+                                break
+                        
+                        if is_opponent:
+                            opponent_build_order.append({
+                                'name': name_part,
+                                'time': time_seconds
+                            })
+                    except Exception as e:
+                        logger.debug(f"Error parsing build order line: {line} - {e}")
+        
+        # Create replay_data dict with build orders
+        players_dict = {}
+        for i, p in enumerate(players):
+            player_key = f'player_{i}'
+            players_dict[player_key] = {
+                'name': p['name'],
+                'race': p['race'],
+                'is_winner': p['result'] == 'Victory'
+            }
+            # Add build order for opponent
+            if not game_info._is_streamer_account(p['name']) and opponent_build_order:
+                players_dict[player_key]['buildOrder'] = opponent_build_order
+        
+        replay_data = {
+            'map': map_name,
+            'region': region,
+            'game_type': game_type,
+            'unix_timestamp': timestamp,
+            'players': players_dict,
+            'frames': int(display_time * 22.4),  # Approximate
+            'frames_per_second': 22.4
+        }
+        
+        return game_info, replay_data
+    
+    async def _process_with_replay_data_UNUSED(self, game_info: GameInfo, replay_data: dict):
+        """Process game end with already-parsed replay data (skips replay file parsing)"""
+        game_duration_seconds = game_info.displayTime
+        is_too_short = game_duration_seconds < 60
+        
+        # Save to DB
+        try:
+            winning_players = ', '.join(game_info.get_player_names(result_filter='Victory'))
+            losing_players = ', '.join(game_info.get_player_names(result_filter='Defeat'))
+            summary = GameSummarizer.generate_summary(replay_data, winning_players, losing_players)
+            await self.replay_repo.save_replay(summary)
+            logger.info("Saved replay summary to DB")
+        except Exception as e:
+            logger.error(f"Error saving to DB: {e}")
+        
+        # Continue with rest of processing (announcements, pattern learning)
+        # This mirrors the logic from process_game_end after replay parsing
+        loop = asyncio.get_running_loop()
+        
+        # Check if game is too short
+        if is_too_short:
+            logger.info(f"Game too short ({game_duration_seconds}s) - skipping analysis and ML, but DB saved")
+            # Extract opponent info for skip message
+            opponent_name = "Unknown"
+            opponent_race = "Unknown"
+            map_name = replay_data.get('map', 'Unknown')
+            
+            try:
+                for player in game_info.players:
+                    if not game_info._is_streamer_account(player.get('name', '')):
+                        opponent_name = player.get('name', 'Unknown')
+                        opponent_race = game_info.get_opponent_race(opponent_name)
+                        break
+            except Exception as e:
+                logger.debug(f"Error extracting opponent info: {e}")
+            
+            # Generate skip message
+            try:
+                from api.chat_utils import send_prompt_to_openai
+                map_part = f" on {map_name}" if map_name != "Unknown" else ""
+                prompt = f"""Generate a short, casual message saying a game was skipped because it was too short (less than 1 minute). 
+Include: opponent race ({opponent_race}), opponent name ({opponent_name}){map_part}.
+Keep it brief and varied - don't use the exact same wording every time.
+Examples: "Game skipped, too short vs {opponent_race} {opponent_name}{map_part}" or "Skipped {opponent_name}'s {opponent_race} game{map_part} - ended too quickly"
+Generate ONE short message only, no explanation."""
+                
+                completion = send_prompt_to_openai(prompt)
+                if completion and completion.choices and completion.choices[0].message:
+                    skip_message = completion.choices[0].message.content.strip()
+                else:
+                    map_part = f" on {map_name}" if map_name != "Unknown" else ""
+                    skip_message = f"Game skipped, too short vs {opponent_race} {opponent_name}{map_part}"
+            except Exception as e:
+                logger.error(f"Error generating skip message: {e}")
+                map_part = f" on {map_name}" if map_name != "Unknown" else ""
+                skip_message = f"Game skipped, too short vs {opponent_race} {opponent_name}{map_part}"
+            
+            for service in self.chat_services:
+                try:
+                    await service.send_message("chat", skip_message)
+                except Exception as e:
+                    logger.error(f"Error sending skip message to {service.get_platform_name()}: {e}")
+            return
+        
+        # Announce Result
+        try:
+            from api.game_event_utils.game_ended_handler import game_ended
+            
+            game_player_names = ', '.join(game_info.get_player_names())
+            winning_players = ', '.join(game_info.get_player_names(result_filter='Victory'))
+            losing_players = ', '.join(game_info.get_player_names(result_filter='Defeat'))
+            
+            twitch_bot = None
+            for service in self.chat_services:
+                if hasattr(service, 'twitch_bot'):
+                    twitch_bot = service.twitch_bot
+                    break
+            
+            if twitch_bot:
+                frames = replay_data.get('frames', 0)
+                fps = replay_data.get('frames_per_second', 22.4)
+                if fps > 0:
+                    twitch_bot.total_seconds = frames / fps
+                else:
+                    twitch_bot.total_seconds = 0
+                
+                msg = await loop.run_in_executor(
+                    None,
+                    game_ended,
+                    twitch_bot,
+                    game_player_names,
+                    winning_players,
+                    losing_players,
+                    logger
+                )
+                
+                for service in self.chat_services:
+                    try:
+                        await service.send_message("channel", msg)
+                    except Exception as e:
+                        logger.error(f"Error sending announcement to service: {e}")
+        except Exception as e:
+            logger.error(f"Error generating game end announcement: {e}")
+        
+        # AI Commentary (skip if game too short)
+        if not is_too_short and not config.OPENAI_DISABLED and replay_data:
+            try:
+                winning_players = ', '.join(game_info.get_player_names(result_filter='Victory'))
+                losing_players = ', '.join(game_info.get_player_names(result_filter='Defeat'))
+                
+                frames = replay_data.get('frames', 0)
+                fps = replay_data.get('frames_per_second', 22.4)
+                duration_seconds = frames / fps if fps > 0 else 0
+                duration_str = f"{int(duration_seconds // 60)}m {int(duration_seconds % 60)}s"
+                
+                concise_prompt = f"Provide ONE concise sentence (max 20 words) summarizing this StarCraft 2 game:\n\n"
+                concise_prompt += f"Winner: {winning_players}\n"
+                concise_prompt += f"Loser: {losing_players}\n"
+                concise_prompt += f"Duration: {duration_str}\n"
+                concise_prompt += f"Map: {replay_data.get('map', 'Unknown')}\n\n"
+                concise_prompt += "Your ONE sentence summary:"
+                
+                twitch_bot = None
+                for service in self.chat_services:
+                    if hasattr(service, 'twitch_bot'):
+                        twitch_bot = service.twitch_bot
+                        break
+                
+                if twitch_bot:
+                    from api.chat_utils import send_prompt_to_openai
+                    completion = await loop.run_in_executor(None, send_prompt_to_openai, concise_prompt)
+                    
+                    if completion and completion.choices and completion.choices[0].message:
+                        ai_commentary = completion.choices[0].message.content.strip()
+                        for service in self.chat_services:
+                            try:
+                                await service.send_message("channel", ai_commentary)
+                                logger.info(f"Sent AI commentary: {ai_commentary[:100]}")
+                            except Exception as e:
+                                logger.error(f"Error sending AI commentary: {e}")
+            except Exception as e:
+                logger.error(f"Error generating AI commentary: {e}")
+        
+        # Pattern Learning
+        if not is_too_short and self.pattern_learner:
+            total_players = game_info.total_players
+            game_duration_seconds = game_info.displayTime
+            
+            is_1v1 = total_players == 2
+            is_long_enough = game_duration_seconds >= config.ABANDONED_GAME_THRESHOLD
+            
+            streamer_played = False
+            if replay_data and 'players' in replay_data:
+                player_accounts_lower = [name.lower() for name in config.SC2_PLAYER_ACCOUNTS]
+                for p_key, p_data in replay_data['players'].items():
+                    if isinstance(p_data, dict) and p_data.get('name', '').lower() in player_accounts_lower:
+                        streamer_played = True
+                        break
+            
+            if is_1v1 and is_long_enough and streamer_played:
+                async def delayed_learning_trigger():
+                    logger.info(f"Pattern Learning: Waiting {config.PATTERN_LEARNING_DELAY_SECONDS}s before analysis...")
+                    await asyncio.sleep(config.PATTERN_LEARNING_DELAY_SECONDS)
+                    
+                    try:
+                        opponent_name = "Unknown"
+                        opponent_race = "Unknown"
+                        result = "Unknown"
+                        
+                        player_accounts_lower = [name.lower() for name in config.SC2_PLAYER_ACCOUNTS]
+                        
+                        for p_key, p_data in replay_data['players'].items():
+                            if isinstance(p_data, dict):
+                                name = p_data.get('name', '')
+                                if name.lower() not in player_accounts_lower:
+                                    opponent_name = name
+                                    opponent_race = p_data.get('race', 'Unknown')
+                                    if p_data.get('is_winner', False):
+                                        result = "Defeat"
+                                    else:
+                                        result = "Victory"
+                                    break
+                        
+                        # Extract opponent build order
+                        build_order = []
+                        for p_key, p_data in replay_data['players'].items():
+                            if isinstance(p_data, dict) and p_data.get('name') == opponent_name:
+                                build_order = p_data.get('buildOrder', [])
+                                break
+                        
+                        game_data = {
+                            'opponent_name': opponent_name,
+                            'opponent_race': opponent_race,
+                            'map': replay_data.get('map', 'Unknown'),
+                            'date': replay_data.get('unix_timestamp', 0),
+                            'result': result,
+                            'duration': game_duration_seconds,
+                            'build_order': build_order
+                        }
+                        
+                        twitch_service = next((s for s in self.chat_services if s.get_platform_name() == 'twitch'), None)
+                        if twitch_service and hasattr(twitch_service, 'twitch_bot'):
+                            twitch_bot = twitch_service.twitch_bot
+                            if hasattr(twitch_bot, '_display_pattern_validation'):
+                                twitch_bot._display_pattern_validation(game_data, logger)
+                            else:
+                                prompt_msg = f"Game vs {opponent_name} ({opponent_race}) analyzed. Result: {result}. Type 'player comment <text>' to save notes."
+                                await twitch_service.send_message("channel", prompt_msg)
+                    except Exception as e:
+                        logger.error(f"Pattern Learning Error: {e}")
+                
+                asyncio.create_task(delayed_learning_trigger())
+        
     def _find_replay_file(self, folder):
         # Wraps legacy utility
         return find_recent_file_within_time(
@@ -395,4 +973,20 @@ class GameResultService:
         )
         
     def _parse_replay(self, path):
-        return spawningtool.parser.parse_replay(path)
+        """
+        Parse SC2 replay file using spawningtool.
+        Wrapped in try/except to catch any exceptions, though segfaults will still crash.
+        """
+        try:
+            # Additional validation before calling native library
+            if not os.path.exists(path):
+                raise FileNotFoundError(f"Replay file not found: {path}")
+            
+            if not os.access(path, os.R_OK):
+                raise PermissionError(f"Cannot read replay file: {path}")
+            
+            # Call the parser (this may segfault on corrupted files)
+            return spawningtool.parser.parse_replay(path)
+        except Exception as e:
+            logger.error(f"Exception in _parse_replay for {path}: {e}")
+            raise

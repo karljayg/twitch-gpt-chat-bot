@@ -822,30 +822,32 @@ def process_ai_message(user_message, conversation_mode="normal", contextHistory=
             # Continue without context
             pass
         
-        # Choose a random mood and perspective from the selected options
-        try:
-            selected_moods = [config.MOOD_OPTIONS[i] for i in config.BOT_MOODS]
-            mood = random.choice(selected_moods)
-            logger.debug(f"Selected mood: {mood} (type: {type(mood).__name__})")
-        except (IndexError, KeyError) as e:
-            logger.error(f"Error selecting mood: {e}. Using default.")
-            mood = "casual"
+        # Skip mood/perspective for ml_analysis mode (needs to be factual only)
+        if conversation_mode != "ml_analysis":
+            # Choose a random mood and perspective from the selected options
+            try:
+                selected_moods = [config.MOOD_OPTIONS[i] for i in config.BOT_MOODS]
+                mood = random.choice(selected_moods)
+                logger.debug(f"Selected mood: {mood} (type: {type(mood).__name__})")
+            except (IndexError, KeyError) as e:
+                logger.error(f"Error selecting mood: {e}. Using default.")
+                mood = "casual"
 
-        if conversation_mode == "replay_analysis":
-            # say cutoff is 4, then select indices 0-3
-            perspective_indices = config.BOT_PERSPECTIVES[:config.PERSPECTIVE_INDEX_CUTOFF]
-        else:
-            # Select indices 4-onwards
-            perspective_indices = config.BOT_PERSPECTIVES[config.PERSPECTIVE_INDEX_CUTOFF:]
+            if conversation_mode == "replay_analysis":
+                # say cutoff is 4, then select indices 0-3
+                perspective_indices = config.BOT_PERSPECTIVES[:config.PERSPECTIVE_INDEX_CUTOFF]
+            else:
+                # Select indices 4-onwards
+                perspective_indices = config.BOT_PERSPECTIVES[config.PERSPECTIVE_INDEX_CUTOFF:]
 
-        try:
-            selected_perspectives = [
-                config.PERSPECTIVE_OPTIONS[i] for i in perspective_indices]
-            perspective = random.choice(selected_perspectives)
-            logger.debug(f"Selected perspective: {perspective[:50]}... (type: {type(perspective).__name__})")
-        except (IndexError, KeyError) as e:
-            logger.error(f"Error selecting perspective: {e}. Using default.")
-            perspective = "respond naturally"
+            try:
+                selected_perspectives = [
+                    config.PERSPECTIVE_OPTIONS[i] for i in perspective_indices]
+                perspective = random.choice(selected_perspectives)
+                logger.debug(f"Selected perspective: {perspective[:50]}... (type: {type(perspective).__name__})")
+            except (IndexError, KeyError) as e:
+                logger.error(f"Error selecting perspective: {e}. Using default.")
+                perspective = "respond naturally"
 
         if (conversation_mode == "normal"):
             # if contextHistory has > 15 tuples, clear it
@@ -877,6 +879,17 @@ def process_ai_message(user_message, conversation_mode="normal", contextHistory=
                             + "3. Example of CORRECT: 'arnoldatgym lost 45 Marines vs KJ's 12' - Example of WRONG: 'lost significantly more Marines'. "
                             + "4. Include the actual counts for units (e.g., '183 drones', '61 probes') - the data is provided, use it. "
                             + "5. When comparing units lost, be mathematically accurate: if one player lost 61 probes and another lost 2, do NOT say 'almost twice as many'. "
+                            + msg)
+                elif conversation_mode == "ml_analysis":
+                    # ML analysis mode: factual analysis only, no mood/perspective, no conversation
+                    msg = ("You are providing a factual ML analysis for a StarCraft 2 stream. "
+                            + "CRITICAL RULES: "
+                            + "1. Output ONLY the ML Analysis statement in the exact format requested. "
+                            + "2. Do NOT add mood, personality, or conversational elements. "
+                            + "3. Do NOT ask questions, make suggestions, or request input. "
+                            + "4. Do NOT say things like 'should we play together' or any casual conversation. "
+                            + "5. Be factual, analytical, and professional. "
+                            + "6. If there are no strong pattern matches, say 'ML Analysis: No strong matches on pattern analysis' (you can vary the wording slightly but keep it factual). "
                             + msg)
                 else:
                     msg = (f"As a {mood} observer of matches in StarCraft 2, {perspective}, "

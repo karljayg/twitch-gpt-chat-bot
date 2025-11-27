@@ -11,8 +11,14 @@ from api.pattern_learning import SC2PatternLearner
 
 @pytest.fixture
 def mock_llm():
-    llm = MagicMock(spec=ILanguageModel)
+    # Don't use spec - we want to control which methods exist
+    llm = MagicMock()
+    # generate_raw doesn't exist, so AttributeError will trigger fallback to generate_response
+    # generate_response should be AsyncMock that returns a string
     llm.generate_response = AsyncMock()
+    # Explicitly remove generate_raw so AttributeError is raised
+    if hasattr(llm, 'generate_raw'):
+        delattr(llm, 'generate_raw')
     return llm
 
 @pytest.fixture

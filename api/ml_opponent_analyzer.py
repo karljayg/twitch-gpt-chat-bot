@@ -403,8 +403,11 @@ class MLOpponentAnalyzer:
             
             if logger:
                 logger.debug(f"Matched {len(matched_patterns)} patterns for opponent race {opponent_race}")
-                for i, pattern in enumerate(matched_patterns[:5]):
-                    logger.debug(f"  {i+1}. '{pattern['comment']}' - Score: {pattern['similarity']:.2f}")
+                for i, pattern in enumerate(matched_patterns[:10]):  # Show top 10 for debugging
+                    logger.debug(f"  {i+1}. '{pattern['comment']}' - Score: {pattern['similarity']:.2f} (Race: {pattern.get('race', 'unknown')})")
+                if len(matched_patterns) > 0:
+                    best = matched_patterns[0]
+                    logger.info(f"Best match: '{best['comment']}' at {best['similarity']:.2f} similarity")
             
             return matched_patterns
             
@@ -961,7 +964,10 @@ class MLOpponentAnalyzer:
             
             msg = "Generate a concise ML analysis for Twitch chat based on opponent data. "
             msg += "Keep it under 200 characters. Describe ONLY what the opponent does - their builds, strategies, and patterns. "
-            msg += "Do NOT give advice on how to counter or respond. "
+            msg += "CRITICAL: Be factual and analytical. Do NOT add mood, personality, or conversational elements. "
+            msg += "Do NOT give advice, ask questions, request insights, or ask for recommendations. "
+            msg += "Do NOT say things like 'should we play together' or any casual conversation. "
+            msg += "Just state the analysis factually in a professional tone. "
             msg += "Format: 'ML Analysis: [your analysis]'\n\n"
             msg += f"Opponent: {data['opponent_name']}\n"
             
@@ -1029,7 +1035,17 @@ def analyze_opponent_for_game_start(opponent_name, opponent_race, current_map, t
             analyzer.generate_ml_analysis_message(analysis_data, twitch_bot, logger, contextHistory)
             return True
         else:
-            return False
+            # No analysis data - send message indicating no strong matches
+            from api.chat_utils import processMessageForOpenAI
+            no_match_msg = ("Generate a concise message for Twitch chat. "
+                           + "Say that there are no strong matches on the pattern analysis for this opponent. "
+                           + "Keep it under 100 characters. "
+                           + "Format: 'ML Analysis: [your message]' "
+                           + "Be factual and analytical, not conversational. "
+                           + f"Opponent: {opponent_name} ({opponent_race})\n\n"
+                           + "Your message:")
+            processMessageForOpenAI(twitch_bot, no_match_msg, "ml_analysis", logger, contextHistory)
+            return True
             
     except Exception as e:
         if logger:

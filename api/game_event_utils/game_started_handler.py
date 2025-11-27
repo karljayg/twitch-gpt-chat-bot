@@ -239,7 +239,9 @@ def game_started(self, current_game, contextHistory, logger):
                                 msg += "4. If opponent's units/buildings are mentioned, reference them accurately\n"
                                 msg += "5. Keep summary under 300 characters\n"
                                 msg += f"6. START your response with: 'Note: You've also faced this opponent {num_comment_games} other time{'s' if num_comment_games != 1 else ''}. Historical patterns show: '\n"
-                                msg += "7. End with exactly: 'player comments warning'\n\n"
+                                msg += "7. End with exactly: 'player comments warning'\n"
+                                msg += "8. DO NOT use bullet points (-) or multiple sentences - ONE continuous sentence only\n"
+                                msg += "9. DO NOT mention units/buildings that are NOT explicitly mentioned in the comments below\n\n"
                                 msg += "Previous game data:\n"
                                 msg += "-----\n"
 
@@ -256,7 +258,8 @@ def game_started(self, current_game, contextHistory, logger):
                                 msg += "-----\n"
                                 msg += "Based ONLY on the above data, provide a StarCraft 2-focused summary:\n"
                                 msg += "CRITICAL: Describe ONLY what the opponent does (their builds, strategies, patterns). "
-                                msg += "Do NOT give advice on how to respond or counter."
+                                msg += "Do NOT give advice on how to respond or counter. "
+                                msg += "Do NOT mention units/buildings not explicitly listed in the comments above."
 
                                 # Send the message to OpenAI
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)                     
@@ -320,8 +323,8 @@ def game_started(self, current_game, contextHistory, logger):
                                 msg = f"CRITICAL: Analyze ONLY the OPPONENT {player_name}'s build (NOT {config.STREAMER_NICKNAME}'s).\n"
                                 msg += f"Build order (abbreviated): {abbreviated_build_string}\n\n"
                                 msg += f"Requirements:\n"
-                                msg += f"1. Identify 2-3 KEY strategic elements from the build (tech buildings, timing, army composition)\n"
-                                msg += f"2. Describe the strategy in one concise sentence (max 25 words)\n"
+                                msg += f"1. Use ONLY units/buildings that appear in the build order above - do NOT guess or infer units not shown\n"
+                                msg += f"2. Describe the strategy in ONE concise sentence (max 25 words)\n"
                                 msg += f"3. Focus on what makes this build distinctive\n"
                                 msg += f"4. Example outputs:\n"
                                 msg += f"   - 'Fast expand into roach timing with third base'\n"
@@ -329,6 +332,8 @@ def game_started(self, current_game, contextHistory, logger):
                                 msg += f"   - '2 base banshee into mech turtle'\n"
                                 msg += f"5. DO NOT list all units/buildings - summarize the STRATEGY\n"
                                 msg += f"6. DO NOT mention {config.STREAMER_NICKNAME}'s play - ONLY describe {player_name}'s build\n"
+                                msg += f"7. DO NOT use bullet points or multiple sentences - ONE sentence only\n"
+                                msg += f"8. DO NOT mention units that are NOT in the build order above\n"
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
                             else:
                                 if streamer_picked_race == "Random":

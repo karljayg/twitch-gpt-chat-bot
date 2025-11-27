@@ -59,6 +59,7 @@ from core.handlers.analyze_handler import AnalyzeHandler
 from core.handlers.history_handler import HistoryHandler
 from core.handlers.fsl_handler import FSLHandler
 from core.handlers.head_to_head_handler import HeadToHeadHandler
+from core.handlers.retry_processing_handler import RetryProcessingHandler
 
 # Import Legacy Bots & Utils
 from api.twitch_bot import TwitchBot
@@ -203,6 +204,10 @@ async def main():
         chat_services=game_result_services, 
         pattern_learner=getattr(twitch_bot_legacy, 'pattern_learner', None)
     )
+    
+    # Register retry processing handler (must be after game_result_service is created)
+    retry_handler = RetryProcessingHandler(game_result_service)
+    command_service.register_handler("please retry", retry_handler)
     
     # SC2 Adapter with GameResultService
     sc2_adapter = SC2Adapter(bot_core, game_result_service)

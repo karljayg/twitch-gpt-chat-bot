@@ -22,14 +22,21 @@ def mock_learner():
 def mock_chat_service():
     service = MagicMock()
     service.send_message = AsyncMock()
+    # Mock twitch_bot with no pattern_learning_context (normal case)
+    service.twitch_bot = None
     return service
 
 @pytest.mark.asyncio
 async def test_comment_handler_success(mock_repo, mock_learner, mock_chat_service):
     from core.handlers.comment_handler import CommentHandler
+    import time
     
     handler = CommentHandler(mock_repo, mock_learner)
     context = CommandContext("player comment rush", "channel1", "user1", "twitch", mock_chat_service)
+    
+    # Ensure mock_learner has the expected methods
+    mock_learner._process_new_comment = MagicMock()
+    mock_learner.save_patterns_to_file = MagicMock()
     
     await handler.handle(context, "rush")
     

@@ -179,8 +179,10 @@ class BotCore:
                 intro_message = await self.llm.generate_response(prompt)
                 if not intro_message:
                     intro_message = f"Game Started! GLHF vs {opponent_name} ({opponent_race})!"
-                if twitch_service:
-                    await twitch_service.send_message("chat", intro_message)
+                # Send to any available chat service (not just Twitch)
+                for service in self.chat_services.values():
+                    await service.send_message("chat", intro_message)
+                    break  # Send to first available service
                 
         elif event.event_type == "game_ended":
             self.current_game_status = "Idle"

@@ -999,40 +999,54 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             pattern_text = f"Pattern Match ({ctx['pattern_similarity']:.0f}%): \"{ctx['pattern_match']}\"" if ctx['pattern_match'] else "No pattern match"
             ai_text = f"AI Summary: \"{ctx['ai_summary']}\"" if ctx['ai_summary'] else "No AI summary"
             
-            prompt = f"""You are interpreting a user's response for StarCraft 2 build order labeling.
+            prompt = f"""You are interpreting KJ's response about StarCraft 2 build order suggestions. KJ is the streamer who just played the game and knows what actually happened.
 
-The user was presented with two options:
+KJ was presented with two suggestions:
 OPTION 1 (Pattern Match): "{ctx.get('pattern_match', 'N/A')}"
 OPTION 2 (AI Analysis): "{ctx.get('ai_summary', 'N/A')}"
 
 Opponent: {ctx['opponent_name']}
-User's response: "{user_message}"
+KJ's response: "{user_message}"
 
-Your task: Intelligently determine what the user wants based on their response compared to the two options above.
+Your task: Determine what KJ wants.
 
-Rules:
-1. If user's response is essentially agreeing with OPTION 1 (same meaning, similar wording, or explicit choice like "1", "first", "pattern"):
-   {{"action": "use_pattern"}}
+CRITICAL: Look for MODIFICATION patterns FIRST - these are when KJ agrees with a suggestion but wants to add/remove/modify parts of it.
 
-2. If user's response is essentially agreeing with OPTION 2 (same meaning, similar wording, or explicit choice like "2", "second", "AI"):
-   {{"action": "use_ai_summary"}}
+MODIFICATION PATTERNS (check these BEFORE custom comments):
+- "correct, add X" or "right, add X" → KJ agrees with AI suggestion but wants to ADD X
+- "correct, but no X" or "right, but no X" → KJ agrees with AI suggestion but wants to REMOVE X
+- "correct, except X" or "right, except X" → KJ agrees with AI suggestion but wants to CHANGE X
+- "correct, but X" → KJ agrees with AI suggestion but wants to MODIFY with X
 
-3. If user wants to skip (keywords: skip, no, neither, ignore, pass):
-   {{"action": "skip"}}
+If KJ uses a modification pattern with OPTION 2 (AI Analysis):
+  → {{"action": "modify_ai", "modification": "<the modification part>"}}
+  Examples:
+  - "correct, add proxy 3 rax" → {{"action": "modify_ai", "modification": "add proxy 3 rax"}}
+  - "correct, but no timing attack" → {{"action": "modify_ai", "modification": "remove timing attack"}}
+  - "correct, except it was roach" → {{"action": "modify_ai", "modification": "change to roach"}}
 
-4. If user provides MORE SPECIFIC details, corrections, or different description than both options:
-   {{"action": "custom", "text": "<user's exact description>"}}
+If KJ uses a modification pattern with OPTION 1 (Pattern Match):
+  → {{"action": "modify_pattern", "modification": "<the modification part>"}}
 
-5. If user combines/refines one option with additional details:
-   {{"action": "custom", "text": "<combined description using user's refinements>"}}
+If KJ's response is a FULL custom description (no agreement words, just game terms):
+  → {{"action": "custom", "text": "<KJ's exact response>"}}
+  Examples: "fast expand immortal defense", "proxy 3 gateway zealot all in", "12 pool rush"
+
+If KJ's response is ONLY agreement words with NO game terms:
+  - "1", "first", "pattern", "use pattern" → {{"action": "use_pattern"}}
+  - "2", "second", "AI", "use AI" → {{"action": "use_ai_summary"}}
+  - "correct", "right", "accurate" (no option specified) → {{"action": "use_ai_summary"}} (default to AI)
+  - "yes", "yeah", "y", "ok", "sure" (no option specified) → {{"action": "ask_clarification"}}
+
+If KJ wants to skip: "skip", "no", "neither", "ignore", "pass" → {{"action": "skip"}}
 
 Examples:
-- User: "proxy 3 gateway zealot all in" vs AI: "Gateway heavy zealot pressure" → CUSTOM (user more specific)
-- User: "yeah the gateway pressure one" vs AI: "Gateway heavy zealot pressure" → USE AI SUMMARY (agreeing)
-- User: "first one looks good" → USE PATTERN
-- User: "roach rush not zealot" → CUSTOM (correcting)
+- "correct, add proxy 3 rax" → MODIFY_AI (agreement + modification)
+- "correct, but no timing attack" → MODIFY_AI (agreement + removal)
+- "fast expand immortal defense" → CUSTOM (full description, no agreement)
+- "correct" → USE_AI_SUMMARY (agreement only)
+- "first one" → USE_PATTERN (explicit choice)
 
-Be smart: Compare the MEANING and SPECIFICITY of the user's text against both options.
 Respond with VALID JSON using double quotes. One line only. No markdown, no explanation."""
             
             # Use send_prompt_to_openai directly to avoid persona/emote injection from process_ai_message
@@ -1095,8 +1109,9 @@ Respond with VALID JSON using double quotes. One line only. No markdown, no expl
             parsed = None
             try:
                 parsed = json.loads(response_clean)
+                logger.debug(f"Successfully parsed NLP response: {parsed}")
             except json.JSONDecodeError as je:
-                logger.warning(f"JSON parse error: {je}. Attempting to fix malformed JSON.")
+                logger.warning(f"JSON parse error: {je}. Raw response: {response_clean}. Attempting to fix malformed JSON.")
                 # Try to fix common issues: single quotes, missing quotes on keys/values
                 try:
                     # Simple approach: Force OpenAI's common malformed patterns into valid JSON
@@ -1135,19 +1150,104 @@ Respond with VALID JSON using double quotes. One line only. No markdown, no expl
             
             action = parsed.get('action', 'skip')
             
-            if action == 'use_pattern' and ctx['pattern_match']:
-                return ('use_pattern', ctx['pattern_match'])
-            elif action == 'use_ai_summary' and ctx['ai_summary']:
-                return ('use_ai_summary', ctx['ai_summary'])
+            if action == 'ask_clarification':
+                # User said "yes" without specifying - ask for clarification
+                return ('ask_clarification', None)
+            elif action == 'use_pattern':
+                if ctx.get('pattern_match'):
+                    return ('use_pattern', ctx['pattern_match'])
+                else:
+                    logger.warning("NLP returned 'use_pattern' but pattern_match is missing from context")
+                    return ('skip', None)
+            elif action == 'use_ai_summary':
+                if ctx.get('ai_summary'):
+                    return ('use_ai_summary', ctx['ai_summary'])
+                else:
+                    logger.warning("NLP returned 'use_ai_summary' but ai_summary is missing from context")
+                    return ('skip', None)
+            elif action == 'modify_ai':
+                # User wants to modify the AI suggestion - let AI understand and apply it naturally
+                ai_summary = ctx.get('ai_summary', '')
+                if not ai_summary:
+                    logger.warning("NLP returned 'modify_ai' but ai_summary is missing from context")
+                    return ('skip', None)
+                
+                # Let the AI understand the modification naturally
+                try:
+                    modify_prompt = f"""KJ (the streamer) was shown this AI analysis suggestion: "{ai_summary}"
+
+KJ responded: "{user_message}"
+
+Understand what KJ wants and create the final comment. KJ knows what actually happened in the game, so interpret their response and apply it to the suggestion naturally.
+
+Return ONLY the final comment text, nothing else. Keep it concise and natural."""
+                    
+                    modify_completion = send_prompt_to_openai(modify_prompt)
+                    if modify_completion and modify_completion.choices and modify_completion.choices[0].message:
+                        modified_text = modify_completion.choices[0].message.content.strip()
+                        logger.info(f"AI modified summary: '{ai_summary}' -> '{modified_text}' (based on: '{user_message}')")
+                        return ('custom', modified_text)
+                    else:
+                        logger.warning("Failed to get modification response from OpenAI, using original AI summary")
+                        return ('use_ai_summary', ai_summary)
+                except Exception as e:
+                    logger.error(f"Error applying modification to AI summary: {e}")
+                    return ('use_ai_summary', ai_summary)
+            elif action == 'modify_pattern':
+                # User wants to modify the pattern match - let AI understand and apply it naturally
+                pattern_match = ctx.get('pattern_match', '')
+                if not pattern_match:
+                    logger.warning("NLP returned 'modify_pattern' but pattern_match is missing from context")
+                    return ('skip', None)
+                
+                # Let the AI understand the modification naturally
+                try:
+                    modify_prompt = f"""KJ (the streamer) was shown this pattern match suggestion: "{pattern_match}"
+
+KJ responded: "{user_message}"
+
+Understand what KJ wants and create the final comment. KJ knows what actually happened in the game, so interpret their response and apply it to the suggestion naturally.
+
+Return ONLY the final comment text, nothing else. Keep it concise and natural."""
+                    
+                    modify_completion = send_prompt_to_openai(modify_prompt)
+                    if modify_completion and modify_completion.choices and modify_completion.choices[0].message:
+                        modified_text = modify_completion.choices[0].message.content.strip()
+                        logger.info(f"AI modified pattern: '{pattern_match}' -> '{modified_text}' (based on: '{user_message}')")
+                        return ('custom', modified_text)
+                    else:
+                        logger.warning("Failed to get modification response from OpenAI, using original pattern match")
+                        return ('use_pattern', pattern_match)
+                except Exception as e:
+                    logger.error(f"Error applying modification to pattern match: {e}")
+                    return ('use_pattern', pattern_match)
             elif action == 'custom':
                 custom_text = parsed.get('text', '').strip()
                 if not custom_text:
                     # Fallback: extract anything descriptive from user message
                     custom_text = user_message.strip()
                 return ('custom', custom_text)
+            
+            # SAFETY CHECK: If NLP returned use_pattern or use_ai_summary but user message contains game terms,
+            # AND it's not a modification pattern, override to custom (NLP might have misinterpreted)
+            if action in ('use_pattern', 'use_ai_summary') and action != 'modify_ai' and action != 'modify_pattern':
+                user_lower = user_message.lower()
+                game_terms = ['expand', 'immortal', 'defense', 'proxy', 'pool', 'gateway', 'zealot', 'stalker', 'sentry', 
+                             'roach', 'ling', 'muta', 'baneling', 'ravager', 'hydra', 'lurker', 'ultra', 'brood',
+                             'marine', 'marauder', 'medivac', 'tank', 'hellion', 'cyclone', 'liberator', 'banshee',
+                             'adept', 'archon', 'colossus', 'disruptor', 'tempest', 'carrier', 'void', 'oracle', 'phoenix',
+                             'rush', 'all in', 'timing', 'push', 'macro', 'cheese', 'cannon', 'bunker', 'spine', 'spore']
+                # Check if it's a modification pattern (contains agreement word + game terms)
+                modification_patterns = ['correct,', 'right,', 'accurate,', 'but', 'except', 'add', 'remove', 'no ']
+                is_modification = any(pattern in user_lower for pattern in modification_patterns) and any(term in user_lower for term in game_terms)
+                
+                if any(term in user_lower for term in game_terms) and not is_modification:
+                    # User provided descriptive text without agreement - override NLP and use as custom
+                    logger.warning(f"NLP returned '{action}' but user message contains game terms (not modification) - overriding to custom")
+                    return ('custom', user_message.strip())
             else:
                 # Default to skip if uncertain or no valid option
-                logger.debug(f"Pattern learning response defaulting to skip: {parsed.get('reason', 'no valid option')}")
+                logger.debug(f"Pattern learning response defaulting to skip: action='{action}', parsed={parsed}")
                 return ('skip', None)
                 
         except Exception as e:
@@ -1180,6 +1280,7 @@ Respond with VALID JSON using double quotes. One line only. No markdown, no expl
             # Run pattern matching against ALL learned patterns (not just this opponent)
             # Extract build order from game data
             build_order = game_data.get('build_order', [])
+            logger.info(f"Pattern matching: using {len(build_order)} build order steps (first 10: {[s.get('name', '') for s in build_order[:10]]})")
             matched_patterns = analyzer.match_build_against_all_patterns(build_order, opponent_race, logger)
             
             # Wrap in analysis_data structure for compatibility
@@ -1194,6 +1295,7 @@ Respond with VALID JSON using double quotes. One line only. No markdown, no expl
                 build_order = game_data['build_order']
                 
                 # Use the proper function that shows sequential build with worker abbreviation
+                # Display limited to 12 items for Twitch chat readability (pattern matching uses full build order)
                 from utils.sc2_abbreviations import format_build_order_for_chat
                 build_summary_string = format_build_order_for_chat(build_order, max_items=12)
             
@@ -1272,6 +1374,34 @@ Respond with VALID JSON using double quotes. One line only. No markdown, no expl
             # Display pattern matching results
             if analysis_data:
                 matched_patterns = analysis_data.get('matched_patterns', [])
+                min_similarity = config.PATTERN_SUGGESTION_MIN_SIMILARITY * 100
+                
+                # Track weak matches for display (even if filtered)
+                weak_match = None
+                if matched_patterns:
+                    best_match = matched_patterns[0]
+                    similarity = best_match.get('similarity', 0) * 100
+                    # 40% and above is considered acceptable, below 40% is weak
+                    if similarity < 40:  # Less than 40% is considered weak (40% itself is acceptable)
+                        # Store weak match for display, but don't use it for suggestions
+                        weak_match = {
+                            'match': best_match,
+                            'similarity': similarity
+                        }
+                        logger.info(f"Pattern match found but too weak ({similarity:.1f}% < 40%) - will show but not use for suggestions")
+                        matched_patterns = []  # Treat as no strong pattern match
+                
+                # Show weak match if present (for verification that pattern matching is working)
+                if weak_match:
+                    weak_similarity = weak_match['similarity']
+                    weak_pattern_comment = weak_match['match'].get('comment', 'No description')
+                    weak_keywords = weak_match['match'].get('keywords', [])
+                    print(f"--- WEAK PATTERN MATCH ({weak_similarity:.1f}% similarity - below 40% threshold) ---")
+                    print(f'Pattern: "{weak_pattern_comment}"')
+                    if weak_keywords:
+                        print(f"Keywords matched: {', '.join(weak_keywords[:5])}")
+                    print("(Shown for verification - pattern matching is working, but match is too weak for suggestions)")
+                    print()
                 
                 if matched_patterns:
                     # Get best match
@@ -1300,8 +1430,26 @@ Respond with VALID JSON using double quotes. One line only. No markdown, no expl
                             print("Review both options carefully.")
                             print()
                     
+                    # Check if confidence is mid-to-high (40%+) to trigger ML analysis
+                    # ML analysis provides additional context on opponent's historical patterns
+                    if similarity >= 40:  # Mid-to-high confidence threshold
+                        # Trigger ML analysis on the build (if opponent is known)
+                        try:
+                            from api.ml_opponent_analyzer import analyze_opponent_for_game_start
+                            from api.chat_utils import processMessageForOpenAI
+                            
+                            # Check if opponent is known in database
+                            if db_instance:
+                                opponent_record = db_instance.check_player_and_race_exists(opponent_name, opponent_race)
+                                if opponent_record:
+                                    # Trigger ML analysis
+                                    logger.info(f"Triggering ML analysis for known opponent: {opponent_name}")
+                                    analyze_opponent_for_game_start(opponent_name, opponent_race, map_name, self, logger, getattr(self, 'contextHistory', []))
+                        except Exception as e:
+                            logger.debug(f"ML analysis not available or failed: {e}")
+                    
                     # Check if confidence is high enough to suggest
-                    if similarity >= config.PATTERN_SUGGESTION_MIN_SIMILARITY * 100:
+                    if similarity >= min_similarity:
                         # Store context for natural language response handler
                         import time
                         self.pattern_learning_context = {
@@ -1397,7 +1545,7 @@ Respond with VALID JSON using double quotes. One line only. No markdown, no expl
                             except Exception as e:
                                 logger.error(f"Error sending pattern match to Twitch chat: {e}")
                 else:
-                    # No patterns matched - AI summary becomes primary option
+                    # No strong patterns matched - AI summary becomes primary option
                     import time
                     self.pattern_learning_context = {
                         'opponent_name': opponent_name,
@@ -1413,8 +1561,8 @@ Respond with VALID JSON using double quotes. One line only. No markdown, no expl
                     self.suggested_pattern_comment = None
                     self.suggested_ai_summary = ai_summary
                     
-                    print("--- NO PATTERN MATCH ---")
-                    print("This build doesn't match existing patterns.")
+                    print("--- NO STRONG PATTERN MATCH ---")
+                    print("No strong match on build pattern.")
                     print()
                     if ai_summary:
                         print(f"AI suggests: '{ai_summary}'")
@@ -1433,12 +1581,12 @@ Respond with VALID JSON using double quotes. One line only. No markdown, no expl
                             build_preview = f"{opponent_name}'s build: {', '.join(build_summary[:3])}. " if build_summary else ""
                             
                             if ai_summary:
-                                msg = f"{build_preview}No pattern match. AI suggests: '{ai_summary}'. Agree?"
+                                msg = f"{build_preview}No strong match on build pattern. AI suggests: '{ai_summary}'. Agree?"
                             else:
-                                msg = f"{build_preview}No pattern match. What strategy was this?"
+                                msg = f"{build_preview}No strong match on build pattern. What strategy was this?"
                             
                             self.connection.privmsg(self.channel, msg)
-                            logger.debug(f"Sent no pattern match to Twitch: {msg}")
+                            logger.debug(f"Sent no strong pattern match to Twitch: {msg}")
                         except Exception as e:
                             logger.error(f"Error sending pattern match to Twitch chat: {e}")
             else:
