@@ -40,6 +40,7 @@ def calculate_game_duration(replay_data, logger):
     return res
 
 #This function is called if the game is ends. This will analyze and log the game results.
+# NOTE: Sounds are now handled by core/bot.py via AudioService - this function only generates announcement text
 def game_ended(self, game_player_names,winning_players,losing_players, logger):
     # Check if streamer was observing (not playing)
     streamer_playing = (config.STREAMER_NICKNAME in winning_players or 
@@ -47,27 +48,17 @@ def game_ended(self, game_player_names,winning_players,losing_players, logger):
     
     if len(winning_players) == 0:
         response = f"Game with {game_player_names} ended with a Tie!"
-        if streamer_playing:
-            self.play_SC2_sound("tie")
-
     else:
         # Compare with the threshold
         if self.total_seconds < config.ABANDONED_GAME_THRESHOLD:
             logger.debug("Game duration is less than " + str(config.ABANDONED_GAME_THRESHOLD) + " seconds.")
             response = f"The game was abandoned immediately in just {self.total_seconds} seconds between {game_player_names} and so {winning_players} get the free win."
-            if streamer_playing:
-                self.play_SC2_sound("abandoned")  
         else:
             if streamer_playing:
                 response = f"Game with {game_player_names} ended with {winning_players} beating {losing_players}"
-                if config.STREAMER_NICKNAME in winning_players:
-                    self.play_SC2_sound("victory")
-                else:
-                    self.play_SC2_sound("defeat")
             else:
                 # Observer mode - neutral commentary
                 response = f"[Observer] Match between {game_player_names} ended with {winning_players} defeating {losing_players}"
-                # No sound for observed games
     
         # Check if this is an FSL game and ask for reviewer request
 

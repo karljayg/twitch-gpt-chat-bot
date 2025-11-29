@@ -28,14 +28,16 @@ class AudioService(IAudioService):
 
     async def play_sound(self, sound_key: str) -> None:
         if not self.sound_player:
-            logger.debug("Sound player not provided or disabled.")
+            logger.warning("Sound player not provided or disabled.")
             return
             
         loop = asyncio.get_running_loop()
         try:
             # Legacy play_sound takes (game_event, logger)
+            logger.info(f"AudioService: Calling sound_player.play_sound('{sound_key}')")
             await loop.run_in_executor(None, self.sound_player.play_sound, sound_key, logger)
+            logger.info(f"AudioService: Sound play call completed for '{sound_key}'")
         except Exception as e:
-            logger.error(f"Error playing sound: {e}")
+            logger.error(f"Error playing sound: {e}", exc_info=True)
 
 

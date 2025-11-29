@@ -109,39 +109,62 @@ class GameResultService:
             logger.info(f"Found new replay: {replay_path}")
 
             # 2. Parse Replay
+            # Wait a bit for file to finish writing (especially important for OneDrive sync)
+            await asyncio.sleep(3)
+            
             # Validate file before parsing to avoid segfaults
             if not os.path.exists(replay_path):
                 logger.error(f"Replay file does not exist: {replay_path}")
                 return
             
-            file_size = os.path.getsize(replay_path)
-            if file_size == 0:
-                logger.error(f"Replay file is empty: {replay_path}")
-                return
+            # Check if file is locked (still being written by SC2/OneDrive)
+            # Retry with increasing delays to handle OneDrive sync delays
+            max_retries = 3
+            retry_delay = 3  # Start with 3 seconds
+            file_locked = True
             
-            if file_size < 1000:  # SC2 replays are typically > 1KB
-                logger.warning(f"Replay file suspiciously small ({file_size} bytes): {replay_path}")
-            
-            # Check if file is locked (still being written by SC2)
-            # On Windows, try to open in exclusive mode to check if locked
-            file_locked = False
-            try:
-                # Try to open file in append mode - if locked, this will fail
-                with open(replay_path, 'a+b') as f:
-                    pass
-            except (IOError, OSError, PermissionError) as e:
-                file_locked = True
-                logger.warning(f"Replay file appears to be locked (still writing?): {replay_path} - {e}")
-                # Wait a bit more and retry once
-                await asyncio.sleep(2)
+            for attempt in range(max_retries):
                 try:
+                    # Check file size first (if file is locked, this might also fail)
+                    file_size = os.path.getsize(replay_path)
+                    if file_size == 0:
+                        logger.warning(f"Replay file is empty, waiting... ({attempt + 1}/{max_retries})")
+                        if attempt < max_retries - 1:
+                            await asyncio.sleep(retry_delay)
+                            continue
+                        else:
+                            logger.error(f"Replay file still empty after {max_retries} attempts: {replay_path}")
+                            return
+                    
+                    if file_size < 1000:  # SC2 replays are typically > 1KB
+                        logger.warning(f"Replay file suspiciously small ({file_size} bytes): {replay_path}")
+                    
+                    # Try to open file in append mode - if locked, this will fail
                     with open(replay_path, 'a+b') as f:
                         pass
+                    
+                    # File is accessible - check if size is stable (not still writing)
+                    await asyncio.sleep(1)
+                    new_size = os.path.getsize(replay_path)
+                    if new_size != file_size:
+                        logger.debug(f"File size changed ({file_size} -> {new_size}), still writing... ({attempt + 1}/{max_retries})")
+                        if attempt < max_retries - 1:
+                            await asyncio.sleep(retry_delay)
+                            continue
+                    
+                    # File is unlocked and size is stable
                     file_locked = False
-                    logger.info(f"Replay file unlocked after additional wait: {replay_path}")
-                except (IOError, OSError, PermissionError):
-                    logger.error(f"Replay file still locked after retry, skipping: {replay_path}")
-                    return
+                    logger.info(f"Replay file is ready: {replay_path} ({new_size} bytes)")
+                    break
+                    
+                except (IOError, OSError, PermissionError) as e:
+                    if attempt < max_retries - 1:
+                        logger.debug(f"Replay file locked, retrying in {retry_delay}s... ({attempt + 1}/{max_retries}): {replay_path}")
+                        await asyncio.sleep(retry_delay)
+                        retry_delay += 1  # Increase delay for each retry (3s, 4s, 5s, 6s, 7s)
+                    else:
+                        logger.error(f"Replay file still locked after {max_retries} attempts, skipping: {replay_path} - {e}")
+                        return
             
             if file_locked:
                 logger.error(f"Cannot parse locked replay file: {replay_path}")

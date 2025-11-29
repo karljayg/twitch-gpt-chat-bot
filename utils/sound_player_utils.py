@@ -41,17 +41,18 @@ class SoundPlayer:
     def play_sound(self, game_event, logger):
         # Check if audio is available
         if not self.audio_available:
-            logger.debug(f"Audio not available - would have played: {game_event}")
+            logger.warning(f"Audio not available - would have played: {game_event}")
             return
             
         try:
             if game_event in self.sounds_config.get('sounds', {}): 
                 sound_file = random.choice(
                     self.sounds_config['sounds'][game_event])
+                logger.info(f"SoundPlayer: Loading sound file: {sound_file}")
                 pygame.mixer.music.load(sound_file)
                 pygame.mixer.music.play()
-                logger.debug(f"Playing sound: {game_event}")
+                logger.info(f"SoundPlayer: Playing sound '{game_event}' from file: {sound_file}")
             else:
-                logger.debug(f"Sound for game event '{game_event}' not found.")
+                logger.warning(f"Sound for game event '{game_event}' not found in config.")
         except Exception as e:
-            logger.debug(f"An error occurred while trying to play sound: {e}")
+            logger.error(f"An error occurred while trying to play sound '{game_event}': {e}", exc_info=True)

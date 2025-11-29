@@ -1,6 +1,6 @@
 from datetime import datetime
 import pytz
-from api.chat_utils import processMessageForOpenAI
+from api.chat_utils import processMessageForOpenAI, msgToChannel
 from api.ml_opponent_analyzer import analyze_opponent_for_game_start
 
 from settings import config
@@ -9,6 +9,7 @@ import utils.tokensArray as tokensArray
 
 
 def game_started(self, current_game, contextHistory, logger):
+    logger.info("game_started_handler.game_started() called")
     # Clear conversation context at start of new game to prevent player name confusion between games
     contextHistory.clear()
     logger.debug("Cleared conversation context for new game")
@@ -239,9 +240,8 @@ def game_started(self, current_game, contextHistory, logger):
                                 msg += "4. If opponent's units/buildings are mentioned, reference them accurately\n"
                                 msg += "5. Keep summary under 300 characters\n"
                                 msg += f"6. START your response with: 'Note: You've also faced this opponent {num_comment_games} other time{'s' if num_comment_games != 1 else ''}. Historical patterns show: '\n"
-                                msg += "7. End with exactly: 'player comments warning'\n"
-                                msg += "8. DO NOT use bullet points (-) or multiple sentences - ONE continuous sentence only\n"
-                                msg += "9. DO NOT mention units/buildings that are NOT explicitly mentioned in the comments below\n\n"
+                                msg += "7. DO NOT use bullet points (-) or multiple sentences - ONE continuous sentence only\n"
+                                msg += "8. DO NOT mention units/buildings that are NOT explicitly mentioned in the comments below\n\n"
                                 msg += "Previous game data:\n"
                                 msg += "-----\n"
 
@@ -261,8 +261,51 @@ def game_started(self, current_game, contextHistory, logger):
                                 msg += "Do NOT give advice on how to respond or counter. "
                                 msg += "Do NOT mention units/buildings not explicitly listed in the comments above."
 
-                                # Send the message to OpenAI
-                                processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)                     
+                                # Get base response from OpenAI directly
+                                from api.chat_utils import send_prompt_to_openai
+                                try:
+                                    completion = send_prompt_to_openai(msg)
+                                    if completion.choices[0].message is not None:
+                                        base_response = completion.choices[0].message.content
+                                        
+                                        # Remove "player comments warning" if present
+                                        base_response = base_response.replace("player comments warning", "").strip()
+                                        
+                                        # Now vary the message while keeping all details and the specific format
+                                        variation_msg = f"Rewrite this StarCraft 2 analysis message with different wording, but keep ALL the same details and the specific format:\n\n"
+                                        variation_msg += f"{base_response}\n\n"
+                                        variation_msg += "CRITICAL Requirements:\n"
+                                        variation_msg += "1. You MUST keep the format that mentions how many times the player has faced this opponent (e.g., 'You've played this player X time(s) before' or 'You've also faced this opponent X other time(s)')\n"
+                                        variation_msg += "2. You MUST mention what the opponent did in those previous games (e.g., 'where the opponent did...' or 'in which the opponent...')\n"
+                                        variation_msg += "3. Use different phrasing and sentence structure for the rest\n"
+                                        variation_msg += "4. Keep ALL the same details (exact opponent count, all patterns, all strategies mentioned)\n"
+                                        variation_msg += "5. Keep it under 300 characters\n"
+                                        variation_msg += "6. ONE continuous sentence only\n"
+                                        variation_msg += "7. Do NOT add or remove any information\n"
+                                        variation_msg += "8. Examples of good format variations:\n"
+                                        variation_msg += "   - 'Note: You've played this player 1 time before where the opponent did gateway-focused build, slow expansion, macro-oriented playstyle.'\n"
+                                        variation_msg += "   - 'You've also faced this opponent once previously, and in that game they used a gateway-focused build with slow expansion and a macro-oriented playstyle.'\n"
+                                        variation_msg += "   - 'Historical note: You've encountered this player 1 other time, where they showed gateway-focused builds, slow expansion, and macro-oriented playstyle.'\n"
+                                        
+                                        # Get varied response
+                                        variation_completion = send_prompt_to_openai(variation_msg)
+                                        if variation_completion.choices[0].message is not None:
+                                            varied_response = variation_completion.choices[0].message.content
+                                            # Add "player comments warning" back for TTS trigger (but it will be removed in msgToChannel)
+                                            varied_response = varied_response + " player comments warning"
+                                            # Send the varied response to chat
+                                            msgToChannel(self, varied_response, logger)
+                                        else:
+                                            # Fallback to base response if variation fails
+                                            base_response = base_response + " player comments warning"
+                                            msgToChannel(self, base_response, logger)
+                                    else:
+                                        # Fallback: use processMessageForOpenAI if direct call fails
+                                        processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
+                                except Exception as e:
+                                    logger.error(f"Error getting/varying player comment analysis: {e}")
+                                    # Fallback: use processMessageForOpenAI if direct call fails
+                                    processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)                     
                               
                             msg = "Do these 2: \n"
                             if streamer_picked_race == "Random":
