@@ -1,30 +1,44 @@
-#manual:
-#pip install irc openai logging requests re asyncio random irc.bot spacy nltk en_core_web_sm logging urllib3
-#sc2reader @ git+https://github.com/GraylinKim/sc2reader.git
-#spawningtool @ git+https://github.com/StoicLoofah/spawningtool.git
-#langchain
-#python -m spacy download en_core_web_sm
+# Core dependencies
+irc~=20.3.0
+openai~=0.27.8
+requests~=2.31.0
+urllib3==1.26.7
+tiktoken
+pytz
+pygame
+mysql-connector-python
+discord.py~=2.3.2
 
-en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.0.0/en_core_web_sm-3.0.0-py3-none-any.whl
+# NLP and language processing
 nltk~=3.8.1
 spacy~=3.6.1
-urllib3==1.26.7
-requests~=2.31.0
-twitchio
-openai~=0.27.8
-irc~=20.3.0
-logging~=0.4.9.6
-sc2reader @ git+https://github.com/GraylinKim/sc2reader.git
-spawningtool @ git+https://github.com/StoicLoofah/spawningtool.git
+en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.0.0/en_core_web_sm-3.0.0-py3-none-any.whl
+
+# LangChain for wiki/agent functionality
 langchain>=0.1.0
 langchain-community>=0.0.16
 langchain-openai>=0.0.5
 langchain-core>=0.1.17
 wikipedia
-tiktoken
-pygame
-mysql-connector-python
-discord.py~=2.3.2
+
+# StarCraft II replay parsing
+sc2reader @ git+https://github.com/GraylinKim/sc2reader.git
+spawningtool @ git+https://github.com/StoicLoofah/spawningtool.git
+
+# Text-to-speech (optional - only if ENABLE_AUDIO is True)
+pyttsx3
+
+# Protobuf (for Stormgate replay parsing)
+protobuf>=3.20.0
+
+# Testing
 pytest
 pytest-asyncio
 pytest-cov
+
+# Optional: Speech-to-text dependencies (only if ENABLE_SPEECH_TO_TEXT is True)
+# Uncomment if needed:
+# speechrecognition
+# sounddevice
+# scipy
+# numpy

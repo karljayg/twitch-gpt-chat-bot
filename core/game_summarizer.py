@@ -48,9 +48,9 @@ class GameSummarizer:
 
         # Build Orders
         if total_seconds < 600:
-            base_build_count = 60
+            base_build_count = 120
         else:
-            base_build_count = 90
+            base_build_count = 180
             
         total_players = len(replay_data.get('players', {}))
         if total_players > 2:

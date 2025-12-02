@@ -26,9 +26,9 @@ if debug_mode:
     print('Debug mode activated.')
 
 # Prompt for folder path or username-based substitution
-default_path = r"C:\Users\karl_\OneDrive\Documents\StarCraft II\Accounts"
+default_path = r"C:\Users\karl_\Documents\StarCraft II\Accounts"
 folder_input = input(f"Enter the full path (e.g., {default_path}) "
-                     f"OR enter your Windows username (with optional subfolder, e.g., jsmith\\OneDrive) "
+                     f"OR enter your Windows username (with optional subfolder, e.g., jsmith) "
                      f"OR press Enter to use default ({default_path}): ").strip()
 
 # Use default path if nothing entered

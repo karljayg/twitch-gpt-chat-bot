@@ -309,7 +309,7 @@ def process_pubmsg(self, event, logger, contextHistory):
                     
                     if success:
                         self.pattern_learner._process_new_comment(game_data, comment_text)
-                        self.pattern_learner.save_patterns_to_file()
+                        # Note: _process_new_comment already calls save_patterns_to_file() internally
                         
                         source_label = "pattern" if action == "use_pattern" else ("AI" if action == "use_ai_summary" else "custom")
                         response = f"[OK] Saved {source_label} comment: '{comment_text}'"
@@ -861,7 +861,8 @@ def process_ai_message(user_message, conversation_mode="normal", contextHistory=
                 # Ensure mood and perspective are strings
                 mood_str = str(mood) if mood is not None else "casual"
                 perspective_str = str(perspective) if perspective is not None else "respond naturally"
-                msg = (f"As a {mood_str} AI bot named Mathison watching this StarCraft 2 stream, {perspective_str}, "
+                msg = (f"As a {mood_str} AI bot named Mathison watching this StarCraft 2 stream, {perspective_str}. "
+                        + "Do NOT greet users or say things like 'I am excited to watch'. Just respond to the message directly. "
                         + msg)
             except Exception as e:
                 logger.error(f"Error building prompt with mood={mood} (type: {type(mood)}), perspective={perspective} (type: {type(perspective)}): {e}")

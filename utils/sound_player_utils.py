@@ -48,6 +48,13 @@ class SoundPlayer:
             if game_event in self.sounds_config.get('sounds', {}): 
                 sound_file = random.choice(
                     self.sounds_config['sounds'][game_event])
+                
+                # Check if file exists before trying to load
+                import os
+                if not os.path.exists(sound_file):
+                    logger.error(f"Sound file not found: {sound_file}")
+                    return
+                
                 logger.info(f"SoundPlayer: Loading sound file: {sound_file}")
                 pygame.mixer.music.load(sound_file)
                 pygame.mixer.music.play()

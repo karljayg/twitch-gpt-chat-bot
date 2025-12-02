@@ -37,6 +37,9 @@ class GameResultService:
         """
         logger.info("Processing game end results...")
         
+        # Get event loop early - needed for both normal and retry paths
+        loop = asyncio.get_running_loop()
+        
         # Check if game is too short (for skipping analysis/ML, but still save to DB)
         game_duration_seconds = game_info.displayTime
         is_too_short = game_duration_seconds < 60
@@ -45,10 +48,12 @@ class GameResultService:
         if not replay_data:
             # Normal flow: find and parse replay file
             # Wait for SC2 to finish writing replay file
-            # Polling optimization: check every 1s for up to 15s
+            # Initial wait to give SC2 time to finish writing
             logger.info("Waiting for replay file...")
+            await asyncio.sleep(3)
+            
+            # Polling optimization: check every 1s for up to 15s
             replay_path = None
-            loop = asyncio.get_running_loop()
             
             for _ in range(15):
                 await asyncio.sleep(1)
@@ -109,7 +114,7 @@ class GameResultService:
             logger.info(f"Found new replay: {replay_path}")
 
             # 2. Parse Replay
-            # Wait a bit for file to finish writing (especially important for OneDrive sync)
+            # Wait a bit for file to finish writing
             await asyncio.sleep(3)
             
             # Validate file before parsing to avoid segfaults
@@ -117,8 +122,8 @@ class GameResultService:
                 logger.error(f"Replay file does not exist: {replay_path}")
                 return
             
-            # Check if file is locked (still being written by SC2/OneDrive)
-            # Retry with increasing delays to handle OneDrive sync delays
+            # Check if file is locked (still being written by SC2)
+            # Retry with increasing delays to handle file sync delays
             max_retries = 3
             retry_delay = 3  # Start with 3 seconds
             file_locked = True
@@ -346,11 +351,10 @@ Generate ONE short message only, no explanation."""
                 winning_players_str = winning_players if winning_players else "Unknown"
                 losing_players_str = losing_players if losing_players else "Unknown"
                 
-                # Get game duration
-                frames = replay_data.get('frames', 0)
-                fps = replay_data.get('frames_per_second', 22.4)
-                duration_seconds = frames / fps if fps > 0 else 0
-                duration_str = f"{int(duration_seconds // 60)}m {int(duration_seconds % 60)}s"
+                # Get game duration from replay_summary (same calculation used in GameSummarizer)
+                duration_info = GameSummarizer.calculate_duration(replay_data)
+                duration_seconds = duration_info['totalSeconds']
+                duration_str = duration_info['gameDuration']
                 
                 # Create a CONCISE prompt asking for ONE sentence
                 concise_prompt = f"Provide ONE concise sentence (max 20 words) summarizing this StarCraft 2 game:\n\n"

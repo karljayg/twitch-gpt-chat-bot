@@ -239,9 +239,23 @@ async def main():
     
     # C) Twitch Bot (Run in Daemon Thread)
     logger.info("Starting Twitch Bot (Daemon Thread)...")
+    logger.info(f"Twitch Bot config - HOST: {config.HOST}, PORT: {config.PORT}, USERNAME: {config.USERNAME}, CHANNEL: {config.CHANNEL}")
+    logger.info(f"Twitch Bot token present: {bool(config.TOKEN)}")
+    
+    def start_twitch_bot_with_logging():
+        """Wrapper to add logging around Twitch bot start"""
+        try:
+            logger.info("Twitch bot thread started, calling start()...")
+            twitch_bot_legacy.start()
+            logger.info("Twitch bot start() completed (this shouldn't normally happen - start() should run forever)")
+        except Exception as e:
+            logger.error(f"Twitch bot start() failed with exception: {e}")
+            logger.exception("Twitch bot start() exception details:")
+    
     # We run this in a DAEMON thread so it doesn't block shutdown if it hangs
-    twitch_thread = threading.Thread(target=twitch_bot_legacy.start, daemon=True)
+    twitch_thread = threading.Thread(target=start_twitch_bot_with_logging, daemon=True)
     twitch_thread.start()
+    logger.info("Twitch bot thread created and started")
     # We don't need to append this to tasks as it's a thread, not an async task.
     # We will manage its shutdown via the 'die' command.
     

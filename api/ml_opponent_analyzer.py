@@ -249,6 +249,11 @@ class MLOpponentAnalyzer:
                     logger.debug(f"ML Analysis: No build order data for opponent '{opponent_name}'")
                 return None
             
+            # Verify we got opponent's build order (log first few units for debugging)
+            if logger and build_order:
+                first_units = [step['name'] for step in build_order[:5]]
+                logger.info(f"ML Analysis: Extracted build order for {opponent_name} ({opponent_race}): {', '.join(first_units)}")
+            
             # Load learned patterns for comparison
             patterns_data = self.load_patterns_data()
             
@@ -271,7 +276,8 @@ class MLOpponentAnalyzer:
                 'total_games': 1,  # Only have 1 replay
                 'win_rate': 0.0,  # Unknown from single replay
                 'matched_patterns': matched_patterns,
-                'summary': summary
+                'summary': summary,
+                'build_order_preview': build_order[:10]  # First 10 steps for preview
             }
             
             if logger:
@@ -285,7 +291,7 @@ class MLOpponentAnalyzer:
             return None
 
     def _extract_build_order_from_summary(self, replay_summary, player_name):
-        """Extract build order data from replay summary for a specific player"""
+        """Extract build order data from replay summary for a specific player (opponent only, never streamer)"""
         try:
             build_order = []
             
@@ -293,16 +299,31 @@ class MLOpponentAnalyzer:
             lines = replay_summary.split('\n')
             in_build_section = False
             
+            # CRITICAL: Never extract streamer's build order - always skip it
+            streamer_nickname_lower = config.STREAMER_NICKNAME.lower()
+            player_name_lower = player_name.lower()
+            
             for line in lines:
-                # Start of this player's build order section (case-insensitive)
-                if f"{player_name}'s Build Order".lower() in line.lower():
-                    in_build_section = True
+                line_lower = line.lower()
+                
+                # Skip streamer's build order section entirely
+                if f"{config.STREAMER_NICKNAME}'s Build Order".lower() in line_lower:
+                    in_build_section = False
                     continue
+                
+                # Start of this player's build order section (case-insensitive)
+                # Must match player name AND not be streamer
+                if f"{player_name}'s Build Order".lower() in line_lower:
+                    # Double-check it's not the streamer (in case name matches)
+                    if streamer_nickname_lower not in line_lower:
+                        in_build_section = True
+                        continue
                 
                 # End of this player's build order (another player's section or empty line)
                 if in_build_section and (
-                    ("'s Build Order" in line and player_name.lower() not in line.lower()) or
-                    line.strip() == ""
+                    ("'s Build Order" in line and player_name_lower not in line_lower) or
+                    line.strip() == "" or
+                    streamer_nickname_lower in line_lower  # Stop if we hit streamer's section
                 ):
                     break
                 

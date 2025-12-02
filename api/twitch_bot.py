@@ -754,9 +754,33 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
     # This is a callback method that is invoked when bot successfully connects to an IRC Server
     def on_welcome(self, connection, event):
+        logger.info("=== TWITCH BOT CONNECTED TO IRC ===")
+        logger.info(f"Connected to {self.server}:{self.port}, joining channel: {self.channel}")
         # Join the channel and say a greeting
         connection.join(self.channel)
+        logger.info(f"Joined channel: {self.channel}")
         message_on_welcome(self, logger)
+    
+    def on_disconnect(self, connection, event):
+        """Called when disconnected from IRC server"""
+        logger.error(f"=== TWITCH BOT DISCONNECTED FROM IRC ===")
+        logger.error(f"Disconnect event: {event}")
+    
+    def on_error(self, connection, event):
+        """Called when IRC error occurs"""
+        logger.error(f"=== TWITCH BOT IRC ERROR ===")
+        logger.error(f"Error event: {event}")
+        logger.error(f"Error arguments: {event.arguments if hasattr(event, 'arguments') else 'N/A'}")
+    
+    def on_nicknameinuse(self, connection, event):
+        """Called when nickname is already in use"""
+        logger.error(f"=== TWITCH BOT NICKNAME IN USE ===")
+        logger.error(f"Nickname: {self.username}")
+    
+    def on_join(self, connection, event):
+        """Called when joining a channel"""
+        logger.info(f"=== TWITCH BOT JOINED CHANNEL ===")
+        logger.info(f"Channel: {event.target}")
 
     def set_message_handler(self, handler):
         """Set a handler to receive messages (e.g., TwitchAdapter)"""
@@ -1463,7 +1487,7 @@ Return ONLY the final combined comment text, nothing else. Keep it concise and n
                     
                     # Count total bases (expansions + starting base)
                     base_count = 1  # Starting base
-                    for step in build_order[:60]:  # First 60 steps
+                    for step in build_order[:120]:  # First 120 steps
                         unit_name = step.get('name', '')
                         timing = step.get('time', 0)
                         # Count expansions for accurate base count
@@ -1474,9 +1498,9 @@ Return ONLY the final combined comment text, nothing else. Keep it concise and n
                             strategic_items.append(f"{unit_name} ({timing}s)")
                     
                     if strategic_items:
-                        build_string = ", ".join(strategic_items[:30])  # Up to 30 strategic items (workers/supply already filtered out)
+                        build_string = ", ".join(strategic_items)  # All strategic items from first 120 steps (workers/supply already filtered out)
                         base_info = f"Total bases: {base_count}. " if base_count > 1 else ""
-                        ai_prompt = f"Analyze this StarCraft 2 build order and describe the strategy in ONE concise sentence (max 20 words). Use ONLY the units and structures shown - do NOT guess or infer units not in the list.\n\n{base_info}Actual build order: {build_string}\n\nCRITICAL: Only mention units that appear in the list above. Do not assume or guess. Use the EXACT base count provided.\n\nExamples:\n- '3 base roach ravager timing'\n- '2 base blink stalker all-in'\n- 'Marine tank with medivac drop play'\n\nYour one-sentence summary (using ONLY units shown above and correct base count):"
+                        ai_prompt = f"List ONLY the units, buildings, and spells from this StarCraft 2 build order. State simple facts - do NOT speculate on purpose, intent, or strategy. Do NOT use phrases like 'for aggression', 'timing attack', 'all-in', 'pressure', or any intent guessing.\n\n{base_info}Actual build order: {build_string}\n\nCRITICAL RULES:\n1. Only mention units/buildings/spells that appear in the list above\n2. State facts only (e.g., '2 base Baneling Nest, Zergling Speed, Zerglings')\n3. Do NOT add intent like 'for early game aggression' or 'timing attack'\n4. Do NOT use strategy terms like 'all-in', 'pressure', 'rush', 'bust'\n5. Use the EXACT base count provided\n6. Keep it concise (max 20 words)\n\nExamples of CORRECT format:\n- '2 base Baneling Nest, Zergling Speed, Zerglings'\n- '3 base Roach Warren, Roaches, Ravagers'\n- '2 base Stargate, Oracle, Adept'\n\nExamples of WRONG format (DO NOT DO THIS):\n- 'Baneling bust for early game aggression' (speculates intent)\n- '2 base blink stalker all-in' (uses strategy terms)\n- 'Marine tank timing attack' (speculates purpose)\n\nYour factual summary (ONLY units/buildings/spells, NO intent speculation):"
                         
                         # Use send_prompt_to_openai directly to avoid perspective/mood injection
                         # Pattern learning should be analytical, not funny/personalized
@@ -1737,17 +1761,23 @@ Return ONLY the final combined comment text, nothing else. Keep it concise and n
                     print("Type in Twitch:  player comment <your description>")
                 
                 # Send message(s) to Twitch
-                if hasattr(self, 'connection') and hasattr(self.connection, 'privmsg'):
+                if hasattr(self, 'connection') and self.connection and hasattr(self.connection, 'is_connected') and self.connection.is_connected():
                     try:
                         # Just show first 3 build steps for context, not 8 (avoids spam)
                         build_preview = f"{opponent_name}'s build: {', '.join(build_summary[:3])}. " if build_summary else ""
                         
-                        if ai_summary:
-                            msg = f"{build_preview}Pattern DB empty. AI suggests: '{ai_summary}'. Thoughts?"
-                        else:
-                            msg = f"{build_preview}Pattern DB empty - describe {opponent_name}'s strategy!"
-                        
-                        self.connection.privmsg(self.channel, msg)
+                        if hasattr(self, 'connection') and self.connection and hasattr(self.connection, 'is_connected') and self.connection.is_connected():
+                            try:
+                                if ai_summary:
+                                    msg = f"{build_preview}Pattern DB empty. AI suggests: '{ai_summary}'. Thoughts?"
+                                else:
+                                    msg = f"{build_preview}Pattern DB empty - describe {opponent_name}'s strategy!"
+                                
+                                from api.chat_utils import clean_text_for_chat
+                                msg = clean_text_for_chat(msg)  # Remove carriage returns and newlines
+                                self.connection.privmsg(self.channel, msg)
+                            except Exception as e:
+                                logger.error(f"Error sending pattern match to Twitch chat: {e}")
                         logger.info(f"Sent pattern learning prompt to Twitch: {msg[:100]}...")
                     except Exception as e:
                         logger.error(f"Error sending pattern match to Twitch chat: {e}")

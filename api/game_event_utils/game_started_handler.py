@@ -45,36 +45,83 @@ def game_started(self, current_game, contextHistory, logger):
                 player1_race = current_game.get_player_race(player1)
                 player2_race = current_game.get_player_race(player2)
                 
-                # Get head-to-head record from database (reusing existing chat command function)
+                # Get overall records for each player
+                def get_simple_record(player_name):
+                    """Get simple W-L record for a player"""
+                    try:
+                        query = """
+                        SELECT 
+                            SUM(CASE WHEN (r.Player1_Id = p.Id AND r.Player1_Result = 'Win') OR (r.Player2_Id = p.Id AND r.Player2_Result = 'Win') THEN 1 ELSE 0 END) AS Wins,
+                            SUM(CASE WHEN (r.Player1_Id = p.Id AND r.Player1_Result = 'Lose') OR (r.Player2_Id = p.Id AND r.Player2_Result = 'Lose') THEN 1 ELSE 0 END) AS Losses
+                        FROM 
+                            Replays r
+                        JOIN 
+                            Players p ON r.Player1_Id = p.Id OR r.Player2_Id = p.Id
+                        WHERE 
+                            p.SC2_UserId = %s
+                            AND r.GameType = '1v1'
+                        GROUP BY 
+                            p.SC2_UserId;
+                        """
+                        self.db.cursor.execute(query, (player_name,))
+                        result = self.db.cursor.fetchone()
+                        if result and result['Wins'] is not None:
+                            return (result['Wins'], result['Losses'])
+                        return None
+                    except Exception as e:
+                        logger.debug(f"Error getting record for {player_name}: {e}")
+                        return None
+                
+                player1_record = get_simple_record(player1)
+                player2_record = get_simple_record(player2)
+                
+                # Get head-to-head record
                 head_to_head = self.db.get_head_to_head_matchup(player1, player2)
                 
-                msg = f"[OBSERVER MODE - You are observing, not playing in this match]\n\n"
-                msg += f"Match starting: {player1} ({player1_race}) vs {player2} ({player2_race})\n\n"
+                # Build concise records message
+                records_msg = ""
+                if player1_record or player2_record:
+                    records_parts = []
+                    if player1_record:
+                        records_parts.append(f"{player1} is {player1_record[0]}-{player1_record[1]}")
+                    else:
+                        records_parts.append(f"{player1} has no records")
+                    
+                    if player2_record:
+                        records_parts.append(f"{player2} is {player2_record[0]}-{player2_record[1]}")
+                    else:
+                        records_parts.append(f"{player2} has no records")
+                    
+                    records_msg = f"In games I've watched, {', '.join(records_parts)} overall."
                 
+                # Add head-to-head if available (sum across all race matchups)
                 if head_to_head and len(head_to_head) > 0:
                     # head_to_head is a list like: ["Player1 (Race1) vs Player2 (Race2), X wins - Y wins", ...]
-                    msg += f"Based on our database records, their head-to-head matchup history:\n"
+                    # Sum up wins across all race matchups
+                    import re
+                    total_p1_wins = 0
+                    total_p2_wins = 0
                     for matchup in head_to_head:
-                        msg += f"  • {matchup}\n"
-                    msg += "\n"
+                        # Format: "Player1 (Race1) vs Player2 (Race2), X wins - Y wins"
+                        match = re.search(r'(\d+)\s+wins?\s*-\s*(\d+)\s+wins?', matchup)
+                        if match:
+                            total_p1_wins += int(match.group(1))
+                            total_p2_wins += int(match.group(2))
+                    
+                    if total_p1_wins > 0 or total_p2_wins > 0:
+                        if records_msg:
+                            records_msg += f" Versus each other, {player1} is {total_p1_wins}-{total_p2_wins} vs {player2}."
+                        else:
+                            records_msg = f"Versus each other, {player1} is {total_p1_wins}-{total_p2_wins} vs {player2}."
+                
+                # Build the message for OpenAI variation
+                if records_msg:
+                    msg = f"Match starting: {player1} ({player1_race}) vs {player2} ({player2_race}). {records_msg}"
+                    msg += "\n\n[INSTRUCTIONS: Reword this message naturally while keeping ALL numbers and player names exactly the same. Keep it concise (under 200 characters). Focus ONLY on the two players competing. Do NOT reference the streamer. This is observer commentary only.]"
                 else:
-                    msg += "Based on our database, these players have not faced each other before (or we haven't recorded their games).\n\n"
-                
-                # Get general info about each player from database (if they've played before)
-                player1_record = self.db.check_player_and_race_exists(player1, player1_race)
-                player2_record = self.db.check_player_and_race_exists(player2, player2_race)
-                
-                if player1_record:
-                    msg += f"From our database, {player1} last played on {player1_record.get('Date_Played', 'unknown date')}.\n"
-                    if player1_record.get('Player_Comments'):
-                        msg += f"Strategic notes on {player1}: {player1_record['Player_Comments'][:200]}\n"
-                
-                if player2_record:
-                    msg += f"From our database, {player2} last played on {player2_record.get('Date_Played', 'unknown date')}.\n"
-                    if player2_record.get('Player_Comments'):
-                        msg += f"Strategic notes on {player2}: {player2_record['Player_Comments'][:200]}\n"
-                
-                msg += "\n[INSTRUCTIONS: Provide natural commentary on this observed match. Focus ONLY on the two players competing. Do NOT reference the streamer's record or the streamer playing. This is observer commentary only.]"
+                    # No records available
+                    msg = f"Match starting: {player1} ({player1_race}) vs {player2} ({player2_race})."
+                    msg += "\n\n[INSTRUCTIONS: Provide natural commentary on this observed match. Focus ONLY on the two players competing. Do NOT reference the streamer. This is observer commentary only.]"
                 
                 processMessageForOpenAI(self, msg, "in_game", logger, contextHistory)
             else:
@@ -175,9 +222,8 @@ def game_started(self, current_game, contextHistory, logger):
                             # if streamer is Random, then the last replay retrieved from previous query is the one to use
                             # use the last replay retrieved from previous query for Random, no need to requery coz the race doesn't matter since SC2 does not save 'Random' race in replay
                             # just the actual resulting race, to Random ->   Z, T, or P only in replay
-                            if(streamer_current_race == "Random"):
-                                if first_few_build_steps is None:
-                                    first_few_build_steps = result
+                            # NOTE: first_few_build_steps should remain None if extract_opponent_build_order returns None
+                            # Do NOT set it to result (which is a dict) - that would cause raw DB fields to be sent
 
                             # for speaking/chat purposes, do the substitutions
                             not_alias = tokensArray.find_master_name(player_name)
@@ -230,6 +276,22 @@ def game_started(self, current_game, contextHistory, logger):
                             else:
                                 # Build the message string for OpenAI with enhanced SC2 focus and anti-hallucination measures
                                 num_comment_games = len(player_comments)
+                                # Calculate total games vs this opponent (wins + losses)
+                                total_games = opponent_wins + opponent_losses
+                                
+                                # Determine the format based on edge cases
+                                if total_games == 0:
+                                    # No total games found - fallback to just comment count
+                                    format_instruction = f"6. START your response with: 'There are at least {num_comment_games} memorable match{'es' if num_comment_games != 1 else ''} where the opponent '\n"
+                                elif total_games == num_comment_games:
+                                    # All games have comments - simplify format
+                                    format_instruction = f"6. START your response with: 'I've witnessed {total_games} game{'s' if total_games != 1 else ''} vs this opponent where the opponent '\n"
+                                elif num_comment_games == 0 and total_games > 0:
+                                    # No comments but have total games - mention total
+                                    format_instruction = f"6. START your response with: 'I've witnessed at least {total_games} total game{'s' if total_games != 1 else ''} vs this opponent. '\n"
+                                else:
+                                    # Normal case: memorable matches out of total
+                                    format_instruction = f"6. START your response with: 'There are at least {num_comment_games} memorable match{'es' if num_comment_games != 1 else ''} (out of {total_games} total games witnessed) where the opponent '\n"
                                 
                                 msg = "As a StarCraft 2 expert, analyze these previous game comments about the opponent. "
                                 msg += "IMPORTANT: Use ONLY the data provided below - do NOT make assumptions or add information not present. \n\n"
@@ -239,7 +301,7 @@ def game_started(self, current_game, contextHistory, logger):
                                 msg += "3. Use proper SC2 terminology (e.g., 'early game aggression', 'macro-focused', 'tech rush', 'timing attack')\n"
                                 msg += "4. If opponent's units/buildings are mentioned, reference them accurately\n"
                                 msg += "5. Keep summary under 300 characters\n"
-                                msg += f"6. START your response with: 'Note: You've also faced this opponent {num_comment_games} other time{'s' if num_comment_games != 1 else ''}. Historical patterns show: '\n"
+                                msg += format_instruction
                                 msg += "7. DO NOT use bullet points (-) or multiple sentences - ONE continuous sentence only\n"
                                 msg += "8. DO NOT mention units/buildings that are NOT explicitly mentioned in the comments below\n\n"
                                 msg += "Previous game data:\n"
@@ -275,17 +337,19 @@ def game_started(self, current_game, contextHistory, logger):
                                         variation_msg = f"Rewrite this StarCraft 2 analysis message with different wording, but keep ALL the same details and the specific format:\n\n"
                                         variation_msg += f"{base_response}\n\n"
                                         variation_msg += "CRITICAL Requirements:\n"
-                                        variation_msg += "1. You MUST keep the format that mentions how many times the player has faced this opponent (e.g., 'You've played this player X time(s) before' or 'You've also faced this opponent X other time(s)')\n"
-                                        variation_msg += "2. You MUST mention what the opponent did in those previous games (e.g., 'where the opponent did...' or 'in which the opponent...')\n"
-                                        variation_msg += "3. Use different phrasing and sentence structure for the rest\n"
-                                        variation_msg += "4. Keep ALL the same details (exact opponent count, all patterns, all strategies mentioned)\n"
-                                        variation_msg += "5. Keep it under 300 characters\n"
-                                        variation_msg += "6. ONE continuous sentence only\n"
-                                        variation_msg += "7. Do NOT add or remove any information\n"
-                                        variation_msg += "8. Examples of good format variations:\n"
-                                        variation_msg += "   - 'Note: You've played this player 1 time before where the opponent did gateway-focused build, slow expansion, macro-oriented playstyle.'\n"
-                                        variation_msg += "   - 'You've also faced this opponent once previously, and in that game they used a gateway-focused build with slow expansion and a macro-oriented playstyle.'\n"
-                                        variation_msg += "   - 'Historical note: You've encountered this player 1 other time, where they showed gateway-focused builds, slow expansion, and macro-oriented playstyle.'\n"
+                                        variation_msg += "1. You MUST keep the format that mentions memorable matches and total games (e.g., 'There are at least X memorable matches (out of Y total games witnessed) where the opponent...')\n"
+                                        variation_msg += "2. If all games have comments, use format: 'I've witnessed X games vs this opponent where the opponent...'\n"
+                                        variation_msg += "3. If no comments but total games exist, use format: 'I've witnessed at least X total games vs this opponent.'\n"
+                                        variation_msg += "4. You MUST mention what the opponent did in those previous games (e.g., 'where the opponent did...' or 'in which the opponent...')\n"
+                                        variation_msg += "5. Use different phrasing and sentence structure for the rest\n"
+                                        variation_msg += "6. Keep ALL the same details (exact match counts, total games, all patterns, all strategies mentioned)\n"
+                                        variation_msg += "7. Keep it under 300 characters\n"
+                                        variation_msg += "8. ONE continuous sentence only\n"
+                                        variation_msg += "9. Do NOT add or remove any information\n"
+                                        variation_msg += "10. Examples of good format variations:\n"
+                                        variation_msg += "   - 'There are at least 4 memorable matches (out of 12 total games witnessed) where the opponent did charge lot all-in, followed by three consecutive instances of DT rush.'\n"
+                                        variation_msg += "   - 'I've witnessed 5 games vs this opponent where they consistently used gateway-focused builds with slow expansion.'\n"
+                                        variation_msg += "   - 'Out of 8 total games witnessed, there are at least 3 memorable matches where the opponent showed aggressive early game strategies.'\n"
                                         
                                         # Get varied response
                                         variation_completion = send_prompt_to_openai(variation_msg)
@@ -362,20 +426,23 @@ def game_started(self, current_game, contextHistory, logger):
                                 
                                 abbreviated_build_string = ", ".join(grouped_build)
                                 
-                                # Merged prompt: Summarize build order with strategic focus
+                                # Merged prompt: List units/buildings/spells only, no intent speculation
                                 msg = f"CRITICAL: Analyze ONLY the OPPONENT {player_name}'s build (NOT {config.STREAMER_NICKNAME}'s).\n"
                                 msg += f"Build order (abbreviated): {abbreviated_build_string}\n\n"
                                 msg += f"Requirements:\n"
-                                msg += f"1. Use ONLY units/buildings that appear in the build order above - do NOT guess or infer units not shown\n"
-                                msg += f"2. Describe the strategy in ONE concise sentence (max 25 words)\n"
-                                msg += f"3. Focus on what makes this build distinctive\n"
-                                msg += f"4. Example outputs:\n"
-                                msg += f"   - 'Fast expand into roach timing with third base'\n"
-                                msg += f"   - 'Gateway expand into blink stalker pressure'\n"
-                                msg += f"   - '2 base banshee into mech turtle'\n"
-                                msg += f"5. DO NOT list all units/buildings - summarize the STRATEGY\n"
+                                msg += f"1. List ONLY units/buildings/spells that appear in the build order above - do NOT guess or infer units not shown\n"
+                                msg += f"2. State simple facts - do NOT speculate on purpose, intent, or strategy\n"
+                                msg += f"3. Do NOT use phrases like 'for aggression', 'timing attack', 'all-in', 'pressure', 'rush', 'bust', or any intent guessing\n"
+                                msg += f"4. Example outputs (CORRECT):\n"
+                                msg += f"   - '2 base Baneling Nest, Zergling Speed, Zerglings'\n"
+                                msg += f"   - '3 base Roach Warren, Roaches, Ravagers'\n"
+                                msg += f"   - '2 base Stargate, Oracle, Adept'\n"
+                                msg += f"5. Example outputs (WRONG - DO NOT DO THIS):\n"
+                                msg += f"   - 'Fast expand into roach timing' (speculates intent)\n"
+                                msg += f"   - 'Gateway expand into blink stalker pressure' (uses strategy terms)\n"
+                                msg += f"   - '2 base banshee into mech turtle' (speculates purpose)\n"
                                 msg += f"6. DO NOT mention {config.STREAMER_NICKNAME}'s play - ONLY describe {player_name}'s build\n"
-                                msg += f"7. DO NOT use bullet points or multiple sentences - ONE sentence only\n"
+                                msg += f"7. DO NOT use bullet points or multiple sentences - ONE sentence only (max 25 words)\n"
                                 msg += f"8. DO NOT mention units that are NOT in the build order above\n"
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
                             else:

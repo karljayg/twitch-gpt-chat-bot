@@ -292,9 +292,9 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
             # Strategy is determined by early-mid game (first ~10 minutes)
             # Capture enough to see key tech transitions but not late-game pivots
             if self.total_seconds < 600:  # < 10 minutes (early all-ins, rushes)
-                base_build_count = 60  # Capture full game
+                base_build_count = 120  # Capture full game
             else:  # >= 10 minutes (longer games)
-                base_build_count = 90  # Capture ~8-10 minutes (key tech choices)
+                base_build_count = 180  # Capture ~8-10 minutes (key tech choices)
             
             logger.debug(f"Game duration: {self.total_seconds}s - using {base_build_count} build order steps")
             

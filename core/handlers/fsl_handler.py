@@ -36,9 +36,17 @@ class FSLHandler(ICommandHandler):
         link = self.fsl_integration.get_reviewer_link(target_user)
         
         if link:
-            # Send the link to chat (or whisper if we could, but context is chat channel)
-            await context.chat_service.send_message(context.channel, f"FSL Review Link for {target_user}: {link}")
+            # Send the link as a whisper (private message) to the user
+            if hasattr(context.chat_service, 'send_whisper'):
+                await context.chat_service.send_whisper(target_user, f"FSL Review Link: {link}")
+            else:
+                # Fallback to public message if whisper not available
+                await context.chat_service.send_message(context.channel, f"FSL Review Link for {target_user}: {link}")
         else:
-            await context.chat_service.send_message(context.channel, f"Could not retrieve FSL link for {target_user}. (API Error or User already exists without link access)")
+            # Send error as whisper too
+            if hasattr(context.chat_service, 'send_whisper'):
+                await context.chat_service.send_whisper(target_user, f"Could not retrieve FSL link. (API Error or User already exists without link access)")
+            else:
+                await context.chat_service.send_message(context.channel, f"Could not retrieve FSL link for {target_user}. (API Error or User already exists without link access)")
 
 
