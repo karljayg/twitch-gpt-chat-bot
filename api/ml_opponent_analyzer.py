@@ -400,12 +400,22 @@ class MLOpponentAnalyzer:
                 if not pattern_strategic_items:
                     continue
                 
+                # Count expansions from ORIGINAL data (before filtering)
+                expansion_names = {'hatchery', 'nexus', 'commandcenter'}
+                new_expansions = sum(1 for step in build_order 
+                                   if step.get('name', '').lower() in expansion_names)
+                pattern_early_game = pattern_signature.get('early_game', [])
+                pattern_expansions = sum(1 for step in pattern_early_game 
+                                        if step.get('unit', '').lower() in expansion_names)
+                
                 # Compare builds directly (build-to-build comparison)
                 similarity_score = self._compare_build_signatures(
                     new_build_strategic_items,
                     pattern_strategic_items,
                     opponent_race,
-                    logger
+                    logger,
+                    new_expansions=new_expansions,
+                    pattern_expansions=pattern_expansions
                 )
                 
                 # Configurable minimum threshold
@@ -496,26 +506,36 @@ class MLOpponentAnalyzer:
                     items = [item.strip().lower() for item in race_items[category].split(',')]
                     strategic_items.update(items)
         
-        # Extract strategic items with timing info
-        strategic_build_items = []
+        # Extract strategic items with timing info - DEDUPLICATE (keep first occurrence)
+        seen_items = {}
         for i, step in enumerate(build_order):
             name = step.get('name', '').lower()
-            timing = step.get('time', 0)
+            raw_time = step.get('time', 0)
+            
+            # Normalize time to seconds (spawningtool returns "M:SS" string format)
+            if isinstance(raw_time, str) and ':' in raw_time:
+                try:
+                    parts = raw_time.split(':')
+                    timing = int(parts[0]) * 60 + int(parts[1])
+                except (ValueError, IndexError):
+                    timing = 0
+            else:
+                timing = raw_time if isinstance(raw_time, (int, float)) else 0
             
             # Skip workers and supply
             if name in non_strategic:
                 continue
             
-            # Check if it's a strategic item
-            if name in strategic_items:
-                strategic_build_items.append({
+            # Check if it's a strategic item AND not already seen (deduplication)
+            if name in strategic_items and name not in seen_items:
+                seen_items[name] = {
                     'name': name,
                     'timing': timing,
                     'position': i,  # Position in build order (lower = earlier = more significant)
                     'supply': step.get('supply', 0)
-                })
+                }
         
-        return strategic_build_items
+        return list(seen_items.values())
     
     def _determine_pattern_race_from_signature(self, signature):
         """Determine race from pattern signature by looking at units in build"""
@@ -614,7 +634,8 @@ class MLOpponentAnalyzer:
         except Exception as e:
             return []
     
-    def _compare_build_signatures(self, new_build_items, pattern_items, race, logger):
+    def _compare_build_signatures(self, new_build_items, pattern_items, race, logger,
+                                    new_expansions=0, pattern_expansions=0):
         """
         Compare two builds directly using strategic items with BIDIRECTIONAL matching.
         Returns similarity score 0-1 based on:
@@ -622,6 +643,7 @@ class MLOpponentAnalyzer:
         - Timing similarity for matching items
         - Strategic item weights from SC2_STRATEGIC_ITEMS
         - PENALTY for extra tech buildings in new build not in pattern
+        - PENALTY for expansion count mismatch (passed as parameters)
         """
         try:
             if not new_build_items or not pattern_items:
@@ -643,11 +665,6 @@ class MLOpponentAnalyzer:
                 'infestationpit', 'ultraliskcavern', 'nydusnetwork',
                 'stargate', 'roboticsfacility', 'darkshrine', 'templararchive', 'fleetbeacon',
                 'factory', 'starport', 'fusioncore', 'ghostacademy'
-            }
-            
-            # Define expansion structures - CRITICAL for determining all-in vs macro strategies
-            expansion_structures = {
-                'commandcenter', 'nexus', 'hatchery'
             }
             
             # DIRECTION 1: Pattern → New Build (How well does new build match the pattern?)
@@ -795,11 +812,7 @@ class MLOpponentAnalyzer:
                                    f"Matching {matching_critical_count}/{total_critical_count}, penalty: {critical_penalty:.1%}")
             
             # EXPANSION PENALTY: Number of bases is CRITICAL - heavily penalize mismatches
-            # Count expansion structures in each build (OrbitalCommand/PlanetaryFortress don't count - they're upgrades)
-            # NOTE: Use original lists, not dicts, to count multiple expansions correctly
-            pattern_expansions = sum(1 for item in pattern_items if item['name'] in expansion_structures)
-            new_expansions = sum(1 for item in new_build_items if item['name'] in expansion_structures)
-            
+            # Expansion counts are passed in from original build orders (not filtered strategic items)
             # Apply expansion penalty based on difference
             expansion_diff = abs(pattern_expansions - new_expansions)
             if expansion_diff == 0:
