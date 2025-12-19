@@ -19,6 +19,7 @@ import json
 import shutil
 from datetime import datetime
 import time
+import io
 
 # Add the project root to the path so we can import modules
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -28,6 +29,51 @@ from api.pattern_learning import SC2PatternLearner
 from settings import config
 import re
 import logging
+
+# Global log file handle
+_log_file = None
+
+def setup_logging():
+    """Set up logging to both console and file"""
+    global _log_file
+    
+    # Create logs directory if it doesn't exist
+    os.makedirs('logs', exist_ok=True)
+    
+    # Create log file with timestamp
+    log_filename = f"logs/regenerate_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+    _log_file = open(log_filename, 'w', encoding='utf-8')
+    
+    print(f"[LOG] Logging to: {log_filename}")
+    _log_file.write(f"=== Learning Data Regeneration Log ===\n")
+    _log_file.write(f"Started: {datetime.now().isoformat()}\n\n")
+    
+    return log_filename
+
+def log_print(message):
+    """Print to both console and log file"""
+    global _log_file
+    
+    # Print to console (handle encoding issues on Windows)
+    try:
+        print(message)
+    except UnicodeEncodeError:
+        # Replace problematic characters for console
+        safe_message = message.encode('ascii', 'replace').decode('ascii')
+        print(safe_message)
+    
+    # Write to log file
+    if _log_file:
+        _log_file.write(message + '\n')
+        _log_file.flush()  # Ensure it's written immediately
+
+def close_logging():
+    """Close the log file"""
+    global _log_file
+    if _log_file:
+        _log_file.write(f"\n=== Log completed: {datetime.now().isoformat()} ===\n")
+        _log_file.close()
+        _log_file = None
 
 class LearningDataRegenerator:
     def __init__(self):
@@ -42,7 +88,7 @@ class LearningDataRegenerator:
         
     def backup_existing_data(self):
         """Backup existing data files before deletion"""
-        print("🗂️  Backing up existing data files...")
+        log_print("Backing up existing data files...")
         
         backup_dir = f"data_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         os.makedirs(backup_dir, exist_ok=True)
@@ -56,15 +102,15 @@ class LearningDataRegenerator:
             if os.path.exists(filepath):
                 backup_path = os.path.join(backup_dir, filename)
                 shutil.copy2(filepath, backup_path)
-                print(f"  ✅ Backed up: {filename}")
+                log_print(f"  [OK] Backed up: {filename}")
                 backed_up += 1
         
-        print(f"📁 Backup completed: {backed_up} files saved to {backup_dir}/")
+        log_print(f"Backup completed: {backed_up} files saved to {backup_dir}/")
         return backup_dir
     
     def clear_data_files(self):
         """Delete existing data files to start fresh"""
-        print("🗑️  Clearing existing data files...")
+        log_print("Clearing existing data files...")
         
         data_files = ['comments.json', 'patterns.json', 'learning_stats.json',
                      'comments.json.backup', 'learning_stats.json.backup']
@@ -73,9 +119,9 @@ class LearningDataRegenerator:
             filepath = os.path.join('data', filename)
             if os.path.exists(filepath):
                 os.remove(filepath)
-                print(f"  [X] Deleted: {filename}")
+                log_print(f"  [X] Deleted: {filename}")
         
-        print("🧹 Data files cleared!")
+        log_print("Data files cleared!")
     
     def get_replays_with_comments(self):
         """Get all replays from database where Player_Comments is not NULL"""
@@ -93,11 +139,11 @@ class LearningDataRegenerator:
             replays = cursor.fetchall()
             cursor.close()
             
-            print(f"📊 Found {len(replays)} replays with player comments")
+            log_print(f"Found {len(replays)} replays with player comments")
             return replays
             
         except Exception as e:
-            print(f"[X] Error querying database: {e}")
+            log_print(f"[X] Error querying database: {e}")
             return []
     
     def extract_player_names_from_summary(self, replay_summary):
@@ -158,13 +204,13 @@ class LearningDataRegenerator:
             for i, pattern in enumerate(patterns):
                 build_match = re.search(pattern, replay_summary, re.DOTALL | re.IGNORECASE)
                 if build_match:
-                    print(f"    📍 Pattern {i+1} matched")
+                    log_print(f"    Pattern {i+1} matched")
                     break
             
             if build_match:
                 build_text = build_match.group(1)
-                print(f"    📏 Extracted text length: {len(build_text)} chars")
-                print(f"    📄 First 200 chars: {build_text[:200]}...")
+                log_print(f"    Extracted text length: {len(build_text)} chars")
+                log_print(f"    First 200 chars: {build_text[:200]}...")
                 
                 # Parse each build step: "Time: 0:01, Name: Probe, Supply: 12"
                 step_pattern = r"Time: (\d+):(\d+), Name: ([^,]+), Supply: (\d+)"
@@ -181,46 +227,41 @@ class LearningDataRegenerator:
             return build_order
             
         except Exception as e:
-            print(f"    [!]  Error parsing build order: {e}")
+            log_print(f"    [!] Error parsing build order: {e}")
             return []
     
     def detect_comment_about_opponent(self, comment, opponent_name):
-        """Detect if a comment is describing the opponent's strategy rather than the streamer's"""
+        """
+        Detect if a comment is describing the opponent's strategy.
+        
+        IMPORTANT: Player comments are meant to describe what the OPPONENT did.
+        This is the core purpose of the pattern learning system - to learn opponent strategies.
+        Therefore, we should ALMOST ALWAYS return True (extract opponent's build order).
+        
+        Only return False if the comment explicitly talks about the streamer's own strategy
+        (e.g., "I should have...", "my build was...", "next time I will...")
+        """
         try:
             comment_lower = comment.lower()
             
-            # Keywords that indicate the comment is about the opponent
-            opponent_indicators = [
-                'he ', 'his ', 'she ', 'her ', 'they ', 'their ',
-                'opponent', 'enemy', 'player',
-                'rusher', 'cannon rush', 'proxy', 'all in', 'cheese',
-                'likes to', 'tends to', 'always does', 'usually goes'
+            # Keywords that indicate the comment is about the STREAMER's own strategy
+            # These are RARE - most comments are about the opponent
+            self_indicators = [
+                'i should', 'i need to', 'my build', 'my strategy', 'next time i',
+                'i forgot', 'i missed', 'i failed', 'my mistake', 'i played'
             ]
             
-            # Direct mention of opponent name
-            if opponent_name.lower() in comment_lower:
-                return True
-            
-            # Check for opponent-describing language
-            for indicator in opponent_indicators:
+            # Only extract streamer's build if explicitly about self
+            for indicator in self_indicators:
                 if indicator in comment_lower:
-                    return True
+                    return False  # Comment is about self, extract streamer's build
             
-            # Strategic terms that are typically about what the opponent did to you
-            strategic_terms = [
-                'rush', 'cheese', 'drop', 'harass', 'pressure', 'contain',
-                'proxy', 'hidden', 'surprise', 'fast', 'early'
-            ]
-            
-            # If comment contains strategic terms and is short (likely describing what happened to us)
-            if len(comment.split()) <= 8 and any(term in comment_lower for term in strategic_terms):
-                return True
-            
-            return False
+            # Default: Comments describe opponent strategies, so extract opponent's build
+            return True
             
         except Exception as e:
-            print(f"    [!]  Error detecting comment type: {e}")
-            return False
+            log_print(f"    [!] Error detecting comment type: {e}")
+            return True  # Default to opponent's build on error
 
     def create_game_data_from_replay(self, replay_record):
         """Create game_data structure from database replay record using FIXED logic"""
@@ -229,7 +270,7 @@ class LearningDataRegenerator:
             parsed_data = self.extract_player_names_from_summary(replay_record['Replay_Summary'])
             
             if not parsed_data['parsing_success']:
-                print(f"  [!]  Failed to parse player names: {parsed_data.get('error', 'Unknown error')}")
+                log_print(f"  [!] Failed to parse player names: {parsed_data.get('error', 'Unknown error')}")
                 return None
             
             # Create game_player_names string as it would be in the real system
@@ -255,7 +296,7 @@ class LearningDataRegenerator:
                     game_data['opponent_name'] = 'Unknown'
                     game_data['opponent_race'] = 'Unknown'
             else:
-                print(f"  [!]  Streamer '{config.STREAMER_NICKNAME}' not found in: {game_player_names}")
+                log_print(f"  [!] Streamer '{config.STREAMER_NICKNAME}' not found in: {game_player_names}")
                 return None
             
             # Determine game result for the streamer
@@ -283,35 +324,35 @@ class LearningDataRegenerator:
                     replay_record['Replay_Summary'], 
                     game_data['opponent_name']
                 )
-                print(f"    🎯 Comment about opponent - extracting {game_data['opponent_name']}'s build order")
+                log_print(f"    Comment about opponent - extracting {game_data['opponent_name']}'s build order")
             else:
                 # Extract streamer's build order for self-analysis
                 build_order = self.extract_build_order_from_summary(
                     replay_record['Replay_Summary'], 
                     config.STREAMER_NICKNAME
                 )
-                print(f"    🔄 Comment about own strategy - extracting {config.STREAMER_NICKNAME}'s build order")
+                log_print(f"    Comment about own strategy - extracting {config.STREAMER_NICKNAME}'s build order")
             
             game_data['build_order'] = build_order
             game_data['is_about_opponent'] = is_about_opponent
             
             if build_order:
                 target_player = game_data['opponent_name'] if is_about_opponent else config.STREAMER_NICKNAME
-                print(f"    🔨 Extracted {len(build_order)} build steps for {target_player}")
+                log_print(f"    Extracted {len(build_order)} build steps for {target_player}")
             else:
                 target_player = game_data['opponent_name'] if is_about_opponent else config.STREAMER_NICKNAME
-                print(f"    [!]  No build order found for {target_player}")
+                log_print(f"    [!] No build order found for {target_player}")
             
             return game_data
             
         except Exception as e:
-            print(f"  [X] Error creating game data: {str(e)}")
+            log_print(f"  [X] Error creating game data: {str(e)}")
             return None
     
     def regenerate_all_learning_data(self):
         """Main function to regenerate all learning data from database"""
-        print("🚀 Starting Learning Data Regeneration")
-        print("=" * 70)
+        log_print("Starting Learning Data Regeneration")
+        log_print("=" * 70)
         
         # Step 1: Backup existing data
         backup_dir = self.backup_existing_data()
@@ -320,79 +361,79 @@ class LearningDataRegenerator:
         self.clear_data_files()
         
         # Step 3: Initialize fresh pattern learner
-        print("🧠 Initializing fresh pattern learning system...")
+        log_print("Initializing fresh pattern learning system...")
         self.pattern_learner = SC2PatternLearner(self.db, self.logger)
-        print("  ✅ Pattern learner initialized")
+        log_print("  [OK] Pattern learner initialized")
         
         # Step 4: Get all replays with comments
         replays = self.get_replays_with_comments()
         
         if not replays:
-            print("[X] No replays found with comments. Exiting.")
+            log_print("[X] No replays found with comments. Exiting.")
             return
         
         # Step 5: Process each replay
-        print(f"\n📋 Processing {len(replays)} replays...")
-        print("-" * 70)
+        log_print(f"\nProcessing {len(replays)} replays...")
+        log_print("-" * 70)
         
         success_count = 0
         error_count = 0
         
         for i, replay in enumerate(replays, 1):
-            print(f"\n🎮 Replay {i}/{len(replays)} (ID: {replay['ReplayId']})")
-            print(f"  📅 Date: {replay['Date_Played']}")
-            print(f"  🗺️  Map: {replay['Map']}")
-            print(f"  ⏱️  Duration: {replay['GameDuration']}")
-            print(f"  💬 Comment: {replay['Player_Comments'][:60]}{'...' if len(replay['Player_Comments']) > 60 else ''}")
+            log_print(f"\nReplay {i}/{len(replays)} (ID: {replay['ReplayId']})")
+            log_print(f"  Date: {replay['Date_Played']}")
+            log_print(f"  Map: {replay['Map']}")
+            log_print(f"  Duration: {replay['GameDuration']}")
+            log_print(f"  Comment: {replay['Player_Comments'][:60]}{'...' if len(replay['Player_Comments']) > 60 else ''}")
             
             try:
                 # Create game data from replay
                 game_data = self.create_game_data_from_replay(replay)
                 
                 if game_data is None:
-                    print(f"  [X] Failed to create game data")
+                    log_print(f"  [X] Failed to create game data")
                     error_count += 1
                     continue
                 
-                print(f"  👤 Opponent: {game_data['opponent_name']} ({game_data['opponent_race']})")
-                print(f"  🏆 Result: {game_data['result']}")
+                log_print(f"  Opponent: {game_data['opponent_name']} ({game_data['opponent_race']})")
+                log_print(f"  Result: {game_data['result']}")
                 
                 # Process through the pattern learning system
-                print(f"  🧠 Processing through pattern learner...")
+                log_print(f"  Processing through pattern learner...")
                 self.pattern_learner._process_new_comment(game_data, replay['Player_Comments'])
                 
-                print(f"  ✅ Successfully processed!")
+                log_print(f"  [OK] Successfully processed!")
                 success_count += 1
                 
                 # Show progress every 10 replays
                 if i % 10 == 0:
-                    print(f"\n📊 Progress: {i}/{len(replays)} processed ({success_count} success, {error_count} errors)")
+                    log_print(f"\nProgress: {i}/{len(replays)} processed ({success_count} success, {error_count} errors)")
                 
             except Exception as e:
-                print(f"  [X] Error processing replay: {str(e)}")
+                log_print(f"  [X] Error processing replay: {str(e)}")
                 error_count += 1
                 continue
         
         # Step 6: Final statistics
-        print("\n" + "=" * 70)
-        print("📈 REGENERATION COMPLETE!")
-        print("=" * 70)
-        print(f"📊 Total replays processed: {len(replays)}")
-        print(f"✅ Successful: {success_count}")
-        print(f"[X] Errors: {error_count}")
-        print(f"📊 Success rate: {(success_count/len(replays)*100):.1f}%")
+        log_print("\n" + "=" * 70)
+        log_print("REGENERATION COMPLETE!")
+        log_print("=" * 70)
+        log_print(f"Total replays processed: {len(replays)}")
+        log_print(f"[OK] Successful: {success_count}")
+        log_print(f"[X] Errors: {error_count}")
+        log_print(f"Success rate: {(success_count/len(replays)*100):.1f}%")
         
         # Step 7: Show generated files
         self.show_generated_files()
         
-        print(f"\n💾 Original data backed up to: {backup_dir}/")
-        print("🎉 Learning data regeneration completed successfully!")
+        log_print(f"\nOriginal data backed up to: {backup_dir}/")
+        log_print("Learning data regeneration completed successfully!")
         
         return success_count, error_count
     
     def show_generated_files(self):
         """Show information about the generated files"""
-        print("\n📁 Generated Learning Files:")
+        log_print("\nGenerated Learning Files:")
         
         data_files = ['comments.json', 'patterns.json', 'learning_stats.json']
         
@@ -400,7 +441,7 @@ class LearningDataRegenerator:
             filepath = os.path.join('data', filename)
             if os.path.exists(filepath):
                 size = os.path.getsize(filepath)
-                print(f"  ✅ {filename}: {size:,} bytes")
+                log_print(f"  [OK] {filename}: {size:,} bytes")
                 
                 # Show some content info
                 if filename == 'comments.json':
@@ -409,7 +450,7 @@ class LearningDataRegenerator:
                             data = json.load(f)
                             comment_count = len(data.get('comments', []))
                             keyword_count = len(data.get('keyword_index', {}))
-                            print(f"     📝 {comment_count} comments, {keyword_count} keywords")
+                            log_print(f"       {comment_count} comments, {keyword_count} keywords")
                     except:
                         pass
                 elif filename == 'patterns.json':
@@ -417,57 +458,63 @@ class LearningDataRegenerator:
                         with open(filepath, 'r') as f:
                             data = json.load(f)
                             pattern_count = len(data)
-                            print(f"     🔍 {pattern_count} patterns")
+                            log_print(f"       {pattern_count} patterns")
                     except:
                         pass
             else:
-                print(f"  [X] {filename}: Not generated")
+                log_print(f"  [X] {filename}: Not generated")
     
 def main():
-    print("🚀 StarCraft 2 Learning Data Regenerator")
+    print("StarCraft 2 Learning Data Regenerator")
     print("=" * 70)
     print("This script will regenerate all learning data from database records")
     print("using the FIXED player name parsing logic.")
     print()
     
     # Confirm with user
-    response = input("[!]  This will backup and replace all data/*.json files. Continue? (y/N): ").strip().lower()
+    response = input("[!] This will backup and replace all data/*.json files. Continue? (y/N): ").strip().lower()
     if response not in ['y', 'yes']:
         print("[X] Operation cancelled by user.")
         return
+    
+    # Set up logging to file
+    log_filename = setup_logging()
     
     try:
         regenerator = LearningDataRegenerator()
         success_count, error_count = regenerator.regenerate_all_learning_data()
         
         if success_count > 0:
-            print(f"\n🎉 Regeneration completed successfully!")
-            print(f"📊 Processed {success_count} replays with {error_count} errors.")
+            log_print(f"\nRegeneration completed successfully!")
+            log_print(f"Processed {success_count} replays with {error_count} errors.")
             
             # Verify the opponent names are now correct
-            print("\n🔍 Verifying opponent names in regenerated data...")
+            log_print("\nVerifying opponent names in regenerated data...")
             try:
-                import json
                 with open('data/comments.json', 'r') as f:
                     data = json.load(f)
                     comments = data.get('comments', [])
                     if comments:
-                        print(f"📝 Sample opponent names from regenerated data:")
+                        log_print(f"Sample opponent names from regenerated data:")
                         for i, comment in enumerate(comments[:5]):
                             opponent = comment.get('game_data', {}).get('opponent_name', 'Unknown')
                             comment_text = comment.get('comment', '')[:40]
-                            print(f"   {i+1}. {opponent} - \"{comment_text}...\"")
+                            log_print(f"   {i+1}. {opponent} - \"{comment_text}...\"")
                     else:
-                        print("[!]  No comments found in regenerated data")
+                        log_print("[!] No comments found in regenerated data")
             except Exception as e:
-                print(f"[!]  Could not verify data: {e}")
+                log_print(f"[!] Could not verify data: {e}")
         else:
-            print(f"\n[X] No replays were successfully processed.")
+            log_print(f"\n[X] No replays were successfully processed.")
+        
+        log_print(f"\nFull log saved to: {log_filename}")
             
     except Exception as e:
-        print(f"\n💥 Script failed with error: {e}")
+        log_print(f"\nScript failed with error: {e}")
         import traceback
         traceback.print_exc()
+    finally:
+        close_logging()
 
 if __name__ == "__main__":
     main()

@@ -492,6 +492,54 @@ Generate ONE short message only, no explanation."""
                                     game_data['build_order'] = build_order
                                     break
                         
+                        # === PATTERN MATCHING COMPARISON ===
+                        # Run both pattern matching methods and display top 3 from each
+                        try:
+                            from api.ml_opponent_analyzer import get_ml_analyzer
+                            analyzer = get_ml_analyzer()
+                            
+                            build_order = game_data.get('build_order', [])
+                            if build_order:
+                                logger.info("=" * 50)
+                                logger.info("PATTERN MATCHING COMPARISON")
+                                
+                                # 1. Pattern Learning (comments.json)
+                                comments_matches = analyzer.match_build_against_all_patterns(
+                                    build_order, opponent_race, logger
+                                )
+                                if comments_matches:
+                                    best = comments_matches[0]
+                                    logger.info(f"Best match: '{best.get('comment', 'Unknown')}' at {best.get('similarity', 0):.2f} similarity")
+                                logger.info(f"Pattern Learning (comments.json - {len(build_order)} steps):")
+                                if comments_matches:
+                                    for i, match in enumerate(comments_matches[:3]):
+                                        similarity = match.get('similarity', 0) * 100
+                                        comment = match.get('comment', 'Unknown')
+                                        logger.info(f"  {i+1}. {similarity:.0f}% - '{comment}'")
+                                else:
+                                    logger.info("  No matches found")
+                                
+                                # 2. ML Analysis (patterns.json)
+                                patterns_data = analyzer.load_patterns_data()
+                                patterns_matches = analyzer._match_build_against_patterns(
+                                    build_order, patterns_data, opponent_race, logger
+                                )
+                                if patterns_matches:
+                                    best = patterns_matches[0]
+                                    logger.info(f"Best match: '{best.get('comment', 'Unknown')}' at {best.get('similarity', 0):.2f} similarity")
+                                logger.info(f"ML Analysis (patterns.json - DB text extraction):")
+                                if patterns_matches:
+                                    for i, match in enumerate(patterns_matches[:3]):
+                                        similarity = match.get('similarity', 0) * 100
+                                        comment = match.get('comment', 'Unknown')
+                                        logger.info(f"  {i+1}. {similarity:.0f}% - '{comment}'")
+                                else:
+                                    logger.info("  No matches found")
+                                
+                                logger.info("=" * 50)
+                        except Exception as e:
+                            logger.error(f"Pattern matching comparison error: {e}")
+                        
                         # Trigger Display (Validation)
                         # We need to call the legacy display method or reimplement it
                         # Since pattern_learner is likely the TwitchBot instance (legacy), we can call it?

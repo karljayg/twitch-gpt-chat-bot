@@ -774,8 +774,8 @@ class MLOpponentAnalyzer:
             else:
                 similarity = 0.0
             
-            # CRITICAL TECH MISMATCH PENALTY: If pattern has critical tech buildings that new build lacks, apply extra penalty
-            # Critical tech buildings define the strategy (e.g., Forge = cannon rush, Stargate = air, Robo = robo bay)
+            # CRITICAL TECH MISMATCH PENALTY: BIDIRECTIONAL comparison
+            # Critical tech buildings define the strategy (e.g., Forge = cannon rush, Stargate = air, RoachWarren = roach play)
             critical_tech = {
                 # Protoss - tech that defines strategy
                 'forge', 'stargate', 'roboticsfacility', 'darkshrine', 'templararchive', 'fleetbeacon',
@@ -788,28 +788,39 @@ class MLOpponentAnalyzer:
             pattern_critical = set(item for item in pattern_dict.keys() if item in critical_tech)
             new_critical = set(item for item in new_build_dict.keys() if item in critical_tech)
             
-            missing_critical = pattern_critical - new_critical  # Critical tech in pattern but not in new build
+            # BIDIRECTIONAL: Check both directions
+            missing_in_new = pattern_critical - new_critical  # Pattern has but new doesn't
+            missing_in_pattern = new_critical - pattern_critical  # New has but pattern doesn't
+            matching_critical = pattern_critical & new_critical  # Both have
             
-            if missing_critical and similarity > 0:
-                # Calculate penalty based on ratio of matching critical tech
-                # If pattern has 2 critical techs and new build has 1, penalty = 0.5
-                # If pattern has 2 critical techs and new build has 0, penalty = 0.0
-                matching_critical_count = len(pattern_critical & new_critical)
-                total_critical_count = len(pattern_critical)
+            # Calculate tech similarity
+            all_critical_involved = pattern_critical | new_critical
+            
+            if all_critical_involved and similarity > 0:
+                # If either has critical tech, compare what they share vs what they differ on
+                matching_count = len(matching_critical)
+                mismatch_count = len(missing_in_new) + len(missing_in_pattern)
                 
-                if total_critical_count > 0:
-                    critical_ratio = matching_critical_count / total_critical_count
-                    # At least 50% match required to avoid heavy penalty
-                    if critical_ratio < 0.5:
-                        critical_penalty = critical_ratio * 0.4  # Scale 0-0.5 ratio to 0-0.2 penalty
-                    else:
-                        critical_penalty = 0.2 + (critical_ratio - 0.5) * 1.6  # Scale 0.5-1.0 to 0.2-1.0
-                    
-                    similarity *= critical_penalty
+                if mismatch_count > 0:
+                    # Each mismatched critical tech reduces similarity significantly
+                    # 1 mismatch = 50% penalty, 2 mismatches = 75% penalty, etc.
+                    tech_penalty = 0.5 ** mismatch_count
+                    similarity *= tech_penalty
                     
                     if logger:
-                        logger.debug(f"Critical tech: pattern has {pattern_critical}, new has {new_critical}. "
-                                   f"Matching {matching_critical_count}/{total_critical_count}, penalty: {critical_penalty:.1%}")
+                        logger.debug(f"Critical tech mismatch: pattern={pattern_critical}, new={new_critical}. "
+                                   f"Missing in new: {missing_in_new}, Missing in pattern: {missing_in_pattern}, "
+                                   f"penalty: {tech_penalty:.1%}")
+            
+            # BONUS for matching "absence" of tech (both are pure ling with no roach/bane/spire)
+            # This helps differentiate "pure ling" builds from tech-based builds
+            elif not pattern_critical and not new_critical:
+                # Both have NO critical tech - this is a strong signal they're similar
+                # (both are macro/ling-based, not tech-based)
+                # Give a small bonus to compensate for fewer comparison points
+                similarity = min(1.0, similarity * 1.1)
+                if logger:
+                    logger.debug("Both builds have no critical tech - slight bonus applied")
             
             # EXPANSION PENALTY: Number of bases is CRITICAL - heavily penalize mismatches
             # Expansion counts are passed in from original build orders (not filtered strategic items)

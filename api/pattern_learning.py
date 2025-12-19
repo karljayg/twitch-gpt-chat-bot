@@ -803,6 +803,12 @@ class SC2PatternLearner:
                         pattern_name = f"pattern_{pattern_id:03d}"
                         
                         # Create efficient pattern entry
+                        # Use opponent_race from game_data (reliable) instead of _detect_race (unreliable)
+                        game_data = pattern.get('game_data', {})
+                        pattern_race = game_data.get('opponent_race', '').lower()
+                        if not pattern_race or pattern_race == 'unknown':
+                            pattern_race = self._detect_race(pattern)  # Fallback only if no game_data
+                        
                         efficient_patterns[pattern_name] = {
                             "signature": pattern['signature'],
                             "comment_id": f"comment_{pattern_id:03d}",
@@ -812,9 +818,9 @@ class SC2PatternLearner:
                             "sample_count": 1,
                             "last_seen": datetime.now().isoformat(),
                             "strategy_type": self._classify_strategy(pattern),
-                            "race": self._detect_race(pattern),
+                            "race": pattern_race,
                             "confidence": pattern.get('ai_confidence', 0.8),
-                            "game_data": pattern.get('game_data', {}),  # Include game data for comment management
+                            "game_data": game_data,
                             "has_player_comment": pattern.get('has_player_comment', False)
                         }
                         

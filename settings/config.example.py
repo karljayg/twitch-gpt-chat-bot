@@ -184,19 +184,32 @@ PATTERN_SUGGESTION_MIN_SIMILARITY = 0.60
 # Used when analyzing opponent builds to identify key tech paths and strategies
 SC2_STRATEGIC_ITEMS = {
     'Zerg': {
-        'buildings': 'RoachWarren, BanelingNest, Spire, GreaterSpire, NydusNetwork, NydusWorm, HydraliskDen, InfestationPit, UltraliskCavern, LurkerDen, EvolutionChamber, SpineCrawler, SporeCrawler',
-        'units': 'Roach, Baneling, Mutalisk, Lurker, Hydralisk, Broodlord, SwarmHost, Viper, Infestor, Ultralisk, Corruptor, Ravager',
-        'upgrades': 'Metabolic Boost, Adrenal Glands, Pneumatized Carapace, Glial Reconstitution, Burrow, Tunneling Claws, Grooved Spines, Muscular Augments, Zerg Melee Attacks, Zerg Missile Attacks, Zerg Ground Carapace'
+        # Buildings that define strategy - Hatchery timing/count is KEY for expansion style
+        # SpawningPool timing differentiates pool-first vs hatch-first
+        # NOTE: Drone, Overlord, Zergling excluded - every Zerg makes these, they add noise
+        'buildings': 'SpawningPool, Hatchery, Lair, Hive, RoachWarren, BanelingNest, Spire, GreaterSpire, NydusNetwork, NydusWorm, Nydus Canal, HydraliskDen, InfestationPit, UltraliskCavern, LurkerDen, Lurker Den, EvolutionChamber, SpineCrawler, SporeCrawler',
+        # Units that define tech path - exclude basic units (Drone, Overlord, Zergling, Queen)
+        'units': 'Roach, Ravager, Baneling, Mutalisk, Corruptor, Lurker, Hydralisk, Broodlord, SwarmHost, Swarm Host, Viper, Infestor, Ultralisk, Overseer',
+        # Upgrades that define strategy
+        'upgrades': 'Metabolic Boost, Adrenal Glands, Pneumatized Carapace, Glial Reconstitution, Burrow, Tunneling Claws, Grooved Spines, Muscular Augments, Chitinous Plating, Anabolic Synthesis, Adaptive Talons, Seismic Spines, Zerg Melee Weapons Level 1, Zerg Melee Weapons Level 2, Zerg Melee Weapons Level 3, Zerg Missile Weapons Level 1, Zerg Missile Weapons Level 2, Zerg Missile Weapons Level 3, Zerg Ground Armor Level 1, Zerg Ground Armor Level 2, Zerg Ground Armor Level 3, Zerg Flyer Weapons Level 1, Zerg Flyer Weapons Level 2, Zerg Flyer Weapons Level 3, Zerg Flyer Armor Level 1, Zerg Flyer Armor Level 2, Zerg Flyer Armor Level 3'
     },
     'Terran': {
-        'buildings': 'Starport, FusionCore, Factory, GhostAcademy, Armory, TechLab, Reactor, EngineeringBay, Bunker, MissileTurret, SensorTower, PlanetaryFortress',
-        'units': 'Ghost, Cyclone, Liberator, Banshee, Battlecruiser, Widow Mine, Raven, Hellion, Hellbat, Siege Tank, Thor, Marauder, Reaper, Viking, Medivac',
-        'upgrades': 'Stimpack, Combat Shields, Concussive Shells, Siege Tech, Drilling Claws, Smart Servos, Banshee Cloak, Terran Infantry Weapons, Terran Infantry Armor, Terran Vehicle Weapons, Terran Vehicle Plating, Terran Ship Weapons, Terran Ship Plating, Hi-Sec Auto Tracking, Hyperflight Rotors, Mag-Field Accelerator'
+        # Buildings that define strategy - exclude SupplyDepot, Refinery (every Terran has these)
+        # Barracks count/timing, Factory, Starport are key differentiators
+        'buildings': 'CommandCenter, Orbital Command, Planetary Fortress, Barracks, BarracksReactor, BarracksTechLab, Factory, FactoryReactor, FactoryTechLab, Starport, StarportReactor, StarportTechLab, FusionCore, GhostAcademy, Armory, EngineeringBay, Bunker, MissileTurret, SensorTower',
+        # Units that define tech path - exclude SCV, Marine (every Terran makes these early)
+        'units': 'Marauder, Reaper, Ghost, Hellion, Hellbat, Widow Mine, Siege Tank, Cyclone, Thor, Viking, Medivac, Liberator, Banshee, Raven, Battlecruiser',
+        # Upgrades that define strategy
+        'upgrades': 'Stimpack, Combat Shield, Combat Shields, Concussive Shells, Siege Tech, Infernal Pre-Igniter, Drilling Claws, Smart Servos, Cloaking Field, Banshee Cloak, Hyperflight Rotors, Mag-Field Accelerator, Advanced Ballistics, Hi-Sec Auto Tracking, Building Armor, Terran Infantry Weapons Level 1, Terran Infantry Weapons Level 2, Terran Infantry Weapons Level 3, Terran Infantry Armor Level 1, Terran Infantry Armor Level 2, Terran Infantry Armor Level 3, Terran Vehicle Weapons Level 1, Terran Vehicle Weapons Level 2, Terran Vehicle Weapons Level 3, Terran Vehicle And Ship Armor Level 1, Terran Vehicle And Ship Armor Level 2, Terran Vehicle And Ship Armor Level 3, Terran Ship Weapons Level 1, Terran Ship Weapons Level 2, Terran Ship Weapons Level 3'
     },
     'Protoss': {
-        'buildings': 'Forge, TwilightCouncil, DarkShrine, Stargate, RoboticsFacility, TemplarArchive, FleetBeacon, RoboticsBay, PhotonCannon, ShieldBattery',
-        'units': 'Dark Templar, Immortal, Void Ray, Oracle, Phoenix, Colossus, Disruptor, Tempest, Carrier, High Templar, Archon, Adept, Sentry, Stalker, Warp Prism, Observer',
-        'upgrades': 'Charge, Blink, Resonating Glaives, Extended Thermal Lance, Protoss Ground Weapons, Protoss Ground Armor, Protoss Air Weapons, Protoss Air Armor, Protoss Shields'
+        # Buildings that define strategy - Nexus timing/count, Gateway count, tech buildings
+        # NOTE: Pylon, Assimilator excluded - every Protoss makes these
+        'buildings': 'Nexus, Gateway, Warp Gate, WarpGate, CyberneticsCore, Forge, TwilightCouncil, DarkShrine, Stargate, RoboticsFacility, RoboticsBay, TemplarArchive, FleetBeacon, PhotonCannon, ShieldBattery',
+        # Units that define tech path - exclude Probe, Zealot (basic units)
+        'units': 'Adept, Stalker, Sentry, High Templar, Dark Templar, Archon, Immortal, Colossus, Disruptor, Observer, Warp Prism, Phoenix, Oracle, Void Ray, Tempest, Carrier, Mothership',
+        # Upgrades that define strategy
+        'upgrades': 'Warp Gate Research, WarpGateResearch, Charge, Blink, Resonating Glaives, Shadow Stride, Psionic Storm, Extended Thermal Lance, Gravitic Drive, Gravitic Boosters, Flux Vanes, Anion Pulse Crystals, Protoss Ground Weapons Level 1, Protoss Ground Weapons Level 2, Protoss Ground Weapons Level 3, Protoss Ground Armor Level 1, Protoss Ground Armor Level 2, Protoss Ground Armor Level 3, Protoss Shields Level 1, Protoss Shields Level 2, Protoss Shields Level 3, Protoss Air Weapons Level 1, Protoss Air Weapons Level 2, Protoss Air Weapons Level 3, Protoss Air Armor Level 1, Protoss Air Armor Level 2, Protoss Air Armor Level 3'
     }
 }
 
