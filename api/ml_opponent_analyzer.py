@@ -364,9 +364,12 @@ class MLOpponentAnalyzer:
             # Extract strategic items from new build (ignore workers/supply)
             new_build_strategic_items = self._extract_strategic_items_from_build(build_order, opponent_race)
             
+            if logger:
+                logger.debug(f"Pattern matching: opponent_race='{opponent_race}', {len(build_order)} steps, {len(new_build_strategic_items)} strategic items")
+            
             if not new_build_strategic_items:
                 if logger:
-                    logger.debug("No strategic items found in new build - cannot match")
+                    logger.warning("No strategic items found in new build - cannot match")
                 return []
             
             # Match against each pattern's build signature
@@ -390,8 +393,6 @@ class MLOpponentAnalyzer:
                 # Filter by race - strict filtering, skip if race doesn't match
                 opponent_race_lower = opponent_race.lower() if opponent_race else 'unknown'
                 if pattern_race and pattern_race != 'unknown' and pattern_race != opponent_race_lower:
-                    if logger:
-                        logger.debug(f"Pattern '{comment}' filtered by race: {pattern_race} != {opponent_race_lower}")
                     continue
                 
                 # Extract strategic items from pattern signature
@@ -400,9 +401,10 @@ class MLOpponentAnalyzer:
                 if not pattern_strategic_items:
                     continue
                 
-                # Count expansions from ORIGINAL data (before filtering)
+                # Count expansions from EARLY GAME ONLY (first 120 steps) to match pattern scope
                 expansion_names = {'hatchery', 'nexus', 'commandcenter'}
-                new_expansions = sum(1 for step in build_order 
+                early_build = build_order[:120]  # Match pattern's early_game scope
+                new_expansions = sum(1 for step in early_build 
                                    if step.get('name', '').lower() in expansion_names)
                 pattern_early_game = pattern_signature.get('early_game', [])
                 pattern_expansions = sum(1 for step in pattern_early_game 
@@ -490,25 +492,29 @@ class MLOpponentAnalyzer:
         Returns list of dicts with {name, timing, position} for weighting.
         """
         # Define workers and supply structures (to filter out)
+        # NOTE: Base buildings (hatchery, nexus, commandcenter) are NOT filtered
+        # because they're important for expansion counting and pattern matching
         non_strategic = {
             'probe', 'scv', 'drone', 'mule',
             'pylon', 'supplydepot', 'overlord', 'overseer',
-            'nexus', 'commandcenter', 'hatchery', 'lair', 'hive',
-            'orbitalcommand', 'planetaryfortress'
+            'refinery', 'assimilator', 'extractor'
         }
         
-        # Get strategic items from config
+        # Get strategic items from config (case-insensitive lookup)
         strategic_items = set()
-        if opponent_race in config.SC2_STRATEGIC_ITEMS:
-            race_items = config.SC2_STRATEGIC_ITEMS[opponent_race]
+        race_key = opponent_race.title() if opponent_race else None  # "zerg" -> "Zerg"
+        if race_key and race_key in config.SC2_STRATEGIC_ITEMS:
+            race_items = config.SC2_STRATEGIC_ITEMS[race_key]
             for category in ['buildings', 'units', 'upgrades']:
                 if category in race_items:
                     items = [item.strip().lower() for item in race_items[category].split(',')]
                     strategic_items.update(items)
         
         # Extract strategic items with timing info - DEDUPLICATE (keep first occurrence)
+        # Limit to early game (first 120 steps) to match pattern scope
+        early_build = build_order[:120]
         seen_items = {}
-        for i, step in enumerate(build_order):
+        for i, step in enumerate(early_build):
             name = step.get('name', '').lower()
             raw_time = step.get('time', 0)
             
@@ -572,10 +578,11 @@ class MLOpponentAnalyzer:
             strategic_items = []
             seen_items = {}  # Track items by name to avoid duplicates
             
-            # Get strategic items from config
+            # Get strategic items from config (case-insensitive lookup)
             strategic_item_names = set()
-            if race in config.SC2_STRATEGIC_ITEMS:
-                race_items = config.SC2_STRATEGIC_ITEMS[race]
+            race_key = race.title() if race else None  # "zerg" -> "Zerg"
+            if race_key and race_key in config.SC2_STRATEGIC_ITEMS:
+                race_items = config.SC2_STRATEGIC_ITEMS[race_key]
                 for category in ['buildings', 'units', 'upgrades']:
                     if category in race_items:
                         items = [item.strip().lower() for item in race_items[category].split(',')]
@@ -705,7 +712,16 @@ class MLOpponentAnalyzer:
                     
                     # Timing similarity bonus (closer timing = higher score)
                     timing_diff = abs(new_timing - timing)
-                    if timing_diff < 30:  # Within 30 seconds
+                    
+                    # For critical strategy-defining buildings, timing matters A LOT
+                    # Forge at 38s (cannon rush) vs Forge at 300s (late upgrade) = different strategy
+                    strategy_defining = {'forge', 'stargate', 'roboticsfacility', 'darkshrine', 
+                                        'factory', 'starport', 'roachwarren', 'banelingnest', 'spire'}
+                    
+                    if item_name in strategy_defining and timing_diff > 90:
+                        # Timing too different - don't count as matching for strategy-defining buildings
+                        timing_bonus = 0.0
+                    elif timing_diff < 30:  # Within 30 seconds
                         timing_bonus = 1.0
                     elif timing_diff < 60:  # Within 1 minute
                         timing_bonus = 0.8
@@ -752,7 +768,16 @@ class MLOpponentAnalyzer:
                     
                     # Timing similarity bonus
                     timing_diff = abs(timing - pattern_timing)
-                    if timing_diff < 30:
+                    
+                    # For critical strategy-defining buildings, timing matters A LOT
+                    # Forge at 38s (cannon rush) vs Forge at 300s (late upgrade) = different strategy
+                    strategy_defining = {'forge', 'stargate', 'roboticsfacility', 'darkshrine', 
+                                        'factory', 'starport', 'roachwarren', 'banelingnest', 'spire'}
+                    
+                    if item_name in strategy_defining and timing_diff > 90:
+                        # Timing too different - don't count as matching for strategy-defining buildings
+                        timing_bonus = 0.0
+                    elif timing_diff < 30:
                         timing_bonus = 1.0
                     elif timing_diff < 60:
                         timing_bonus = 0.8
@@ -788,10 +813,24 @@ class MLOpponentAnalyzer:
             pattern_critical = set(item for item in pattern_dict.keys() if item in critical_tech)
             new_critical = set(item for item in new_build_dict.keys() if item in critical_tech)
             
+            # TIMING MISMATCH on critical tech = DIFFERENT STRATEGY
+            # e.g., Forge at 38s (cannon rush) vs Forge at 300s (late upgrade) = completely different
+            timing_mismatch_critical = set()
+            for item in pattern_critical & new_critical:
+                pattern_time = pattern_dict[item]['timing']
+                new_time = new_build_dict[item]['timing']
+                try:
+                    pattern_time = float(pattern_time) if not isinstance(pattern_time, (int, float)) else pattern_time
+                    new_time = float(new_time) if not isinstance(new_time, (int, float)) else new_time
+                except:
+                    continue
+                if abs(pattern_time - new_time) > 90:
+                    timing_mismatch_critical.add(item)
+            
             # BIDIRECTIONAL: Check both directions
             missing_in_new = pattern_critical - new_critical  # Pattern has but new doesn't
             missing_in_pattern = new_critical - pattern_critical  # New has but pattern doesn't
-            matching_critical = pattern_critical & new_critical  # Both have
+            matching_critical = (pattern_critical & new_critical) - timing_mismatch_critical  # Both have WITH similar timing
             
             # Calculate tech similarity
             all_critical_involved = pattern_critical | new_critical
@@ -799,7 +838,8 @@ class MLOpponentAnalyzer:
             if all_critical_involved and similarity > 0:
                 # If either has critical tech, compare what they share vs what they differ on
                 matching_count = len(matching_critical)
-                mismatch_count = len(missing_in_new) + len(missing_in_pattern)
+                # Timing mismatches count as mismatches too (Forge at 38s vs 300s = different strategy)
+                mismatch_count = len(missing_in_new) + len(missing_in_pattern) + len(timing_mismatch_critical)
                 
                 if mismatch_count > 0:
                     # Each mismatched critical tech reduces similarity significantly
@@ -810,7 +850,7 @@ class MLOpponentAnalyzer:
                     if logger:
                         logger.debug(f"Critical tech mismatch: pattern={pattern_critical}, new={new_critical}. "
                                    f"Missing in new: {missing_in_new}, Missing in pattern: {missing_in_pattern}, "
-                                   f"penalty: {tech_penalty:.1%}")
+                                   f"Timing mismatch: {timing_mismatch_critical}, penalty: {tech_penalty:.1%}")
             
             # BONUS for matching "absence" of tech (both are pure ling with no roach/bane/spire)
             # This helps differentiate "pure ling" builds from tech-based builds
