@@ -352,8 +352,8 @@ class TestExpansionCounting:
     They are intentionally filtered from strategic items to avoid noise.
     """
     
-    def test_expansions_filtered_from_strategic(self, analyzer, mock_logger):
-        """Expansions should be filtered from strategic items (counted separately)"""
+    def test_expansions_included_as_strategic(self, analyzer, mock_logger):
+        """Expansions should be included as strategic items (for matching) and counted separately"""
         build = create_build_order([
             (12, "Drone", 10),
             (13, "Hatchery", 53),
@@ -364,8 +364,9 @@ class TestExpansionCounting:
         items = analyzer._extract_strategic_items_from_build(build, "Zerg")
         item_names = [item['name'] for item in items]
         
-        # Hatchery filtered - counted separately for expansion comparison
-        assert "hatchery" not in item_names, "Hatchery should be filtered (counted separately)"
+        # Hatchery now included as strategic (for matching), but only first occurrence (deduped)
+        assert "hatchery" in item_names, "Hatchery should be strategic (for matching)"
+        assert item_names.count("hatchery") == 1, "Only first hatchery kept (deduplication)"
         assert "spawningpool" in item_names, "SpawningPool should be strategic"
     
     def test_zerg_3hatch_vs_2hatch_expansion_difference(self, analyzer, mock_logger):
