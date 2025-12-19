@@ -5,6 +5,8 @@ import random
 import sys
 import time
 import math
+import os
+import json
 from utils.emote_utils import get_random_emote
 from utils.emote_utils import remove_emotes_from_message
 import utils.wiki_utils as wiki_utils
@@ -412,6 +414,24 @@ def process_pubmsg(self, event, logger, contextHistory):
                         'duration': latest_replay.get('duration', 'Unknown')
                     }
                     
+                    # Get build_order from last replay JSON (saved after each game)
+                    try:
+                        replay_json_path = config.LAST_REPLAY_JSON_FILE
+                        if os.path.exists(replay_json_path):
+                            with open(replay_json_path, 'r') as f:
+                                replay_data = json.load(f)
+                            
+                            # Find opponent's build order
+                            player_accounts_lower = [name.lower() for name in config.SC2_PLAYER_ACCOUNTS]
+                            for p_key, p_data in replay_data.get('players', {}).items():
+                                if p_data.get('name', '').lower() not in player_accounts_lower:
+                                    game_data['build_order'] = p_data.get('buildOrder', [])
+                                    game_data['opponent_race'] = p_data.get('race', 'Unknown')
+                                    logger.info(f"Loaded {len(game_data['build_order'])} build order steps from last replay")
+                                    break
+                    except Exception as e:
+                        logger.warning(f"Could not load build order from replay JSON: {e}")
+                    
                     self.pattern_learner._process_new_comment(game_data, comment_text)
                     self.pattern_learner.save_patterns_to_file()
                     
@@ -734,20 +754,32 @@ def process_pubmsg(self, event, logger, contextHistory):
 def send_prompt_to_openai(msg):
     """
     Send a given message as a prompt to OpenAI and return the response.
+    Supports both old (0.27.x) and new (>=1.0.0) OpenAI API versions.
 
     :param msg: The message to send to OpenAI as a prompt.
     :return: The response from OpenAI.
     """
-    from openai import OpenAI
-    
-    client = OpenAI(api_key=config.OPENAI_API_KEY)
-    completion = client.chat.completions.create(
-        model=config.ENGINE,
-        messages=[
-            {"role": "user", "content": msg}
-        ]
-    )
-    return completion
+    # Check which API version is available by testing if OpenAI class exists
+    if hasattr(openai, 'OpenAI'):
+        # New API (openai >= 1.0.0)
+        client = openai.OpenAI(api_key=config.OPENAI_API_KEY)
+        completion = client.chat.completions.create(
+            model=config.ENGINE,
+            messages=[
+                {"role": "user", "content": msg}
+            ]
+        )
+        return completion
+    else:
+        # Old API (openai < 1.0.0, e.g., 0.27.8)
+        openai.api_key = config.OPENAI_API_KEY
+        completion = openai.ChatCompletion.create(
+            model=config.ENGINE,
+            messages=[
+                {"role": "user", "content": msg}
+            ]
+        )
+        return completion
 
 def process_ai_message(user_message, conversation_mode="normal", contextHistory=None, platform="twitch", logger=None):
     """
