@@ -15,7 +15,14 @@ class CommentHandler(ICommandHandler):
         self.pattern_learner = pattern_learner
         
     async def handle(self, context: CommandContext, args: str):
+        # Strip "player comment" or "player comments" prefix if present (command_service passes full message)
         comment_text = args.strip()
+        comment_lower = comment_text.lower()
+        if comment_lower.startswith('player comments '):
+            comment_text = comment_text[16:].strip()  # "player comments " = 16 chars
+        elif comment_lower.startswith('player comment '):
+            comment_text = comment_text[15:].strip()  # "player comment " = 15 chars
+        
         if not comment_text:
             await context.chat_service.send_message(context.channel, "Please provide comment text after 'player comment'")
             return
@@ -147,22 +154,44 @@ class CommentHandler(ICommandHandler):
                     }
                     
                     # Get build_order from last replay JSON (saved after each game)
+                    # IMPORTANT: Verify both opponent name AND game date match to avoid stale data
                     try:
                         replay_json_path = config.LAST_REPLAY_JSON_FILE
                         if os.path.exists(replay_json_path):
                             with open(replay_json_path, 'r') as f:
                                 replay_data = json.load(f)
                             
-                            # Find opponent's build order
-                            player_accounts_lower = [name.lower() for name in config.SC2_PLAYER_ACCOUNTS]
+                            # Verify game timestamp matches (within 5 minutes tolerance)
+                            json_timestamp = replay_data.get('unix_timestamp', 0)
+                            from datetime import datetime
+                            try:
+                                db_date = datetime.strptime(game_date, '%Y-%m-%d %H:%M:%S')
+                                json_date = datetime.fromtimestamp(json_timestamp)
+                                time_diff = abs((db_date - json_date).total_seconds())
+                                if time_diff > 300:  # More than 5 minutes difference
+                                    logger.warning(f"Game date mismatch: DB={game_date}, JSON={json_date} (diff={time_diff}s) - JSON may be from a different game")
+                                    # Don't use stale JSON data
+                                    raise ValueError("Stale JSON data")
+                            except (ValueError, TypeError) as e:
+                                if "Stale" not in str(e):
+                                    logger.warning(f"Could not compare timestamps: {e}")
+                                raise
+                            
+                            # Find opponent's build order - MATCH BY NAME to avoid wrong game's data
+                            opponent_lower = opponent.lower()
+                            found_opponent = False
                             for p_key, p_data in replay_data.get('players', {}).items():
-                                if p_data.get('name', '').lower() not in player_accounts_lower:
+                                if p_data.get('name', '').lower() == opponent_lower:
                                     game_data['build_order'] = p_data.get('buildOrder', [])
                                     game_data['opponent_race'] = p_data.get('race', 'Unknown')
-                                    logger.info(f"Loaded {len(game_data['build_order'])} build order steps from last replay")
+                                    logger.info(f"Loaded {len(game_data['build_order'])} build order steps for {opponent} from last replay (timestamp verified)")
+                                    found_opponent = True
                                     break
+                            
+                            if not found_opponent:
+                                logger.warning(f"Opponent '{opponent}' not found in last_replay_data.json - replay may be from a different game")
                     except Exception as e:
-                        logger.warning(f"Could not load build order from replay JSON: {e}")
+                        logger.warning(f"Could not load build order from replay JSON: {e} - comment will be saved without build order")
                     
                     await loop.run_in_executor(
                         None,

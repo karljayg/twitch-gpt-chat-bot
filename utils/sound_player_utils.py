@@ -16,7 +16,9 @@ class SoundPlayer:
         # Try to initialize pygame mixer
         try:
             pygame.mixer.init()
-            pygame.mixer.music.set_volume(0.7)
+            # Get volume from config (default to 0.7 if not set)
+            volume = getattr(config, 'SOUND_VOLUME', 0.7)
+            pygame.mixer.music.set_volume(volume)
             self.audio_available = True
             
             # Load SC2 sounds config

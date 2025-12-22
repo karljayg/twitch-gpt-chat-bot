@@ -206,6 +206,16 @@ class SC2PatternLearner:
                 'has_player_comment': True  # Mark as having expert insight
             }
             
+            # Remove any existing comments for the same game (opponent + date) to prevent duplicates
+            opponent = game_data.get('opponent_name', '')
+            game_date = game_data.get('date', '')
+            for kw in list(self.comment_keywords.keys()):
+                self.comment_keywords[kw] = [
+                    c for c in self.comment_keywords[kw]
+                    if not (c.get('game_data', {}).get('opponent_name') == opponent 
+                            and c.get('game_data', {}).get('date') == game_date)
+                ]
+            
             # Save to database FIRST (this should always happen)
             self._save_comment_to_db(game_data, comment)
             
@@ -426,18 +436,14 @@ class SC2PatternLearner:
     def _create_pattern_signature(self, build_data):
         """Create a signature for build order pattern with consolidated units"""
         signature = {
-            'early_game': [],      # First 60 supply (configurable)
+            'early_game': [],      # First 120 steps (configurable)
             'key_timings': {},     # Critical building timings
             'opening_sequence': [] # First 5-10 buildings
         }
         
         try:
-            # Only analyze first 60 supply (configurable threshold)
-            early_game_steps = []
-            for step in build_data:
-                supply = step.get('supply', 0)
-                if supply <= config.BUILD_ORDER_COUNT_TO_ANALYZE:
-                    early_game_steps.append(step)
+            # Use first 120 steps (consistent with ml_opponent_analyzer extraction)
+            early_game_steps = build_data[:config.BUILD_ORDER_COUNT_TO_ANALYZE]
             
             # Consolidate consecutive identical units with counts and order
             if early_game_steps:
@@ -836,8 +842,8 @@ class SC2PatternLearner:
             else:
                 self.logger.warning("No all_patterns found - creating empty patterns file")
             
-            with open(patterns_file, 'w') as f:
-                json.dump(efficient_patterns, f, indent=2, default=str)
+            with open(patterns_file, 'w', encoding='utf-8') as f:
+                json.dump(efficient_patterns, f, indent=2, default=str, ensure_ascii=False)
             self.logger.info(f"Saved {len(efficient_patterns)} patterns to {patterns_file}")
             
             # Save comments with efficient structure (no duplication)
@@ -878,8 +884,8 @@ class SC2PatternLearner:
                                 comments_data["keyword_index"][kw] = []
                             comments_data["keyword_index"][kw].append(f"comment_{comment_id:03d}")
             
-            with open(comments_file, 'w') as f:
-                json.dump(comments_data, f, indent=2, default=str)
+            with open(comments_file, 'w', encoding='utf-8') as f:
+                json.dump(comments_data, f, indent=2, default=str, ensure_ascii=False)
             self.logger.info(f"Saved {len(comments_data['comments'])} comments to {comments_file}")
             
             # Save learning stats
@@ -978,7 +984,7 @@ class SC2PatternLearner:
             # Load patterns
             patterns_file = os.path.join(self.data_dir, 'patterns.json')
             if os.path.exists(patterns_file):
-                with open(patterns_file, 'r') as f:
+                with open(patterns_file, 'r', encoding='utf-8') as f:
                     patterns_data = json.load(f)
                     
                     # Reconstruct all_patterns from saved data
@@ -1007,7 +1013,7 @@ class SC2PatternLearner:
             # Load comments with efficient structure
             comments_file = os.path.join(self.data_dir, 'comments.json')
             if os.path.exists(comments_file):
-                with open(comments_file, 'r') as f:
+                with open(comments_file, 'r', encoding='utf-8') as f:
                     comments_data = json.load(f)
                     
                     # Reconstruct comment_keywords from efficient structure

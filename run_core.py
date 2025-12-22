@@ -3,15 +3,18 @@ import logging
 import sys
 import signal
 import threading
+import io
 from typing import List
 
 # Configure logging - Initial setup (console only)
 # File logging will be added after TwitchBot initializes its file handler
+# Use UTF-8 encoding to avoid Windows cp1252 Unicode errors
+utf8_stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s:%(levelname)s:%(name)s: %(message)s',
     handlers=[
-        logging.StreamHandler(sys.stdout)
+        logging.StreamHandler(utf8_stdout)
     ]
 )
 
@@ -78,10 +81,21 @@ if len(sys.argv) > 1:
 
 async def main():
     logger.info("Starting Mathison TDD Architecture...")
+    print("Starting Mathison TDD Architecture...", flush=True)
 
     # 1. Initialize Legacy Bots
     # Disable legacy monitor thread to avoid conflict with new SC2Adapter
-    twitch_bot_legacy = TwitchBot(start_monitor=False)
+    logger.info("Initializing TwitchBot...")
+    print("Initializing TwitchBot...", flush=True)
+    try:
+        twitch_bot_legacy = TwitchBot(start_monitor=False)
+        logger.info("TwitchBot initialized successfully")
+        print("TwitchBot initialized successfully", flush=True)
+    except Exception as e:
+        logger.error(f"Failed to initialize TwitchBot: {e}")
+        logger.exception("TwitchBot initialization exception:")
+        print(f"ERROR: Failed to initialize TwitchBot: {e}", flush=True)
+        raise
     
     # Share the TwitchBot's file handler with all loggers
     # This ensures BotCore, SC2Adapter, etc. all log to the same file

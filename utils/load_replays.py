@@ -237,7 +237,7 @@ class ReplayLoader:
         formatter = logging.Formatter(
             '%(asctime)s:%(levelname)s:%(name)s: %(message)s')
         log_file_name = f"logs/replay_loader_{timestamp}.log"
-        file_handler = logging.FileHandler(log_file_name)
+        file_handler = logging.FileHandler(log_file_name, encoding='utf-8')
         file_handler.setFormatter(formatter)
         self.logger.addHandler(file_handler)
         self.db = Database()

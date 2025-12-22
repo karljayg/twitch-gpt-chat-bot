@@ -341,8 +341,9 @@ Generate ONE short message only, no explanation."""
         except Exception as e:
             logger.error(f"Error generating game end announcement: {e}")
         
-        # 5. Generate AI Commentary (concise one-sentence summary) - Skip if game too short
-        if not is_too_short and not config.OPENAI_DISABLED and replay_data:
+        # 5. Generate AI Commentary (concise one-sentence summary) - Skip if game too short or not 1v1
+        is_1v1_game = game_info.total_players == 2
+        if not is_too_short and not config.OPENAI_DISABLED and replay_data and is_1v1_game:
             try:
                 logger.debug("Generating AI replay analysis commentary...")
                 
@@ -629,6 +630,14 @@ Generate ONE short message only, no explanation."""
                 return False
             
             logger.info(f"Successfully parsed replay, got {len(replay_data.get('players', {}))} players")
+            
+            # Save JSON file so player comments can access it
+            try:
+                from api.game_event_utils.game_ended_handler import save_file
+                save_file(replay_data, 'json', logger)
+                logger.info("Updated last_replay_data.json for retry")
+            except Exception as e:
+                logger.warning(f"Failed to save JSON file during retry: {e}")
             
             # Reconstruct GameInfo from replay_data
             players = []
@@ -927,8 +936,9 @@ Generate ONE short message only, no explanation."""
         except Exception as e:
             logger.error(f"Error generating game end announcement: {e}")
         
-        # AI Commentary (skip if game too short)
-        if not is_too_short and not config.OPENAI_DISABLED and replay_data:
+        # AI Commentary (skip if game too short or not 1v1)
+        is_1v1_for_ai = game_info.total_players == 2
+        if not is_too_short and not config.OPENAI_DISABLED and replay_data and is_1v1_for_ai:
             try:
                 winning_players = ', '.join(game_info.get_player_names(result_filter='Victory'))
                 losing_players = ', '.join(game_info.get_player_names(result_filter='Defeat'))

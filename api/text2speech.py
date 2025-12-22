@@ -10,17 +10,20 @@ def speak_text(text, mode=1):
     # Initialize the converter
     converter = pyttsx3.init()
 
+    # Get volume from config (default to 0.7 if not set)
+    volume = getattr(config, 'SOUND_VOLUME', 0.7)
+    
     # Set properties based on the mode
     if mode == 1:
         # Normal voice
         converter.setProperty('rate', 180)  # Normal speed
-        converter.setProperty('volume', 1.0)
+        converter.setProperty('volume', volume)
         voices = converter.getProperty('voices')
         converter.setProperty('voice', voices[0].id)  # Typically the first voice is male
     elif mode == 2:
         # Placeholder for a different type of voice
         converter.setProperty('rate', 170)
-        converter.setProperty('volume', 1.0)
+        converter.setProperty('volume', volume)
         voices = converter.getProperty('voices')
         converter.setProperty('voice', voices[1].id)  # Change the index for a different voice
     # Add more elif blocks for other modes

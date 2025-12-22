@@ -20,24 +20,28 @@ def abbreviate_unit_name(unit_name):
     return config.UNIT_ABBREVIATIONS.get(unit_name, unit_name)
 
 
-def abbreviate_build_order(build_order_list, replace_workers_after=5):
+def abbreviate_build_order(build_order_list, show_workers=2, skip_workers_after=True):
     """
     Abbreviate a build order list for Twitch chat readability
     
     Rules:
     - First N workers are kept as abbreviations (SCV/Probe/Drone)
-    - After N workers, replace subsequent workers with "-" placeholder
+    - After N workers, skip them entirely (don't clutter with useless info)
     - All other units/buildings/upgrades get abbreviated per config.UNIT_ABBREVIATIONS
+    - Also skips Overlords after the first one (supply units clutter the preview)
     
     Args:
         build_order_list (list): List of dicts with 'name' key, e.g., [{'name': 'Probe', 'time': 0}, ...]
-        replace_workers_after (int): Number of initial workers to show before replacing with "-"
+        show_workers (int): Number of initial workers to show before skipping
+        skip_workers_after (bool): If True, skip workers after show_workers limit; if False, show "-"
     
     Returns:
-        list: List of dicts with abbreviated names
+        list: List of dicts with abbreviated names (workers after limit are excluded)
     """
     workers = {'SCV', 'Probe', 'Drone'}
+    supply_units = {'Overlord', 'SupplyDepot', 'Pylon'}  # Skip after first appearance
     worker_count = 0
+    supply_seen = set()
     abbreviated = []
     
     for step in build_order_list:
@@ -47,18 +51,27 @@ def abbreviate_build_order(build_order_list, replace_workers_after=5):
         if unit_name in workers:
             worker_count += 1
             
-            if worker_count <= replace_workers_after:
+            if worker_count <= show_workers:
                 # Keep first N workers as abbreviated names
                 abbreviated_step = step.copy()
                 abbreviated_step['name'] = abbreviate_unit_name(unit_name)
                 abbreviated.append(abbreviated_step)
-            else:
-                # Replace subsequent workers with "-"
+            elif not skip_workers_after:
+                # Show "-" placeholder (legacy behavior)
                 abbreviated_step = step.copy()
                 abbreviated_step['name'] = '-'
                 abbreviated.append(abbreviated_step)
+            # else: skip workers entirely after limit
+        elif unit_name in supply_units:
+            # Show first supply unit of each type, skip rest
+            if unit_name not in supply_seen:
+                supply_seen.add(unit_name)
+                abbreviated_step = step.copy()
+                abbreviated_step['name'] = abbreviate_unit_name(unit_name)
+                abbreviated.append(abbreviated_step)
+            # else: skip duplicate supply units
         else:
-            # Not a worker, apply normal abbreviation
+            # Not a worker or supply, apply normal abbreviation
             abbreviated_step = step.copy()
             abbreviated_step['name'] = abbreviate_unit_name(unit_name)
             abbreviated.append(abbreviated_step)
@@ -66,19 +79,23 @@ def abbreviate_build_order(build_order_list, replace_workers_after=5):
     return abbreviated
 
 
-def format_build_order_for_chat(build_order_list, max_items=15):
+def format_build_order_for_chat(build_order_list, max_items=15, show_workers=2):
     """
     Format an abbreviated build order list as a readable string for Twitch chat
     
+    Shows first N workers, then only important buildings/upgrades/units.
+    Workers after the limit are skipped entirely to show meaningful info.
+    
     Args:
         build_order_list (list): List of dicts with 'name', 'supply', 'time' keys
-        max_items (int): Maximum number of items to include
+        max_items (int): Maximum number of items to include in output
+        show_workers (int): Number of initial workers to show before skipping
     
     Returns:
-        str: Formatted build order string, e.g., "12 Probe, 13 OL, 14 Pylon, -, -, Gate, Cyber"
+        str: Formatted build order string, e.g., "12 Probe, 14 Pylon, Gate, Cyber, Gas"
     """
-    # Abbreviate the build order first
-    abbreviated = abbreviate_build_order(build_order_list)
+    # Abbreviate the build order (filters out workers after limit)
+    abbreviated = abbreviate_build_order(build_order_list, show_workers=show_workers)
     
     # Take first max_items
     limited = abbreviated[:max_items]
@@ -88,12 +105,7 @@ def format_build_order_for_chat(build_order_list, max_items=15):
     for step in limited:
         supply = step.get('supply', '')
         name = step.get('name', '')
-        
-        # Don't show supply for workers after replacement (just "-")
-        if name == '-':
-            parts.append('-')
-        else:
-            parts.append(f"{supply} {name}")
+        parts.append(f"{supply} {name}")
     
     return ", ".join(parts)
 

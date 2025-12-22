@@ -28,7 +28,7 @@ class MLOpponentAnalyzer:
                 
             mod_time = os.path.getmtime(comments_path)
             if self.comments_data is None or mod_time > self.last_load_time:
-                with open(comments_path, 'r') as f:
+                with open(comments_path, 'r', encoding='utf-8') as f:
                     self.comments_data = json.load(f)
                 self.last_load_time = mod_time
                 
@@ -46,7 +46,7 @@ class MLOpponentAnalyzer:
                 
             mod_time = os.path.getmtime(patterns_path)
             if self.patterns_data is None or mod_time > self.last_patterns_load_time:
-                with open(patterns_path, 'r') as f:
+                with open(patterns_path, 'r', encoding='utf-8') as f:
                     self.patterns_data = json.load(f)
                 self.last_patterns_load_time = mod_time
                 
@@ -401,23 +401,53 @@ class MLOpponentAnalyzer:
                 if not pattern_strategic_items:
                     continue
                 
-                # Count expansions from EARLY GAME ONLY (first 120 steps) to match pattern scope
+                # FAIR COMPARISON: Limit new build to match pattern's actual step count
+                # If pattern only has 60 steps, only compare first 60 steps of new game
+                pattern_early_game = pattern_signature.get('early_game', [])
+                pattern_step_count = min(len(pattern_early_game), 120)  # Cap at 120
+                
+                # Re-extract strategic items from new build using pattern's scope
+                limited_build = build_order[:pattern_step_count]
+                new_build_strategic_items_scoped = self._extract_strategic_items_from_build(limited_build, opponent_race)
+                
+                # Count expansions from EARLY GAME ONLY using pattern's scope
                 expansion_names = {'hatchery', 'nexus', 'commandcenter'}
-                early_build = build_order[:120]  # Match pattern's early_game scope
+                early_build = limited_build  # Use pattern-scoped build
                 new_expansions = sum(1 for step in early_build 
                                    if step.get('name', '').lower() in expansion_names)
-                pattern_early_game = pattern_signature.get('early_game', [])
-                pattern_expansions = sum(1 for step in pattern_early_game 
+                pattern_early_game_limited = pattern_early_game[:pattern_step_count]
+                pattern_expansions = sum(1 for step in pattern_early_game_limited 
                                         if step.get('unit', '').lower() in expansion_names)
+                
+                # Get timing of FIRST EXPANSION (2nd base) for timing penalty
+                def get_first_expansion_timing(build_steps, name_field='name'):
+                    """Get timing of 2nd base (first expansion after main)"""
+                    exp_count = 0
+                    for step in build_steps:
+                        name = step.get(name_field, '').lower()
+                        if name in expansion_names:
+                            exp_count += 1
+                            if exp_count == 2:  # 2nd base = first expansion
+                                raw_time = step.get('time', 0)
+                                if isinstance(raw_time, str) and ':' in raw_time:
+                                    parts = raw_time.split(':')
+                                    return int(parts[0]) * 60 + int(parts[1])
+                                return raw_time if isinstance(raw_time, (int, float)) else 0
+                    return 999  # No expansion found = very late (1 base all-in)
+                
+                new_first_exp_time = get_first_expansion_timing(early_build, 'name')
+                pattern_first_exp_time = get_first_expansion_timing(pattern_early_game_limited, 'unit')
                 
                 # Compare builds directly (build-to-build comparison)
                 similarity_score = self._compare_build_signatures(
-                    new_build_strategic_items,
+                    new_build_strategic_items_scoped,
                     pattern_strategic_items,
                     opponent_race,
                     logger,
                     new_expansions=new_expansions,
-                    pattern_expansions=pattern_expansions
+                    pattern_expansions=pattern_expansions,
+                    new_first_exp_time=new_first_exp_time,
+                    pattern_first_exp_time=pattern_first_exp_time
                 )
                 
                 # Configurable minimum threshold
@@ -611,8 +641,10 @@ class MLOpponentAnalyzer:
             
             # Extract from early_game sequence (includes units AND buildings)
             # This is crucial for catching strategic units like Marine, Tank, etc.
+            # Limit to first 120 steps to match _extract_strategic_items_from_build
             if 'early_game' in signature:
-                for i, step in enumerate(signature['early_game']):
+                early_game_limited = signature['early_game'][:120]
+                for i, step in enumerate(early_game_limited):
                     unit_name = step.get('unit', '').lower()
                     if unit_name in strategic_item_names:
                         # Convert time string '1:28' to seconds (88)
@@ -642,7 +674,8 @@ class MLOpponentAnalyzer:
             return []
     
     def _compare_build_signatures(self, new_build_items, pattern_items, race, logger,
-                                    new_expansions=0, pattern_expansions=0):
+                                    new_expansions=0, pattern_expansions=0,
+                                    new_first_exp_time=999, pattern_first_exp_time=999):
         """
         Compare two builds directly using strategic items with BIDIRECTIONAL matching.
         Returns similarity score 0-1 based on:
@@ -875,12 +908,21 @@ class MLOpponentAnalyzer:
             else:
                 expansion_multiplier = 0.1  # 3+ base difference = 90% penalty (almost no match)
             
+            # Apply expansion TIMING penalty (even if same count)
+            # If 2nd base timing differs significantly, these are different strategies
+            exp_timing_diff = abs(new_first_exp_time - pattern_first_exp_time)
+            if exp_timing_diff > 120:  # >2 min difference = major strategic difference
+                expansion_multiplier *= 0.5  # Additional 50% penalty
+            elif exp_timing_diff > 60:  # >1 min difference = significant difference
+                expansion_multiplier *= 0.7  # Additional 30% penalty
+            
             # Apply the expansion penalty
             similarity *= expansion_multiplier
             
-            if logger and expansion_diff > 0:
-                logger.debug(f"Expansion mismatch: pattern={pattern_expansions} bases, new={new_expansions} bases, "
-                           f"diff={expansion_diff}, penalty multiplier={expansion_multiplier:.1%}")
+            if logger and (expansion_diff > 0 or exp_timing_diff > 60):
+                logger.debug(f"Expansion mismatch: pattern={pattern_expansions} bases @ {pattern_first_exp_time}s, "
+                           f"new={new_expansions} bases @ {new_first_exp_time}s, "
+                           f"timing_diff={exp_timing_diff}s, penalty multiplier={expansion_multiplier:.1%}")
             
             return similarity
             

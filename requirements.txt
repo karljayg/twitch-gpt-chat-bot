@@ -12,18 +12,23 @@ discord.py~=2.3.2
 # NLP and language processing
 nltk~=3.8.1
 spacy~=3.6.1
-en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.0.0/en_core_web_sm-3.0.0-py3-none-any.whl
+# Note: Install en-core-web-sm model after spacy installation:
+# python -m spacy download en_core_web_sm
+# Or use compatible version:
+en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.6.0/en_core_web_sm-3.6.0-py3-none-any.whl
 
 # LangChain for wiki/agent functionality
-langchain>=0.1.0
-langchain-community>=0.0.16
-langchain-openai>=0.0.5
-langchain-core>=0.1.17
+langchain==0.1.4
+langchain-community==0.0.16
+langchain-core==0.1.17
+langsmith==0.0.85
 wikipedia
+# Note: langchain-openai removed due to conflict with openai~=0.27.8
+# Code uses langchain.chat_models.ChatOpenAI as fallback
 
 # StarCraft II replay parsing
-sc2reader @ git+https://github.com/GraylinKim/sc2reader.git
-spawningtool @ git+https://github.com/StoicLoofah/spawningtool.git
+sc2reader==1.8.0
+spawningtool @ git+https://github.com/StoicLoofah/spawningtool.git@7566f458b6b40cbdd58ee5cc8794c5b9adde71eb
 
 # Text-to-speech (optional - only if ENABLE_AUDIO is True)
 pyttsx3

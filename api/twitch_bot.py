@@ -121,6 +121,9 @@ except ImportError as e:
     FSL_IMPORTS_AVAILABLE = False
     FSLIntegration = None
 
+# Build preview constants for Twitch chat messages
+BUILD_PREVIEW_ITEMS = 12  # Number of build order items to show in chat previews (workers filtered after first 2)
+
 # The contextHistory array is a list of tuples, where each tuple contains two elements: the message string and its
 # corresponding token size. This allows us to keep track of both the message content and its size in the array. When
 # a new message is added to the contextHistory array, its token size is determined using the nltk.word_tokenize()
@@ -289,7 +292,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
         formatter = logging.Formatter(
             '%(asctime)s:%(levelname)s:%(name)s: %(message)s')
-        file_handler = logging.FileHandler(log_file_name)
+        file_handler = logging.FileHandler(log_file_name, encoding='utf-8')
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
 
@@ -484,14 +487,31 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                             wavfile.write(extended_filename, fs, extended_audio_data)
 
                         # Use Whisper API for transcription
-                        from openai import OpenAI
-                        client = OpenAI(api_key=config.OPENAI_API_KEY)
-                        with open(extended_filename, "rb") as audio_file:
-                            response = client.audio.transcriptions.create(
-                                model="whisper-1",
-                                file=audio_file
-                            )
-                            partial_command = response.text.strip().lower()
+                        # Support both old and new OpenAI API versions
+                        try:
+                            if hasattr(openai, 'OpenAI'):
+                                # New API (openai >= 1.0.0)
+                                client = openai.OpenAI(api_key=config.OPENAI_API_KEY)
+                                with open(extended_filename, "rb") as audio_file:
+                                    response = client.audio.transcriptions.create(
+                                        model="whisper-1",
+                                        file=audio_file
+                                    )
+                                    partial_command = response.text.strip().lower()
+                            else:
+                                # Old API (openai < 1.0.0, e.g., 0.27.8)
+                                # Whisper API may not be available in old versions
+                                openai.api_key = config.OPENAI_API_KEY
+                                with open(extended_filename, "rb") as audio_file:
+                                    # Try old API format - may not work in 0.27.8
+                                    response = openai.Audio.transcribe(
+                                        model="whisper-1",
+                                        file=audio_file
+                                    )
+                                    partial_command = response.text.strip().lower()
+                        except (AttributeError, ImportError) as e:
+                            logger.warning(f"Whisper API not available with this OpenAI version: {e}")
+                            partial_command = ""  # Fallback to empty command
 
                         os.remove(extended_filename)  # Clean up temporary file
 
@@ -1250,14 +1270,22 @@ Just the JSON object."""
             elif action == 'use_pattern':
                 if ctx.get('pattern_match'):
                     return ('use_pattern', ctx['pattern_match'])
+                elif ctx.get('ai_summary'):
+                    # Fallback to AI summary if pattern missing but AI summary exists
+                    logger.info("NLP returned 'use_pattern' but pattern_match missing - falling back to ai_summary")
+                    return ('use_ai_summary', ctx['ai_summary'])
                 else:
-                    logger.warning("NLP returned 'use_pattern' but pattern_match is missing from context")
+                    logger.warning("NLP returned 'use_pattern' but both pattern_match and ai_summary are missing from context")
                     return ('skip', None)
             elif action == 'use_ai_summary':
                 if ctx.get('ai_summary'):
                     return ('use_ai_summary', ctx['ai_summary'])
+                elif ctx.get('pattern_match'):
+                    # Fallback to pattern if AI summary missing but pattern exists
+                    logger.info("NLP returned 'use_ai_summary' but ai_summary missing - falling back to pattern_match")
+                    return ('use_pattern', ctx['pattern_match'])
                 else:
-                    logger.warning("NLP returned 'use_ai_summary' but ai_summary is missing from context")
+                    logger.warning("NLP returned 'use_ai_summary' but both ai_summary and pattern_match are missing from context")
                     return ('skip', None)
             elif action == 'modify_ai':
                 # User wants to modify the AI suggestion - let AI understand and apply it naturally
@@ -1490,8 +1518,8 @@ Return ONLY the final combined comment text, nothing else. Keep it concise and n
                     for step in build_order[:120]:  # First 120 steps
                         unit_name = step.get('name', '')
                         timing = step.get('time', 0)
-                        # Count expansions for accurate base count
-                        if unit_name in {'Hatchery', 'Nexus', 'CommandCenter'}:
+                        # Count expansions for accurate base count (exclude starting base which appears at time 0 or very early)
+                        if unit_name in {'Hatchery', 'Nexus', 'CommandCenter'} and timing > 5:
                             base_count += 1
                         # Include expansions, tech structures, cheese structures, and combat units
                         if unit_name in expansion_structures or unit_name in tech_structures or unit_name in cheese_structures or unit_name in combat_units:
@@ -1626,8 +1654,8 @@ Return ONLY the final combined comment text, nothing else. Keep it concise and n
                         # Send TWO conversational messages to Twitch chat
                         if hasattr(self, 'connection') and hasattr(self.connection, 'privmsg'):
                             try:
-                                # Message 1: Pattern match with build preview (just first 3 steps)
-                                build_preview = f"{opponent_name}'s build: {', '.join(build_summary[:3])}. " if build_summary else ""
+                                # Message 1: Pattern match with build preview
+                                build_preview = f"{opponent_name}'s build: {', '.join(build_summary[:BUILD_PREVIEW_ITEMS])}. " if build_summary else ""
                                 msg1 = f"{build_preview}Pattern learning found {similarity:.0f}% match: '{pattern_comment}'."
                                 self.connection.privmsg(self.channel, msg1)
                                 logger.debug(f"Sent pattern match to Twitch: {msg1}")
@@ -1675,7 +1703,7 @@ Return ONLY the final combined comment text, nothing else. Keep it concise and n
                         # Send TWO messages to Twitch
                         if hasattr(self, 'connection') and hasattr(self.connection, 'privmsg'):
                             try:
-                                build_preview = f"{opponent_name}'s build: {', '.join(build_summary[:8])}. " if build_summary else ""
+                                build_preview = f"{opponent_name}'s build: {', '.join(build_summary[:BUILD_PREVIEW_ITEMS])}. " if build_summary else ""
                                 msg1 = f"{build_preview}Weak pattern match ({similarity:.0f}%): '{pattern_comment}'."
                                 self.connection.privmsg(self.channel, msg1)
                                 logger.debug(f"Sent low confidence pattern to Twitch: {msg1}")
@@ -1722,7 +1750,7 @@ Return ONLY the final combined comment text, nothing else. Keep it concise and n
                     # Send message(s) to Twitch
                     if hasattr(self, 'connection') and hasattr(self.connection, 'privmsg'):
                         try:
-                            build_preview = f"{opponent_name}'s build: {', '.join(build_summary[:3])}. " if build_summary else ""
+                            build_preview = f"{opponent_name}'s build: {', '.join(build_summary[:BUILD_PREVIEW_ITEMS])}. " if build_summary else ""
                             
                             if ai_summary:
                                 msg = f"{build_preview}No strong match on build pattern. AI suggests: '{ai_summary}'. Agree?"
@@ -1763,8 +1791,7 @@ Return ONLY the final combined comment text, nothing else. Keep it concise and n
                 # Send message(s) to Twitch
                 if hasattr(self, 'connection') and self.connection and hasattr(self.connection, 'is_connected') and self.connection.is_connected():
                     try:
-                        # Just show first 3 build steps for context, not 8 (avoids spam)
-                        build_preview = f"{opponent_name}'s build: {', '.join(build_summary[:3])}. " if build_summary else ""
+                        build_preview = f"{opponent_name}'s build: {', '.join(build_summary[:BUILD_PREVIEW_ITEMS])}. " if build_summary else ""
                         
                         if hasattr(self, 'connection') and self.connection and hasattr(self.connection, 'is_connected') and self.connection.is_connected():
                             try:

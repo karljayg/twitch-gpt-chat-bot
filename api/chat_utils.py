@@ -209,6 +209,24 @@ def process_pubmsg(self, event, logger, contextHistory):
                         'duration': replay_info['duration']
                     }
                     
+                    # Get build_order from last replay JSON (saved after each game)
+                    try:
+                        replay_json_path = config.LAST_REPLAY_JSON_FILE
+                        if os.path.exists(replay_json_path):
+                            with open(replay_json_path, 'r') as f:
+                                replay_data = json.load(f)
+                            
+                            # Find opponent's build order
+                            player_accounts_lower = [name.lower() for name in config.SC2_PLAYER_ACCOUNTS]
+                            for p_key, p_data in replay_data.get('players', {}).items():
+                                if p_data.get('name', '').lower() not in player_accounts_lower:
+                                    game_data['build_order'] = p_data.get('buildOrder', [])
+                                    game_data['opponent_race'] = p_data.get('race', 'Unknown')
+                                    logger.info(f"Loaded {len(game_data['build_order'])} build order steps from last replay")
+                                    break
+                    except Exception as e:
+                        logger.warning(f"Could not load build order from replay JSON: {e}")
+                    
                     self.pattern_learner._process_new_comment(game_data, comment_text)
                     self.pattern_learner.save_patterns_to_file()
                     
@@ -252,6 +270,24 @@ def process_pubmsg(self, event, logger, contextHistory):
                                 'result': latest_replay['result'],
                                 'duration': latest_replay['duration']
                             }
+                            
+                            # Get build_order from last replay JSON (saved after each game)
+                            try:
+                                replay_json_path = config.LAST_REPLAY_JSON_FILE
+                                if os.path.exists(replay_json_path):
+                                    with open(replay_json_path, 'r') as f:
+                                        replay_data = json.load(f)
+                                    
+                                    # Find opponent's build order
+                                    player_accounts_lower = [name.lower() for name in config.SC2_PLAYER_ACCOUNTS]
+                                    for p_key, p_data in replay_data.get('players', {}).items():
+                                        if p_data.get('name', '').lower() not in player_accounts_lower:
+                                            game_data['build_order'] = p_data.get('buildOrder', [])
+                                            game_data['opponent_race'] = p_data.get('race', 'Unknown')
+                                            logger.info(f"Loaded {len(game_data['build_order'])} build order steps from last replay")
+                                            break
+                            except Exception as e:
+                                logger.warning(f"Could not load build order from replay JSON: {e}")
                             
                             self.pattern_learner._process_new_comment(game_data, comment_text)
                             self.pattern_learner.save_patterns_to_file()

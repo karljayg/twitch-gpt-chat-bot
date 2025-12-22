@@ -12,15 +12,23 @@ from settings import config
 
 class Database:
     def __init__(self):
+        print(f"Database: Initializing connection to {config.DB_HOST}...", flush=True)
         # Connection pool initialization
-        self.pool = mysql.connector.pooling.MySQLConnectionPool(
-            pool_name="mypool",
-            pool_size=5,
-            host=config.DB_HOST,
-            user=config.DB_USER,
-            password=config.DB_PASSWORD,
-            database=config.DB_NAME
-        )
+        try:
+            self.pool = mysql.connector.pooling.MySQLConnectionPool(
+                pool_name="mypool",
+                pool_size=5,
+                host=config.DB_HOST,
+                user=config.DB_USER,
+                password=config.DB_PASSWORD,
+                database=config.DB_NAME,
+                connection_timeout=5,  # 5 second timeout
+                use_pure=True  # Use pure Python implementation to avoid hanging
+            )
+            print("Database: Connection pool created", flush=True)
+        except Exception as e:
+            print(f"Database: ERROR creating connection pool: {e}", flush=True)
+            raise
 
         # Logging setup
         logging.basicConfig(level=logging.DEBUG)
@@ -29,13 +37,20 @@ class Database:
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s')
         log_file_name = f"logs/db_{timestamp}.log"
-        file_handler = logging.FileHandler(log_file_name)
+        file_handler = logging.FileHandler(log_file_name, encoding='utf-8')
         file_handler.setFormatter(formatter)
         self.logger.addHandler(file_handler)
 
         # Connection setup
-        self.connection = self.pool.get_connection()
-        self.cursor = self.connection.cursor(dictionary=True, buffered=True)
+        print("Database: Getting connection from pool...", flush=True)
+        try:
+            self.connection = self.pool.get_connection()
+            print("Database: Connection obtained", flush=True)
+            self.cursor = self.connection.cursor(dictionary=True, buffered=True)
+            print("Database: Cursor created", flush=True)
+        except Exception as e:
+            print(f"Database: ERROR getting connection: {e}", flush=True)
+            raise
 
     def keep_connection_alive(self):
             """
