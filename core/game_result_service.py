@@ -768,24 +768,56 @@ Generate ONE short message only, no explanation."""
             if not build_order:
                 return f"Replay {replay_id}: No build order data found"
             
-            logger.info(f"Build order has {len(build_order)} steps, first 3: {build_order[:3]}")
+            logger.info(f"Extracted {len(build_order)} build order steps for {opponent} from replay_data")
             
-            # 4. Run pattern matching
-            from core.strategy_summary_service import _get_strategy_with_score
+            # 4. Run pattern matching comparison (same as please retry)
             from api.ml_opponent_analyzer import get_ml_analyzer
-            
             analyzer = get_ml_analyzer()
-            logger.info(f"Running pattern match for {opponent} ({opponent_race})")
-            strategy, similarity = _get_strategy_with_score(
-                opponent, build_order, analyzer, opponent_race, min_similarity=0.50
+            
+            logger.info("=" * 50)
+            logger.info("PATTERN MATCHING COMPARISON")
+            
+            # 1. Pattern Learning (comments.json)
+            comments_matches = analyzer.match_build_against_all_patterns(
+                build_order, opponent_race, logger
             )
-            
-            logger.info(f"Pattern match result: strategy='{strategy}', similarity={similarity}")
-            
-            if strategy:
-                result_msg = f"Replay {replay_id} vs {opponent}: Best match '{strategy}' at {similarity*100:.0f}%"
+            if comments_matches:
+                best = comments_matches[0]
+                logger.info(f"Best match: '{best.get('comment', 'Unknown')}' at {best.get('similarity', 0):.2f} similarity")
+            logger.info(f"Pattern Learning (comments.json - {len(build_order)} steps):")
+            if comments_matches:
+                for i, match in enumerate(comments_matches[:5]):
+                    similarity = match.get('similarity', 0) * 100
+                    comment = match.get('comment', 'Unknown')
+                    logger.info(f"  {i+1}. {similarity:.0f}% - '{comment}'")
             else:
-                result_msg = f"Replay {replay_id} vs {opponent}: No strategy match above 50%"
+                logger.info("  No matches found")
+            
+            # 2. ML Analysis (patterns.json)
+            patterns_data = analyzer.load_patterns_data()
+            patterns_matches = analyzer._match_build_against_patterns(
+                build_order, patterns_data, opponent_race, logger
+            )
+            if patterns_matches:
+                best = patterns_matches[0]
+                logger.info(f"Best match: '{best.get('comment', 'Unknown')}' at {best.get('similarity', 0):.2f} similarity")
+            logger.info(f"ML Analysis (patterns.json - DB text extraction):")
+            if patterns_matches:
+                for i, match in enumerate(patterns_matches[:5]):
+                    similarity = match.get('similarity', 0) * 100
+                    comment = match.get('comment', 'Unknown')
+                    logger.info(f"  {i+1}. {similarity:.0f}% - '{comment}'")
+            else:
+                logger.info("  No matches found")
+            
+            logger.info("=" * 50)
+            
+            # Return summary message
+            if comments_matches:
+                best = comments_matches[0]
+                result_msg = f"Replay {replay_id} vs {opponent}: Best match '{best.get('comment', 'Unknown')}' at {best.get('similarity', 0)*100:.0f}%"
+            else:
+                result_msg = f"Replay {replay_id} vs {opponent}: No strategy match found"
             
             logger.info(result_msg)
             return result_msg
