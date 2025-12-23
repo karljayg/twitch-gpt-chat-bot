@@ -400,7 +400,30 @@ Generate ONE short message only, no explanation."""
             except Exception as e:
                 logger.error(f"Error generating AI commentary: {e}")
         
-        # 6. Trigger Pattern Learning (Migrated Logic) - Skip if game too short
+        # 6a. Strategy Summary for ALL game types (1v1, 2v2, 3v3, etc.)
+        # Loops through each player and checks for pattern matches
+        if not is_too_short and replay_data and 'players' in replay_data:
+            try:
+                from api.ml_opponent_analyzer import get_ml_analyzer
+                from core.strategy_summary_service import get_game_summary
+                
+                analyzer = get_ml_analyzer()
+                strategy_summary = get_game_summary(replay_data, analyzer, min_similarity=0.70)
+                
+                if strategy_summary:
+                    logger.info(f"Strategy Summary: {strategy_summary}")
+                    # Send to Twitch
+                    for service in self.chat_services:
+                        try:
+                            await service.send_message("channel", strategy_summary)
+                        except Exception as e:
+                            logger.debug(f"Error sending strategy summary: {e}")
+                else:
+                    logger.debug("No high-confidence strategy matches for any player")
+            except Exception as e:
+                logger.debug(f"Strategy summary error: {e}")
+        
+        # 6b. Trigger Pattern Learning (Migrated Logic) - Skip if game too short
         if not is_too_short and self.pattern_learner:
             logger.info("Pattern Learning: Triggering (Async)")
             
@@ -513,7 +536,7 @@ Generate ONE short message only, no explanation."""
                                     logger.info(f"Best match: '{best.get('comment', 'Unknown')}' at {best.get('similarity', 0):.2f} similarity")
                                 logger.info(f"Pattern Learning (comments.json - {len(build_order)} steps):")
                                 if comments_matches:
-                                    for i, match in enumerate(comments_matches[:3]):
+                                    for i, match in enumerate(comments_matches[:5]):
                                         similarity = match.get('similarity', 0) * 100
                                         comment = match.get('comment', 'Unknown')
                                         logger.info(f"  {i+1}. {similarity:.0f}% - '{comment}'")
@@ -530,7 +553,7 @@ Generate ONE short message only, no explanation."""
                                     logger.info(f"Best match: '{best.get('comment', 'Unknown')}' at {best.get('similarity', 0):.2f} similarity")
                                 logger.info(f"ML Analysis (patterns.json - DB text extraction):")
                                 if patterns_matches:
-                                    for i, match in enumerate(patterns_matches[:3]):
+                                    for i, match in enumerate(patterns_matches[:5]):
                                         similarity = match.get('similarity', 0) * 100
                                         comment = match.get('comment', 'Unknown')
                                         logger.info(f"  {i+1}. {similarity:.0f}% - '{comment}'")
@@ -538,6 +561,7 @@ Generate ONE short message only, no explanation."""
                                     logger.info("  No matches found")
                                 
                                 logger.info("=" * 50)
+                                    
                         except Exception as e:
                             logger.error(f"Pattern matching comparison error: {e}")
                         
@@ -674,6 +698,153 @@ Generate ONE short message only, no explanation."""
         except Exception as e:
             logger.error(f"Error during retry processing: {e}", exc_info=True)
             return False
+
+    async def test_replay_by_id(self, replay_id: int) -> str:
+        """
+        Test strategy summary against a historical replay by ID.
+        Looks up replay in DB, finds matching pattern in comments.json, runs strategy summary.
+        
+        Returns:
+            Result message string
+        """
+        logger.info(f"Testing strategy summary for replay ID: {replay_id}")
+        
+        # 1. Get replay info from DB
+        replay_info = self.replay_repo.db.get_replay_by_id(replay_id)
+        if not replay_info:
+            return f"Replay ID {replay_id} not found in database"
+        
+        opponent = replay_info['opponent']
+        opponent_race = replay_info['opponent_race']
+        map_name = replay_info['map']
+        date_str = replay_info['date']
+        
+        logger.info(f"Found replay: vs {opponent} ({opponent_race}) on {map_name}, {date_str}")
+        
+        # 2. Load comments.json and find matching entry
+        try:
+            import json
+            
+            comments_path = 'data/comments.json'
+            with open(comments_path, 'r', encoding='utf-8') as f:
+                comments_file = json.load(f)
+            
+            # Structure is {"comments": [...]}
+            comments_data = comments_file.get('comments', [])
+            
+            # Find matching comment by opponent + date + map
+            matching_comment = None
+            for comment_entry in comments_data:
+                game_data = comment_entry.get('game_data', {})
+                entry_opponent = game_data.get('opponent_name', '')
+                entry_date = game_data.get('date', '')
+                entry_map = game_data.get('map', '')
+                
+                # Match by opponent name (case-insensitive) and date contains match
+                if (entry_opponent.lower() == opponent.lower() and 
+                    str(entry_date) in date_str):
+                    matching_comment = comment_entry
+                    logger.info(f"Found matching comment: '{comment_entry.get('comment', '')}'")
+                    break
+            
+            # 3. Extract build order - try comments.json first, then fall back to DB
+            build_order = []
+            if matching_comment:
+                game_data = matching_comment.get('game_data', {})
+                build_order = game_data.get('build_order', [])
+                logger.info(f"Found build order from comments.json: {len(build_order)} steps")
+            else:
+                logger.info(f"No matching comment found for {opponent} on {date_str}")
+            
+            # If no build order from comments.json, parse from DB's Replay_Summary
+            if not build_order:
+                replay_summary = replay_info.get('replay_summary', '')
+                if replay_summary:
+                    build_order = self._parse_build_order_from_summary(replay_summary, opponent)
+                    logger.info(f"Parsed {len(build_order)} build steps from DB replay_summary")
+                else:
+                    logger.warning(f"No replay_summary in DB for replay {replay_id}")
+            
+            if not build_order:
+                return f"Replay {replay_id}: No build order data found"
+            
+            logger.info(f"Build order has {len(build_order)} steps, first 3: {build_order[:3]}")
+            
+            # 4. Run pattern matching
+            from core.strategy_summary_service import _get_strategy_with_score
+            from api.ml_opponent_analyzer import get_ml_analyzer
+            
+            analyzer = get_ml_analyzer()
+            logger.info(f"Running pattern match for {opponent} ({opponent_race})")
+            strategy, similarity = _get_strategy_with_score(
+                opponent, build_order, analyzer, opponent_race, min_similarity=0.50
+            )
+            
+            logger.info(f"Pattern match result: strategy='{strategy}', similarity={similarity}")
+            
+            if strategy:
+                result_msg = f"Replay {replay_id} vs {opponent}: Best match '{strategy}' at {similarity*100:.0f}%"
+            else:
+                result_msg = f"Replay {replay_id} vs {opponent}: No strategy match above 50%"
+            
+            logger.info(result_msg)
+            return result_msg
+            
+        except FileNotFoundError:
+            return "comments.json not found"
+        except Exception as e:
+            logger.error(f"Error testing replay {replay_id}: {e}", exc_info=True)
+            return f"Error: {e}"
+
+    def _parse_build_order_from_summary(self, summary_text: str, player_name: str) -> list:
+        """
+        Parse a player's build order from the Replay_Summary text.
+        
+        Format in summary:
+            PlayerName's Build Order (first set of steps):
+            Time: 0:00, Name: Drone, Supply: 12
+            Time: 0:10, Name: Overlord, Supply: 13
+            ...
+        """
+        import re
+        build_order = []
+        
+        # Find the section for this player
+        # Match until double newline OR until another player's build order section
+        pattern = rf"{re.escape(player_name)}'s Build Order.*?:\n(.*?)(?:\n\n[A-Z]|\n\n|\Z)"
+        match = re.search(pattern, summary_text, re.DOTALL | re.IGNORECASE)
+        
+        if not match:
+            return []
+        
+        build_section = match.group(1)
+        
+        # Parse each line: "Time: 0:00, Name: Drone, Supply: 12"
+        for line in build_section.strip().split('\n'):
+            line = line.strip()
+            if not line or not line.startswith('Time:'):
+                continue
+            
+            try:
+                # Extract time, name, supply
+                time_match = re.search(r'Time:\s*(\d+:\d+)', line)
+                name_match = re.search(r'Name:\s*(\w+)', line)
+                supply_match = re.search(r'Supply:\s*(\d+)', line)
+                
+                if time_match and name_match:
+                    time_str = time_match.group(1)
+                    mins, secs = time_str.split(':')
+                    time_seconds = int(mins) * 60 + int(secs)
+                    
+                    build_order.append({
+                        'time': time_seconds,
+                        'name': name_match.group(1),
+                        'supply': int(supply_match.group(1)) if supply_match else 0
+                    })
+            except Exception:
+                continue
+        
+        return build_order
     
     def _parse_replay_summary(self, summary_text: str):
         """Parse replay_summary.txt format to extract GameInfo and replay_data"""

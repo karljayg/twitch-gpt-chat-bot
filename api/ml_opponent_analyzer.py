@@ -393,6 +393,8 @@ class MLOpponentAnalyzer:
                 # Filter by race - strict filtering, skip if race doesn't match
                 opponent_race_lower = opponent_race.lower() if opponent_race else 'unknown'
                 if pattern_race and pattern_race != 'unknown' and pattern_race != opponent_race_lower:
+                    if logger:
+                        logger.debug(f"Skipping pattern (race mismatch): '{comment[:30]}' is {pattern_race}, need {opponent_race_lower}")
                     continue
                 
                 # Extract strategic items from pattern signature
@@ -1089,14 +1091,17 @@ class MLOpponentAnalyzer:
             data = analysis_data
             analysis_type = data.get('analysis_type', 'learning_data')
             
+            opponent_race = data.get('opponent_race', 'Unknown')
+            
             msg = "Generate a concise ML analysis for Twitch chat based on opponent data. "
             msg += "Keep it under 200 characters. Describe ONLY what the opponent does - their builds, strategies, and patterns. "
             msg += "CRITICAL: Be factual and analytical. Do NOT add mood, personality, or conversational elements. "
             msg += "Do NOT give advice, ask questions, request insights, or ask for recommendations. "
             msg += "Do NOT say things like 'should we play together' or any casual conversation. "
             msg += "Just state the analysis factually in a professional tone. "
+            msg += f"IMPORTANT: The opponent plays {opponent_race}. Ignore any matchup-specific patterns that don't match (e.g. ignore TvZ patterns in a TvT game). "
             msg += "Format: 'ML Analysis: [your analysis]'\n\n"
-            msg += f"Opponent: {data['opponent_name']}\n"
+            msg += f"Opponent: {data['opponent_name']} ({opponent_race})\n"
             
             if analysis_type == 'learning_data':
                 # Analysis based on commented games

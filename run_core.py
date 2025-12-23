@@ -63,6 +63,9 @@ from core.handlers.history_handler import HistoryHandler
 from core.handlers.fsl_handler import FSLHandler
 from core.handlers.head_to_head_handler import HeadToHeadHandler
 from core.handlers.retry_processing_handler import RetryProcessingHandler
+from core.handlers.replay_test_handler import ReplayTestHandler
+from core.handlers.preview_handler import PreviewHandler
+from core.opponent_analysis_service import OpponentAnalysisService
 
 # Import Legacy Bots & Utils
 from api.twitch_bot import TwitchBot
@@ -222,6 +225,16 @@ async def main():
     # Register retry processing handler (must be after game_result_service is created)
     retry_handler = RetryProcessingHandler(game_result_service)
     command_service.register_handler("please retry", retry_handler)
+    
+    # Register replay test handler for testing strategy summary against historical replays
+    replay_test_handler = ReplayTestHandler(game_result_service)
+    command_service.register_handler("please replay", replay_test_handler)
+    
+    # Register preview handler for pre-game analysis on demand
+    opponent_analysis_service = OpponentAnalysisService(twitch_bot_legacy.db, twitch_bot_legacy)
+    preview_handler = PreviewHandler(opponent_analysis_service, twitch_bot_legacy)
+    command_service.register_handler("please preview", preview_handler)
+    command_service.register_handler("please review", preview_handler)  # Alias
     
     # SC2 Adapter with GameResultService
     sc2_adapter = SC2Adapter(bot_core, game_result_service)

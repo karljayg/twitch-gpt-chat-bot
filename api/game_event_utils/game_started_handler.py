@@ -279,19 +279,23 @@ def game_started(self, current_game, contextHistory, logger):
                                 # Calculate total games vs this opponent (wins + losses)
                                 total_games = opponent_wins + opponent_losses
                                 
-                                # Determine the format based on edge cases
-                                if total_games == 0:
-                                    # No total games found - fallback to just comment count
-                                    format_instruction = f"6. START your response with: 'There are at least {num_comment_games} memorable match{'es' if num_comment_games != 1 else ''} where the opponent '\n"
-                                elif total_games == num_comment_games:
-                                    # All games have comments - simplify format
-                                    format_instruction = f"6. START your response with: 'I've witnessed {total_games} game{'s' if total_games != 1 else ''} vs this opponent where the opponent '\n"
-                                elif num_comment_games == 0 and total_games > 0:
-                                    # No comments but have total games - mention total
-                                    format_instruction = f"6. START your response with: 'I've witnessed at least {total_games} total game{'s' if total_games != 1 else ''} vs this opponent. '\n"
+                                # Sort comments by date (most recent first)
+                                sorted_comments = sorted(player_comments, key=lambda x: x.get('date_played', ''), reverse=True)
+                                
+                                # Get the most recent game's details
+                                most_recent = sorted_comments[0] if sorted_comments else None
+                                recent_date = most_recent.get('date_played', 'unknown') if most_recent else 'unknown'
+                                recent_comment = most_recent.get('player_comments', 'unknown strategy') if most_recent else 'unknown'
+                                recent_map = most_recent.get('map', 'unknown map') if most_recent else 'unknown'
+                                
+                                # Format: Start with most recent game, then summarize others
+                                if num_comment_games == 1:
+                                    format_instruction = f"6. START your response with: 'Last game vs this opponent was on {recent_date}: {recent_comment} on {recent_map}. '\n"
+                                elif num_comment_games == 2:
+                                    format_instruction = f"6. START your response with: 'Last game ({recent_date}): {recent_comment}. There is 1 other memorable game where the opponent '\n"
                                 else:
-                                    # Normal case: memorable matches out of total
-                                    format_instruction = f"6. START your response with: 'There are at least {num_comment_games} memorable match{'es' if num_comment_games != 1 else ''} (out of {total_games} total games witnessed) where the opponent '\n"
+                                    other_count = num_comment_games - 1
+                                    format_instruction = f"6. START your response with: 'Last game ({recent_date}): {recent_comment}. There are {other_count} other memorable games (out of {total_games} total) where the opponent '\n"
                                 
                                 msg = "As a StarCraft 2 expert, analyze these previous game comments about the opponent. "
                                 msg += "IMPORTANT: Use ONLY the data provided below - do NOT make assumptions or add information not present. \n\n"
@@ -302,13 +306,13 @@ def game_started(self, current_game, contextHistory, logger):
                                 msg += "4. If opponent's units/buildings are mentioned, reference them accurately\n"
                                 msg += "5. Keep summary under 300 characters\n"
                                 msg += format_instruction
-                                msg += "7. DO NOT use bullet points (-) or multiple sentences - ONE continuous sentence only\n"
+                                msg += "7. DO NOT use bullet points (-) or multiple sentences - TWO sentences max\n"
                                 msg += "8. DO NOT mention units/buildings that are NOT explicitly mentioned in the comments below\n\n"
-                                msg += "Previous game data:\n"
+                                msg += "Previous game data (sorted by date, most recent first):\n"
                                 msg += "-----\n"
 
-                                # Add player comments to the message
-                                for comment in player_comments:
+                                # Add player comments to the message (already sorted)
+                                for comment in sorted_comments:
                                     msg += (
                                         f"Comment: {comment['player_comments']}\n"
                                         f"Map: {comment['map']}\n"
@@ -337,19 +341,17 @@ def game_started(self, current_game, contextHistory, logger):
                                         variation_msg = f"Rewrite this StarCraft 2 analysis message with different wording, but keep ALL the same details and the specific format:\n\n"
                                         variation_msg += f"{base_response}\n\n"
                                         variation_msg += "CRITICAL Requirements:\n"
-                                        variation_msg += "1. You MUST keep the format that mentions memorable matches and total games (e.g., 'There are at least X memorable matches (out of Y total games witnessed) where the opponent...')\n"
-                                        variation_msg += "2. If all games have comments, use format: 'I've witnessed X games vs this opponent where the opponent...'\n"
-                                        variation_msg += "3. If no comments but total games exist, use format: 'I've witnessed at least X total games vs this opponent.'\n"
-                                        variation_msg += "4. You MUST mention what the opponent did in those previous games (e.g., 'where the opponent did...' or 'in which the opponent...')\n"
-                                        variation_msg += "5. Use different phrasing and sentence structure for the rest\n"
-                                        variation_msg += "6. Keep ALL the same details (exact match counts, total games, all patterns, all strategies mentioned)\n"
-                                        variation_msg += "7. Keep it under 300 characters\n"
-                                        variation_msg += "8. ONE continuous sentence only\n"
-                                        variation_msg += "9. Do NOT add or remove any information\n"
-                                        variation_msg += "10. Examples of good format variations:\n"
-                                        variation_msg += "   - 'There are at least 4 memorable matches (out of 12 total games witnessed) where the opponent did charge lot all-in, followed by three consecutive instances of DT rush.'\n"
-                                        variation_msg += "   - 'I've witnessed 5 games vs this opponent where they consistently used gateway-focused builds with slow expansion.'\n"
-                                        variation_msg += "   - 'Out of 8 total games witnessed, there are at least 3 memorable matches where the opponent showed aggressive early game strategies.'\n"
+                                        variation_msg += "1. You MUST start with the MOST RECENT game's date and strategy (e.g., 'Last game (2024-12-15): cannon rush. ...')\n"
+                                        variation_msg += "2. Then mention other games if any exist\n"
+                                        variation_msg += "3. You MUST mention what the opponent did in those previous games\n"
+                                        variation_msg += "4. Use different phrasing and sentence structure for the rest\n"
+                                        variation_msg += "5. Keep ALL the same details (dates, strategies, all patterns mentioned)\n"
+                                        variation_msg += "6. Keep it under 300 characters\n"
+                                        variation_msg += "7. TWO sentences max\n"
+                                        variation_msg += "8. Do NOT add or remove any information\n"
+                                        variation_msg += "9. Examples of good format:\n"
+                                        variation_msg += "   - 'Last game (2024-12-15): cannon rush on Goldenaura. 3 other notable games showed DT rush and charge lot aggression.'\n"
+                                        variation_msg += "   - 'Most recent (2024-12-10): ling bane all-in. Previously did roach timing and muta harass.'\n"
                                         
                                         # Get varied response
                                         variation_completion = send_prompt_to_openai(variation_msg)
@@ -371,16 +373,42 @@ def game_started(self, current_game, contextHistory, logger):
                                     # Fallback: use processMessageForOpenAI if direct call fails
                                     processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)                     
                               
-                            msg = "Do these 2: \n"
-                            if streamer_picked_race == "Random":
-                                msg += f"Mention all details here, do not exclude any info: Even tho {config.STREAMER_NICKNAME} is Random, the last time he was {streamer_picked_race} played the {player_current_race} player " 
+                            # Check if the previous game had the same matchup as current game
+                            # Extract previous game's races from result
+                            prev_player1_race = result.get('Player1_Race', '')
+                            prev_player2_race = result.get('Player2_Race', '')
+                            prev_player1_name = result.get('Player1_Name', '')
+                            
+                            # Determine streamer's race in the previous game
+                            streamer_accounts = [name.lower() for name in config.SC2_PLAYER_ACCOUNTS]
+                            if prev_player1_name.lower() in streamer_accounts:
+                                prev_streamer_race = prev_player1_race
                             else:
-                                msg += f"Mention all details here, do not exclude any info: {config.STREAMER_NICKNAME} as {streamer_picked_race} played the {player_current_race} player "                                 
-                            msg += f"{player_name} {how_long_ago} in {{Map name}},"
+                                prev_streamer_race = prev_player2_race
+                            
+                            # Check if matchup is different
+                            same_matchup = (prev_streamer_race.lower() == streamer_picked_race.lower())
+                            
+                            msg = "Do these 2: \n"
+                            if not same_matchup:
+                                # Different matchup - note this clearly
+                                msg += f"NOTE: The previous game was {prev_streamer_race}v{player_current_race}, but TODAY's game is {streamer_picked_race}v{player_current_race}. "
+                                msg += f"When describing the previous game, use the CORRECT races from that game (previous matchup was {prev_streamer_race}v{player_current_race}). "
+                            
+                            if streamer_picked_race == "Random":
+                                msg += f"Mention all details here, do not exclude any info: Even tho {config.STREAMER_NICKNAME} is Random, the last time he played the {player_current_race} player " 
+                            else:
+                                msg += f"Mention all details here, do not exclude any info: The last time {config.STREAMER_NICKNAME} played the {player_current_race} player "                                 
+                            msg += f"{player_name} was {how_long_ago} in {{Map name}},"
                             msg += f" a {{Win/Loss for {config.STREAMER_NICKNAME}}} in {{game duration}}. \n"
                             msg += f"CRITICAL: In the replay summary below, {config.STREAMER_NICKNAME} is YOUR player. {player_name} is the OPPONENT. "
                             msg += f"When mentioning units/buildings, make sure you correctly identify which player built them. "
                             msg += f"Look at the section headers (e.g., '{config.STREAMER_NICKNAME}'s Build Order' vs '{player_name}'s Build Order'). "
+                            if same_matchup:
+                                msg += f"RACE CONSTRAINT: {config.STREAMER_NICKNAME} is {streamer_picked_race}, {player_name} is {player_current_race}. "
+                                msg += f"ONLY mention units that exist for these races. Do NOT mention units from other races. "
+                            else:
+                                msg += f"In the PREVIOUS game: {config.STREAMER_NICKNAME} was {prev_streamer_race}, {player_name} was {player_current_race}. Use these races. "
                             msg += "As a StarCraft 2 expert, comment on last game summary. Be concise with only 2 sentences total of 25 words or less. \n"
                             msg += "-----\n"
                             msg += f" \n {result['Replay_Summary']} \n"

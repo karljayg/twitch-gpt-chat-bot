@@ -100,8 +100,9 @@ class GameSummarizer:
                 replay_summary += '\n'
                 
         # Anonymize Streamer Name in the rest of the text (already handled in headers above, but good for other sections)
+        # Use word boundaries to prevent "FALSE" from matching "FalseSith"
         for player_name in config.SC2_PLAYER_ACCOUNTS:
-            pattern = re.compile(re.escape(player_name), re.IGNORECASE)
+            pattern = re.compile(r'\b' + re.escape(player_name) + r'\b', re.IGNORECASE)
             replay_summary = pattern.sub(config.STREAMER_NICKNAME, replay_summary)
             
         return replay_summary

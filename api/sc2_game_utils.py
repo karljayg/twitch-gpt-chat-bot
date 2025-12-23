@@ -345,11 +345,11 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
                     replay_summary += order_info + '\n'
                 replay_summary += '\n'
 
-            # Replace all player account names (case-insensitive) with STREAMER_NICKNAME
+            # Replace all player account names (case-insensitive, whole word only) with STREAMER_NICKNAME
+            # Use word boundaries to prevent "FALSE" from matching "FalseSith"
             for player_name in config.SC2_PLAYER_ACCOUNTS:
-                # Use case-insensitive replacement by creating a pattern
                 import re
-                pattern = re.compile(re.escape(player_name), re.IGNORECASE)
+                pattern = re.compile(r'\b' + re.escape(player_name) + r'\b', re.IGNORECASE)
                 replay_summary = pattern.sub(config.STREAMER_NICKNAME, replay_summary)
 
             game_ended_handler.save_file(replay_summary, 'summary', logger)

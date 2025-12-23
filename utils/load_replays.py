@@ -203,11 +203,12 @@ class ReplayLoader:
                     replay_summary += order_info + '\n'
                 replay_summary += '\n'
 
-            # replace player names with streamer name (case-insensitive)
+            # replace player names with streamer name (case-insensitive, whole word only)
             import re
             for player_name in config.SC2_PLAYER_ACCOUNTS:
-                # Use regex for case-insensitive replacement
-                pattern = re.compile(re.escape(player_name), re.IGNORECASE)
+                # Use regex for case-insensitive replacement with word boundaries
+                # This prevents "FALSE" from matching "FalseSith"
+                pattern = re.compile(r'\b' + re.escape(player_name) + r'\b', re.IGNORECASE)
                 replay_summary = pattern.sub(config.STREAMER_NICKNAME, replay_summary)
 
             # Save the replay summary to a file

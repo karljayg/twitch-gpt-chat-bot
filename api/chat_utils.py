@@ -185,6 +185,13 @@ def process_pubmsg(self, event, logger, contextHistory):
     original_msg = event.arguments[0]
     msg = original_msg.lower()
     sender = event.source.split('!')[0]
+    
+    # Skip command messages that are handled by CommandService (don't send to OpenAI)
+    command_prefixes = ['please retry', 'please preview', 'please review', 'please replay', 
+                        'player comment', 'player comments', 'head to head', 'fsl', 'analyze', 'wiki', 'career', 'history']
+    if any(msg.startswith(prefix) for prefix in command_prefixes):
+        logger.debug(f"Skipping command message from OpenAI processing: {msg[:30]}...")
+        return
     # tags = {kvpair["key"]: kvpair["value"] for kvpair in event.tags}
     # user = {"name": tags["display-name"], "id": tags["user-id"]}
 
@@ -311,14 +318,25 @@ def process_pubmsg(self, event, logger, contextHistory):
     if sender.lower() == config.PAGE.lower() and hasattr(self, 'pattern_learning_context') and self.pattern_learning_context:
         import time
         
-        # Check if context has expired (5 minute timeout)
-        context_age = time.time() - self.pattern_learning_context['timestamp']
-        if context_age > 300:  # 5 minutes
-            logger.debug(f"Pattern learning context expired ({context_age:.0f}s old), clearing")
-            self.pattern_learning_context = None
+        # Skip if this is a known command (don't treat commands as pattern comments)
+        known_commands = ['please retry', 'please preview', 'please review', 'please replay', 
+                          'player comment', 'head to head', 'fsl', 'analyze']
+        msg_lower_stripped = original_msg.lower().strip()
+        is_known_command = any(msg_lower_stripped.startswith(cmd) for cmd in known_commands)
+        
+        if is_known_command:
+            logger.debug(f"Skipping pattern learning - '{original_msg}' is a known command")
+            # Don't process as pattern comment - fall through to let command handler process it
+            pass
         else:
-            # Process natural language response
-            logger.info(f"Processing natural language pattern learning response: '{original_msg}'")
+            # Check if context has expired (5 minute timeout)
+            context_age = time.time() - self.pattern_learning_context['timestamp']
+            if context_age > 300:  # 5 minutes
+                logger.debug(f"Pattern learning context expired ({context_age:.0f}s old), clearing")
+                self.pattern_learning_context = None
+            else:
+                # Process natural language response
+                logger.info(f"Processing natural language pattern learning response: '{original_msg}'")
             
             action, comment_text = self._process_natural_language_pattern_response(original_msg, logger)
             logger.debug(f"NLP interpreted as: action='{action}', comment='{comment_text}'")
@@ -816,6 +834,85 @@ def send_prompt_to_openai(msg):
             ]
         )
         return completion
+
+
+def summarize_strategy_with_units(player_name: str, pattern_name: str, 
+                                   real_units: list, is_winner: bool = None,
+                                   logger=None) -> str:
+    """
+    Generate a factual strategy summary combining pattern context with real units.
+    
+    Uses the pattern name for strategic context (e.g., "bio harass", "cannon rush")
+    but only mentions units that were ACTUALLY built.
+    
+    Args:
+        player_name: Name of the player
+        pattern_name: Pattern/strategy label (e.g., "bio with banshee harass")
+        real_units: List of units actually built (e.g., ["Marine", "Marauder", "Tank"])
+        is_winner: True if won, False if lost, None if unknown
+        logger: Optional logger instance
+    
+    Returns:
+        Concise factual summary string
+    
+    Example:
+        summarize_strategy_with_units("Stradale", "bio with banshee harass", 
+                                       ["Marine", "Marauder", "Tank"], is_winner=False)
+        -> "Stradale (L) did bio play with Marine, Marauder, Tank"
+    """
+    import logging
+    log = logger or logging.getLogger(__name__)
+    
+    # Extract key units mentioned in pattern name (for comparison)
+    pattern_lower = pattern_name.lower()
+    
+    # Build result indicator
+    if is_winner is True:
+        result = "(W)"
+    elif is_winner is False:
+        result = "(L)"
+    else:
+        result = ""
+    
+    # Format real units (first 6)
+    units_str = ", ".join(real_units[:6]) if real_units else "unknown units"
+    
+    # Build prompt that uses pattern for context but is strict about real units
+    prompt = f"""Write a SHORT factual summary (under 15 words) for this SC2 player.
+
+Player: {player_name} {result}
+Strategy type (context only): {pattern_name}
+Units ACTUALLY built: {units_str}
+
+RULES:
+1. You may ONLY mention units from the "Units ACTUALLY built" list
+2. You can use the strategy type for general context (e.g., "bio play", "macro game")
+3. Do NOT mention any units from the strategy type that aren't in the actual list
+4. Do NOT use speculative words: "tried", "going for", "all-in", "rush"
+5. Keep it very short and factual
+
+Example good outputs:
+- "Stradale (L) did bio with Marine, Marauder, Tank"
+- "Alpha (W) made Gateway units with Stalker, Zealot"
+
+Your summary:"""
+
+    try:
+        completion = send_prompt_to_openai(prompt)
+        
+        if completion and completion.choices and completion.choices[0].message:
+            summary = completion.choices[0].message.content.strip()
+            summary = summary.strip('"\'')
+            summary = summary.replace('\n', ' ').replace('\r', '')
+            return summary
+        
+        # Fallback
+        return f"{player_name} {result}: {units_str}"
+        
+    except Exception as e:
+        if log:
+            log.warning(f"OpenAI error in summarize_strategy_with_units: {e}")
+        return f"{player_name} {result}: {units_str}"
 
 def process_ai_message(user_message, conversation_mode="normal", contextHistory=None, platform="twitch", logger=None):
     """

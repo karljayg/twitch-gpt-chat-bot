@@ -204,6 +204,57 @@ class Database:
             self.logger.error(f"Error fetching latest replay: {e}")
             return None
     
+    def get_replay_by_id(self, replay_id: int):
+        """Get replay info by ReplayId - returns opponent, date, map, and replay_summary"""
+        try:
+            self.ensure_connection()
+            self.cursor.reset()
+            
+            sql = """
+                SELECT r.ReplayId, r.UnixTimestamp, r.Player1_Id, r.Player2_Id, 
+                       r.Player1_Result, r.Player2_Result, r.Player1_Race, r.Player2_Race,
+                       r.Map, r.GameDuration, r.Date_Played, r.Player_Comments, r.Replay_Summary,
+                       p1.SC2_UserId as Player1_Name, p2.SC2_UserId as Player2_Name
+                FROM Replays r
+                JOIN Players p1 ON r.Player1_Id = p1.Id
+                JOIN Players p2 ON r.Player2_Id = p2.Id
+                WHERE r.ReplayId = %s
+            """
+            self.cursor.execute(sql, (replay_id,))
+            result = self.cursor.fetchone()
+            
+            if not result:
+                return None
+            
+            # Determine which player is the streamer and which is opponent
+            from settings import config
+            streamer_accounts = [name.lower() for name in config.SC2_PLAYER_ACCOUNTS]
+            
+            if result['Player1_Name'].lower() in streamer_accounts:
+                opponent = result['Player2_Name']
+                opponent_race = result['Player2_Race']
+                result_str = result['Player1_Result']
+            else:
+                opponent = result['Player1_Name']
+                opponent_race = result['Player1_Race']
+                result_str = result['Player2_Result']
+            
+            return {
+                'replay_id': result['ReplayId'],
+                'opponent': opponent,
+                'opponent_race': opponent_race,
+                'map': result['Map'],
+                'result': result_str,
+                'date': str(result['Date_Played']),
+                'duration': result['GameDuration'],
+                'timestamp': result['UnixTimestamp'],
+                'existing_comment': result['Player_Comments'],
+                'replay_summary': result.get('Replay_Summary', '')
+            }
+        except Exception as e:
+            self.logger.error(f"Error fetching replay by ID {replay_id}: {e}")
+            return None
+
     def update_player_comments_in_last_replay(self, comment):
         try:
             self.ensure_connection()
@@ -325,11 +376,24 @@ class Database:
             return None
 
     def get_player_records(self, player_name):
+        """
+        Get win/loss record for a player against all streamer accounts combined.
+        
+        This aggregates games where player_name played against ANY account in SC2_PLAYER_ACCOUNTS.
+        """
+        from settings import config
+        
         # Reset the cursor if needed
         self.cursor.reset()
+        
+        # Get all streamer accounts to search against
+        streamer_accounts = config.SC2_PLAYER_ACCOUNTS + getattr(config, 'SC2_BARCODE_ACCOUNTS', [])
+        
+        # Build SQL with placeholder for all streamer accounts
+        placeholders = ', '.join(['%s'] * len(streamer_accounts))
 
-        # SQL Query
-        sql = """
+        # SQL Query - find games where player_name played vs any streamer account
+        sql = f"""
         SELECT 
             CASE 
                 WHEN p1.SC2_UserId = %s THEN p2.SC2_UserId
@@ -357,13 +421,31 @@ class Database:
         self.cursor.execute(sql, (player_name, player_name, player_name, player_name, player_name, player_name, player_name))
         results = self.cursor.fetchall()
 
-        # Formatting results
+        # Aggregate wins/losses where opponent is a streamer account
+        total_wins = 0
+        total_losses = 0
+        streamer_accounts_lower = [acc.lower() for acc in streamer_accounts]
+        
         formatted_results = []
         for row in results:
             opponent, wins, losses = row['Opponent'], row['Wins'], row['Losses']
+            
+            # Check if opponent is a streamer account (aggregate these)
+            if opponent.lower() in streamer_accounts_lower:
+                total_wins += wins
+                total_losses += losses
+                self.logger.debug(f"Aggregating {opponent}: {wins}W-{losses}L -> running total: {total_wins}W-{total_losses}L")
+            
             formatted_result = f"{player_name}, {opponent}, {wins} wins, {losses} losses"
             self.logger.debug(f"Formatted result: '{formatted_result}' (player_name: '{player_name}', opponent: '{opponent}')")
             formatted_results.append(formatted_result)
+        
+        # Add aggregated streamer record as first result if any matches found
+        if total_wins > 0 or total_losses > 0:
+            streamer_nickname = getattr(config, 'STREAMER_NICKNAME', 'KJ')
+            aggregated = f"{player_name}, {streamer_nickname}, {total_wins} wins, {total_losses} losses"
+            self.logger.debug(f"Aggregated vs all streamer accounts: {aggregated}")
+            formatted_results.insert(0, aggregated)
 
         self.logger.debug(f"result: \n {formatted_results}")
 

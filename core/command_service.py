@@ -28,6 +28,7 @@ class CommandService:
     def register_handler(self, keyword: str, handler: ICommandHandler):
         """Register a handler for a command keyword (case-insensitive)"""
         self.handlers[keyword.lower()] = handler
+        logger.info(f"Registered command handler: '{keyword.lower()}'")
         
     async def handle_message(self, message: str, channel: str, author: str, platform: str) -> bool:
         """
@@ -38,7 +39,7 @@ class CommandService:
             return False
             
         msg_lower = message.lower()
-        # logger.debug(f"Checking command for: {msg_lower} (platform: {platform})")
+        logger.debug(f"Checking command for: '{msg_lower}' (registered: {list(self.handlers.keys())})")
         
         # Sort handlers by length (descending) to match longest prefix first
         # IMPORTANT: Use strict matching for multi-word commands to avoid partial matches in normal sentences
