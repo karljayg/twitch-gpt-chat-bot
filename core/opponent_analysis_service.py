@@ -14,6 +14,7 @@ from settings import config
 import utils.tokensArray as tokensArray
 from api.chat_utils import processMessageForOpenAI, msgToChannel
 from api.ml_opponent_analyzer import analyze_opponent_for_game_start
+from utils.time_utils import calculate_time_ago
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +90,7 @@ class OpponentAnalysisService:
         logger.debug(f"{config.STREAMER_NICKNAME} picked race in previous game: {streamer_picked_race}")
         
         # Calculate how long ago the last game was
-        how_long_ago = self._calculate_time_ago(db_result['Date_Played'])
+        how_long_ago = calculate_time_ago(db_result['Date_Played'])
         
         # Get player records (win/loss)
         raw_records = self.db.get_player_records(opponent_name)
@@ -190,26 +191,6 @@ class OpponentAnalysisService:
         processMessageForOpenAI(self.twitch_bot, msg, "in_game", logger, context_history)
         return True
     
-    def _calculate_time_ago(self, date_played) -> str:
-        """Calculate human-readable time since date."""
-        eastern = pytz.timezone('US/Eastern')
-        date_obj = eastern.localize(date_played)
-        current_time_eastern = datetime.now(eastern)
-        delta = current_time_eastern - date_obj
-        
-        days_ago = delta.days
-        hours_ago = delta.seconds // 3600
-        seconds_ago = delta.seconds
-        
-        if days_ago == 0:
-            mins_ago = seconds_ago // 60
-            if mins_ago > 60:
-                return f"{hours_ago} hours ago."
-            else:
-                return f"{mins_ago} minutes ago."
-        else:
-            return f"{days_ago} days ago"
-    
     def _parse_win_loss_record(self, raw_records) -> tuple:
         """Parse win/loss record from raw records."""
         opponent_wins = 0
@@ -244,13 +225,14 @@ class OpponentAnalysisService:
         
         # Get most recent game details
         most_recent = sorted_comments[0] if sorted_comments else None
-        recent_date = most_recent.get('date_played', 'unknown') if most_recent else 'unknown'
+        recent_date_str = most_recent.get('date_played', 'unknown') if most_recent else 'unknown'
+        recent_date = calculate_time_ago(recent_date_str)
         recent_comment = most_recent.get('player_comments', 'unknown strategy') if most_recent else 'unknown'
         recent_map = most_recent.get('map', 'unknown map') if most_recent else 'unknown'
         
         # Format instruction based on count
         if num_comment_games == 1:
-            format_instruction = f"6. START your response with: 'Last game vs this opponent was on {recent_date}: {recent_comment} on {recent_map}. '\n"
+            format_instruction = f"6. START your response with: 'Last game vs this opponent was {recent_date}: {recent_comment} on {recent_map}. '\n"
         elif num_comment_games == 2:
             format_instruction = f"6. START your response with: 'Last game ({recent_date}): {recent_comment}. There is 1 other memorable game where the opponent '\n"
         else:

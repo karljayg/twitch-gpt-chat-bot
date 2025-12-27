@@ -55,10 +55,10 @@ def game_ended(self, game_player_names,winning_players,losing_players, logger):
             response = f"The game was abandoned immediately in just {self.total_seconds} seconds between {game_player_names} and so {winning_players} get the free win."
         else:
             if streamer_playing:
-                response = f"Game with {game_player_names} ended with {winning_players} beating {losing_players}"
+                response = f"{winning_players} beat {losing_players}"
             else:
                 # Observer mode - neutral commentary
-                response = f"[Observer] Match between {game_player_names} ended with {winning_players} defeating {losing_players}"
+                response = f"[Observer] {winning_players} defeated {losing_players}"
     
         # Check if this is an FSL game and ask for reviewer request
 

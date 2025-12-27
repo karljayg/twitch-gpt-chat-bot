@@ -5,7 +5,7 @@ from api.ml_opponent_analyzer import analyze_opponent_for_game_start
 
 from settings import config
 import utils.tokensArray as tokensArray
-
+from utils.time_utils import calculate_time_ago
 
 
 def game_started(self, current_game, contextHistory, logger):
@@ -156,33 +156,8 @@ def game_started(self, current_game, contextHistory, logger):
                             logger.debug(f"{config.STREAMER_NICKNAME} picked race: {streamer_picked_race}")
 
                             logger.debug(f"player with matching name and race of {player_current_race} exists in DB, last playing {config.STREAMER_NICKNAME} who was {streamer_picked_race} on {result['Date_Played']}")
-                            # Set the timezone for Eastern Time
-                            eastern = pytz.timezone('US/Eastern')
-
-                            # already in Eastern Time since it is using DB replay table Date_Played column
-                            date_obj = eastern.localize(
-                                result['Date_Played'])
-
-                            # Get the current datetime in Eastern Time
-                            current_time_eastern = datetime.now(eastern)
-
-                            # Calculate the difference
-                            delta = current_time_eastern - date_obj
-
-                            # Extract the number of days
-                            days_ago = delta.days
-                            hours_ago = delta.seconds // 3600
-                            seconds_ago = delta.seconds
-
-                            # Determine the appropriate message
-                            if days_ago == 0:
-                                mins_ago = seconds_ago // 60
-                                if mins_ago > 60:
-                                    how_long_ago = f"{hours_ago} hours ago."
-                                else:
-                                    how_long_ago = f"{mins_ago} seconds ago."
-                            else:
-                                how_long_ago = f"{days_ago} days ago"
+                            # Calculate how long ago using shared utility
+                            how_long_ago = calculate_time_ago(result['Date_Played'])
 
                             logger.debug(f"checking DB for last game where player versus {config.STREAMER_NICKNAME} was in same matchup of {player_current_race} versus {streamer_current_race} ")
 
@@ -284,13 +259,14 @@ def game_started(self, current_game, contextHistory, logger):
                                 
                                 # Get the most recent game's details
                                 most_recent = sorted_comments[0] if sorted_comments else None
-                                recent_date = most_recent.get('date_played', 'unknown') if most_recent else 'unknown'
+                                recent_date_str = most_recent.get('date_played', 'unknown') if most_recent else 'unknown'
+                                recent_date = calculate_time_ago(recent_date_str)
                                 recent_comment = most_recent.get('player_comments', 'unknown strategy') if most_recent else 'unknown'
                                 recent_map = most_recent.get('map', 'unknown map') if most_recent else 'unknown'
                                 
                                 # Format: Start with most recent game, then summarize others
                                 if num_comment_games == 1:
-                                    format_instruction = f"6. START your response with: 'Last game vs this opponent was on {recent_date}: {recent_comment} on {recent_map}. '\n"
+                                    format_instruction = f"6. START your response with: 'Last game vs this opponent was {recent_date}: {recent_comment} on {recent_map}. '\n"
                                 elif num_comment_games == 2:
                                     format_instruction = f"6. START your response with: 'Last game ({recent_date}): {recent_comment}. There is 1 other memorable game where the opponent '\n"
                                 else:
