@@ -165,7 +165,7 @@ class ReplayLoader:
             game_duration = f"{minutes}m {seconds}s"
             replay_summary += f"Game Duration: {game_duration}\n\n"
 
-            build_order_count = config.BUILD_ORDER_COUNT_TO_ANALYZE
+            build_order_count = config.BUILD_ORDER_STEPS_TO_ANALYZE
 
             # Units Lost
             units_lost_summary = {player_key: player_data['unitsLost'] for player_key, player_data in

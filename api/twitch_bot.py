@@ -1040,6 +1040,10 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             from api.chat_utils import send_prompt_to_openai
             
             ctx = self.pattern_learning_context
+            if ctx is None:
+                logger.warning("Pattern learning context is None, cannot process response")
+                return ('skip', None)
+            
             pattern_text = f"Pattern Match ({ctx['pattern_similarity']:.0f}%): \"{ctx['pattern_match']}\"" if ctx['pattern_match'] else "No pattern match"
             ai_text = f"AI Summary: \"{ctx['ai_summary']}\"" if ctx['ai_summary'] else "No AI summary"
             

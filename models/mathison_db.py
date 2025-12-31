@@ -759,7 +759,7 @@ class Database:
                 '"', '') for line in reformatted_list]
 
             # Extract the first few lines
-            return reformatted_list[1:config.BUILD_ORDER_COUNT_TO_ANALYZE]
+            return reformatted_list[1:config.BUILD_ORDER_STEPS_TO_ANALYZE]
 
         else:
             return None

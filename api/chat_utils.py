@@ -334,11 +334,11 @@ def process_pubmsg(self, event, logger, contextHistory):
             if context_age > 300:  # 5 minutes
                 logger.debug(f"Pattern learning context expired ({context_age:.0f}s old), clearing")
                 self.pattern_learning_context = None
+                return  # Context expired, don't process
             else:
                 # Process natural language response
                 logger.info(f"Processing natural language pattern learning response: '{original_msg}'")
-            
-            action, comment_text = self._process_natural_language_pattern_response(original_msg, logger)
+                action, comment_text = self._process_natural_language_pattern_response(original_msg, logger)
             logger.debug(f"NLP interpreted as: action='{action}', comment='{comment_text}'")
             
             if action == 'skip':

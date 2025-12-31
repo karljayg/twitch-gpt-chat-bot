@@ -87,7 +87,8 @@ REPLAYS_FILE_EXTENSION = "SC2Replay"
 USE_CONFIG_TEST_REPLAY_FILE = False
 REPLAY_TEST_FILE = ("test/replays/Royal Blood LE (428).SC2Replay")
 
-BUILD_ORDER_COUNT_TO_ANALYZE = 60
+BUILD_ORDER_STEPS_TO_ANALYZE = 120  # Step count for pattern signatures and matching
+EARLY_GAME_SUPPLY_THRESHOLD = 60     # Supply threshold for early game classification (not step count)
 # games less than this seconds will be considered abandoned for better commentary
 ABANDONED_GAME_THRESHOLD = 15
 # TODO: make this more intuitive and less confusing, as test modes are different from running replays period

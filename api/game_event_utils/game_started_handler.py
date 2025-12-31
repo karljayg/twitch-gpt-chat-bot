@@ -191,7 +191,7 @@ def game_started(self, current_game, contextHistory, logger):
                             
                             player_record = "past results:\n" + '\n'.join(raw_records)
 
-                            # get the defined amount of build steps of the opponent with same race matchup from config.BUILD_ORDER_COUNT_TO_ANALYZE
+                            # get the defined amount of build steps of the opponent with same race matchup from config.BUILD_ORDER_STEPS_TO_ANALYZE
                             first_few_build_steps = self.db.extract_opponent_build_order(player_name, player_current_race, streamer_current_race)
 
                             # if streamer is Random, then the last replay retrieved from previous query is the one to use
@@ -233,6 +233,9 @@ def game_started(self, current_game, contextHistory, logger):
 
                             # Fetch comments for the player on actual current name, not alias
                             player_comments = self.db.get_player_comments(current_player_name, player_current_race)
+                            
+                            # Track if we sent player comments analysis (to avoid redundant last game summary)
+                            sent_player_comments_analysis = False
 
                             # Check if there are comments
                             if not player_comments:
@@ -347,48 +350,52 @@ def game_started(self, current_game, contextHistory, logger):
                                 except Exception as e:
                                     logger.error(f"Error getting/varying player comment analysis: {e}")
                                     # Fallback: use processMessageForOpenAI if direct call fails
-                                    processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)                     
+                                    processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
+                                sent_player_comments_analysis = True
                               
-                            # Check if the previous game had the same matchup as current game
-                            # Extract previous game's races from result
-                            prev_player1_race = result.get('Player1_Race', '')
-                            prev_player2_race = result.get('Player2_Race', '')
-                            prev_player1_name = result.get('Player1_Name', '')
-                            
-                            # Determine streamer's race in the previous game
-                            streamer_accounts = [name.lower() for name in config.SC2_PLAYER_ACCOUNTS]
-                            if prev_player1_name.lower() in streamer_accounts:
-                                prev_streamer_race = prev_player1_race
-                            else:
-                                prev_streamer_race = prev_player2_race
-                            
-                            # Check if matchup is different
-                            same_matchup = (prev_streamer_race.lower() == streamer_picked_race.lower())
-                            
-                            msg = "Do these 2: \n"
-                            if not same_matchup:
-                                # Different matchup - note this clearly
-                                msg += f"NOTE: The previous game was {prev_streamer_race}v{player_current_race}, but TODAY's game is {streamer_picked_race}v{player_current_race}. "
-                                msg += f"When describing the previous game, use the CORRECT races from that game (previous matchup was {prev_streamer_race}v{player_current_race}). "
-                            
-                            if streamer_picked_race == "Random":
-                                msg += f"Mention all details here, do not exclude any info: Even tho {config.STREAMER_NICKNAME} is Random, the last time he played the {player_current_race} player " 
-                            else:
-                                msg += f"Mention all details here, do not exclude any info: The last time {config.STREAMER_NICKNAME} played the {player_current_race} player "                                 
-                            msg += f"{player_name} was {how_long_ago} in {{Map name}},"
-                            msg += f" a {{Win/Loss for {config.STREAMER_NICKNAME}}} in {{game duration}}. \n"
-                            msg += f"CRITICAL: In the replay summary below, {config.STREAMER_NICKNAME} is YOUR player. {player_name} is the OPPONENT. "
-                            msg += f"When mentioning units/buildings, make sure you correctly identify which player built them. "
-                            msg += f"Look at the section headers (e.g., '{config.STREAMER_NICKNAME}'s Build Order' vs '{player_name}'s Build Order'). "
-                            if same_matchup:
-                                msg += f"RACE CONSTRAINT: {config.STREAMER_NICKNAME} is {streamer_picked_race}, {player_name} is {player_current_race}. "
-                                msg += f"ONLY mention units that exist for these races. Do NOT mention units from other races. "
-                            else:
-                                msg += f"In the PREVIOUS game: {config.STREAMER_NICKNAME} was {prev_streamer_race}, {player_name} was {player_current_race}. Use these races. "
-                            msg += "As a StarCraft 2 expert, comment on last game summary. Be concise with only 2 sentences total of 25 words or less. \n"
-                            msg += "-----\n"
-                            msg += f" \n {result['Replay_Summary']} \n"
-                            processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
+                            # Send last game summary only if we didn't already send player comments analysis
+                            # (they both mention "last game" info and are redundant)
+                            if not sent_player_comments_analysis:
+                                # Check if the previous game had the same matchup as current game
+                                # Extract previous game's races from result
+                                prev_player1_race = result.get('Player1_Race', '')
+                                prev_player2_race = result.get('Player2_Race', '')
+                                prev_player1_name = result.get('Player1_Name', '')
+                                
+                                # Determine streamer's race in the previous game
+                                streamer_accounts = [name.lower() for name in config.SC2_PLAYER_ACCOUNTS]
+                                if prev_player1_name.lower() in streamer_accounts:
+                                    prev_streamer_race = prev_player1_race
+                                else:
+                                    prev_streamer_race = prev_player2_race
+                                
+                                # Check if matchup is different
+                                same_matchup = (prev_streamer_race.lower() == streamer_picked_race.lower())
+                                
+                                msg = "Do these 2: \n"
+                                if not same_matchup:
+                                    # Different matchup - note this clearly
+                                    msg += f"NOTE: The previous game was {prev_streamer_race}v{player_current_race}, but TODAY's game is {streamer_picked_race}v{player_current_race}. "
+                                    msg += f"When describing the previous game, use the CORRECT races from that game (previous matchup was {prev_streamer_race}v{player_current_race}). "
+                                
+                                if streamer_picked_race == "Random":
+                                    msg += f"Mention all details here, do not exclude any info: Even tho {config.STREAMER_NICKNAME} is Random, the last time he played the {player_current_race} player " 
+                                else:
+                                    msg += f"Mention all details here, do not exclude any info: The last time {config.STREAMER_NICKNAME} played the {player_current_race} player "                                 
+                                msg += f"{player_name} was {how_long_ago} in {{Map name}},"
+                                msg += f" a {{Win/Loss for {config.STREAMER_NICKNAME}}} in {{game duration}}. \n"
+                                msg += f"CRITICAL: In the replay summary below, {config.STREAMER_NICKNAME} is YOUR player. {player_name} is the OPPONENT. "
+                                msg += f"When mentioning units/buildings, make sure you correctly identify which player built them. "
+                                msg += f"Look at the section headers (e.g., '{config.STREAMER_NICKNAME}'s Build Order' vs '{player_name}'s Build Order'). "
+                                if same_matchup:
+                                    msg += f"RACE CONSTRAINT: {config.STREAMER_NICKNAME} is {streamer_picked_race}, {player_name} is {player_current_race}. "
+                                    msg += f"ONLY mention units that exist for these races. Do NOT mention units from other races. "
+                                else:
+                                    msg += f"In the PREVIOUS game: {config.STREAMER_NICKNAME} was {prev_streamer_race}, {player_name} was {player_current_race}. Use these races. "
+                                msg += "As a StarCraft 2 expert, comment on last game summary. Be concise with only 2 sentences total of 25 words or less. \n"
+                                msg += "-----\n"
+                                msg += f" \n {result['Replay_Summary']} \n"
+                                processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
 
                             # if there is a previous game with same race matchup
                             if first_few_build_steps is not None:
@@ -450,10 +457,10 @@ def game_started(self, current_game, contextHistory, logger):
                                 msg += f"8. DO NOT mention units that are NOT in the build order above\n"
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
                             else:
-                                if streamer_picked_race == "Random":
-                                    msg = f"restate this:  good luck playing {player_name} in this {streamer_picked_race} versus {player_current_race} matchup.  Random is tricky."                                    
+                                if streamer_current_race == "Random":
+                                    msg = f"restate this:  good luck playing {player_name} in this {streamer_current_race} versus {player_current_race} matchup.  Random is tricky."                                    
                                 else:
-                                    msg = f"restate this with all details: This is the first time {config.STREAMER_NICKNAME} played {player_name} in this {streamer_picked_race} versus {player_current_race} matchup."
+                                    msg = f"restate this with all details: This is the first time {config.STREAMER_NICKNAME} played {player_name} in this {streamer_current_race} versus {player_current_race} matchup."
                                 processMessageForOpenAI(self, msg, "last_time_played", logger, contextHistory)
 
                             # Calculate YOUR record (invert opponent's wins/losses)

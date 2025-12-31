@@ -271,8 +271,8 @@ class SC2PatternLearner:
             if not build_data:
                 return "Unknown strategy"
             
-            # Only analyze first 60 supply (configurable threshold)
-            early_build = [step['name'] for step in build_data if step.get('supply', 0) <= config.BUILD_ORDER_COUNT_TO_ANALYZE]
+            # Only analyze first 60 supply (early game classification)
+            early_build = [step['name'] for step in build_data if step.get('supply', 0) <= config.EARLY_GAME_SUPPLY_THRESHOLD]
             
             # Very basic classification - system learns from your comments
             if len(early_build) >= 5:
@@ -302,8 +302,8 @@ class SC2PatternLearner:
             
             confidence = 0.0
             
-            # Only analyze first 60 supply (configurable threshold)
-            early_build = [step['name'] for step in build_data if step.get('supply', 0) <= config.BUILD_ORDER_COUNT_TO_ANALYZE]
+            # Only analyze first 60 supply (early game classification)
+            early_build = [step['name'] for step in build_data if step.get('supply', 0) <= config.EARLY_GAME_SUPPLY_THRESHOLD]
             
             # More early game data = higher confidence
             if len(early_build) >= 10:
@@ -443,7 +443,7 @@ class SC2PatternLearner:
         
         try:
             # Use first 120 steps (consistent with ml_opponent_analyzer extraction)
-            early_game_steps = build_data[:config.BUILD_ORDER_COUNT_TO_ANALYZE]
+            early_game_steps = build_data[:config.BUILD_ORDER_STEPS_TO_ANALYZE]
             
             # Consolidate consecutive identical units with counts and order
             if early_game_steps:
