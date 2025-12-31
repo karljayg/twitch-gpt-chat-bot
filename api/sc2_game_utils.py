@@ -286,81 +286,88 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
             # Game Duration Calculations
             game_duration_result = game_ended_handler.calculate_game_duration(replay_data, logger)
             self.total_seconds = game_duration_result["totalSeconds"]
-            replay_summary += f"Game Duration: {game_duration_result['gameDuration']}\n\n"
-
-            # Dynamic build order depth based on game length
-            # Strategy is determined by early-mid game (first ~10 minutes)
-            # Capture enough to see key tech transitions but not late-game pivots
-            if self.total_seconds < 600:  # < 10 minutes (early all-ins, rushes)
-                base_build_count = 120  # Capture full game
-            else:  # >= 10 minutes (longer games)
-                base_build_count = 180  # Capture ~8-10 minutes (key tech choices)
             
-            logger.debug(f"Game duration: {self.total_seconds}s - using {base_build_count} build order steps")
-            
-            # Total Players greater than 2, usually gets the total token size to 6k, and max is 4k so we divide by 2 to be safe
-            if current_game.total_players > 2:
-                build_order_count = base_build_count / 2
+            # If game was abandoned, skip all further processing (build orders, replay summary, analysis, etc.)
+            if self.total_seconds < config.ABANDONED_GAME_THRESHOLD:
+                logger.info(f"Game was abandoned ({self.total_seconds}s < {config.ABANDONED_GAME_THRESHOLD}s) - skipping replay processing")
+                # Don't build replay_summary, which will skip replay analysis later
+                replay_summary = ""
             else:
-                build_order_count = base_build_count
-
-            units_lost_summary = {player_key: player_data['unitsLost'] for player_key, player_data in replay_data['players'].items()}
-            for player_key, units_lost in units_lost_summary.items():
-                # ChatGPT gets confused if you use possessive 's vs by
-                player_info = f"Units Lost by {replay_data['players'][player_key]['name']}"
-                replay_summary += player_info + '\n'
-                units_lost_aggregate = defaultdict(int)
-                if units_lost:  # Check if units_lost is not empty
-                    for unit in units_lost:
-                        name = unit.get('name', "N/A")
-                        units_lost_aggregate[name] += 1
-                    for unit_name, count in units_lost_aggregate.items():
-                        unit_info = f"{unit_name}: {count}"
-                        replay_summary += unit_info + '\n'
+                replay_summary += f"Game Duration: {game_duration_result['gameDuration']}\n\n"
+                
+                # Dynamic build order depth based on game length
+                # Strategy is determined by early-mid game (first ~10 minutes)
+                # Capture enough to see key tech transitions but not late-game pivots
+                if self.total_seconds < 600:  # < 10 minutes (early all-ins, rushes)
+                    base_build_count = 120  # Capture full game
+                else:  # >= 10 minutes (longer games)
+                    base_build_count = 180  # Capture ~8-10 minutes (key tech choices)
+                
+                logger.debug(f"Game duration: {self.total_seconds}s - using {base_build_count} build order steps")
+                
+                # Total Players greater than 2, usually gets the total token size to 6k, and max is 4k so we divide by 2 to be safe
+                if current_game.total_players > 2:
+                    build_order_count = base_build_count / 2
                 else:
-                    replay_summary += "None \n"
-                replay_summary += '\n'
+                    build_order_count = base_build_count
 
-            build_orders = {player_key: player_data['buildOrder'] for player_key, player_data in replay_data['players'].items()}
-            opponent_name = None
-            player_order = []
-            # Create case-insensitive lookup
-            player_accounts_lower = [name.lower() for name in config.SC2_PLAYER_ACCOUNTS]
-            for player_key, player_data in replay_data['players'].items():
-                if player_data['name'].lower() in player_accounts_lower:
-                    player_order.append(player_key)
-                else:
-                    opponent_name = player_data['name']
-                    player_order.insert(0, player_key)
+                units_lost_summary = {player_key: player_data['unitsLost'] for player_key, player_data in replay_data['players'].items()}
+                for player_key, units_lost in units_lost_summary.items():
+                    # ChatGPT gets confused if you use possessive 's vs by
+                    player_info = f"Units Lost by {replay_data['players'][player_key]['name']}"
+                    replay_summary += player_info + '\n'
+                    units_lost_aggregate = defaultdict(int)
+                    if units_lost:  # Check if units_lost is not empty
+                        for unit in units_lost:
+                            name = unit.get('name', "N/A")
+                            units_lost_aggregate[name] += 1
+                        for unit_name, count in units_lost_aggregate.items():
+                            unit_info = f"{unit_name}: {count}"
+                            replay_summary += unit_info + '\n'
+                    else:
+                        replay_summary += "None \n"
+                    replay_summary += '\n'
 
-            for player_key in player_order:
-                build_order = build_orders[player_key]
-                player_info = f"{replay_data['players'][player_key]['name']}'s Build Order (first set of steps):"
-                replay_summary += player_info + '\n'
-                for order in build_order[:int(build_order_count)]:
-                    order_time = order['time']
-                    name = order['name']
-                    supply = order['supply']
-                    order_info = f"Time: {order_time}, Name: {name}, Supply: {supply}"
-                    replay_summary += order_info + '\n'
-                replay_summary += '\n'
+                build_orders = {player_key: player_data['buildOrder'] for player_key, player_data in replay_data['players'].items()}
+                opponent_name = None
+                player_order = []
+                # Create case-insensitive lookup
+                player_accounts_lower = [name.lower() for name in config.SC2_PLAYER_ACCOUNTS]
+                for player_key, player_data in replay_data['players'].items():
+                    if player_data['name'].lower() in player_accounts_lower:
+                        player_order.append(player_key)
+                    else:
+                        opponent_name = player_data['name']
+                        player_order.insert(0, player_key)
 
-            # Replace all player account names (case-insensitive, whole word only) with STREAMER_NICKNAME
-            # Use word boundaries to prevent "FALSE" from matching "FalseSith"
-            for player_name in config.SC2_PLAYER_ACCOUNTS:
-                import re
-                pattern = re.compile(r'\b' + re.escape(player_name) + r'\b', re.IGNORECASE)
-                replay_summary = pattern.sub(config.STREAMER_NICKNAME, replay_summary)
+                for player_key in player_order:
+                    build_order = build_orders[player_key]
+                    player_info = f"{replay_data['players'][player_key]['name']}'s Build Order (first set of steps):"
+                    replay_summary += player_info + '\n'
+                    for order in build_order[:int(build_order_count)]:
+                        order_time = order['time']
+                        name = order['name']
+                        supply = order['supply']
+                        order_info = f"Time: {order_time}, Name: {name}, Supply: {supply}"
+                        replay_summary += order_info + '\n'
+                    replay_summary += '\n'
 
-            game_ended_handler.save_file(replay_summary, 'summary', logger)
+                # Replace all player account names (case-insensitive, whole word only) with STREAMER_NICKNAME
+                # Use word boundaries to prevent "FALSE" from matching "FalseSith"
+                for player_name in config.SC2_PLAYER_ACCOUNTS:
+                    import re
+                    pattern = re.compile(r'\b' + re.escape(player_name) + r'\b', re.IGNORECASE)
+                    replay_summary = pattern.sub(config.STREAMER_NICKNAME, replay_summary)
 
-            try:
-                if self.db.insert_replay_info(replay_summary):
-                    logger.debug("replay summary saved to database")
-                else:
-                    logger.debug("replay summary not saved to database")
-            except Exception as e:
-                logger.debug(f"error with database: {e}")
+                game_ended_handler.save_file(replay_summary, 'summary', logger)
+
+                try:
+                    if self.db.insert_replay_info(replay_summary):
+                        logger.debug("replay summary saved to database")
+                    else:
+                        logger.debug("replay summary not saved to database")
+                except Exception as e:
+                    logger.debug(f"error with database: {e}")
 
         else:
             logger.debug("No result found!")

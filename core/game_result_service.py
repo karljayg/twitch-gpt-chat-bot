@@ -279,6 +279,9 @@ Generate ONE short message only, no explanation."""
             # (Announcement happens below, so we'll let it continue)
         
         # 4. Announce Result (using legacy game_ended handler for proper observer logic)
+        # Skip the simple "KJ beat..." message since we'll send detailed replay_analysis below
+        # The replay_analysis provides more useful info (duration, map) so we don't need the simple message
+        # Only send simple message for abandoned games (where we skip replay_analysis)
         try:
             from api.game_event_utils.game_ended_handler import game_ended
             
@@ -294,7 +297,14 @@ Generate ONE short message only, no explanation."""
                     twitch_bot = service.twitch_bot
                     break
             
-            if twitch_bot:
+            # Only send simple game_ended message if we won't be sending replay_analysis
+            # (Skip it if we'll send detailed replay_analysis - it provides more info)
+            # Also skip it for abandoned games since we already sent a skip message
+            is_1v1_game = game_info.total_players == 2
+            will_send_replay_analysis = (not is_too_short and not config.OPENAI_DISABLED and replay_data and is_1v1_game)
+            
+            # Skip simple message if: 1) We'll send detailed replay_analysis, OR 2) Game was abandoned (already sent skip message)
+            if twitch_bot and not will_send_replay_analysis and not is_too_short:
                 # Set total_seconds on twitch_bot (required by game_ended handler)
                 if replay_data:
                     try:
@@ -328,7 +338,7 @@ Generate ONE short message only, no explanation."""
                         await service.send_message("channel", msg)
                     except Exception as e:
                         logger.error(f"Error sending announcement to service: {e}")
-            else:
+            elif not twitch_bot:
                 # Fallback if twitch_bot not available
                 winner = game_info.get_winner()
                 if winner:

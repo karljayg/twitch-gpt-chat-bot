@@ -133,6 +133,9 @@ class OpponentAnalysisService:
         # Get player comments
         player_comments = self.db.get_player_comments(current_player_name, opponent_race)
         
+        # Track if we sent player comments analysis (to avoid redundant last game summary)
+        sent_player_comments_analysis = False
+        
         # Send analysis messages
         if not player_comments:
             logger.debug(f"No games with comments found for player '{current_player_name}' and race '{opponent_race}'.")
@@ -152,12 +155,15 @@ class OpponentAnalysisService:
                 opponent_name, opponent_race, player_comments,
                 opponent_wins, opponent_losses, context_history
             )
+            sent_player_comments_analysis = True
         
-        # Send last game summary
-        self._send_last_game_summary(
-            opponent_name, opponent_race, streamer_race, streamer_picked_race,
-            how_long_ago, db_result, context_history
-        )
+        # Send last game summary only if we didn't already send player comments analysis
+        # (they both mention "last game" info and are redundant)
+        if not sent_player_comments_analysis:
+            self._send_last_game_summary(
+                opponent_name, opponent_race, streamer_race, streamer_picked_race,
+                how_long_ago, db_result, context_history
+            )
         
         # Send build order analysis if available
         if first_few_build_steps:
