@@ -541,6 +541,12 @@ class MLOpponentAnalyzer:
                 if category in race_items:
                     items = [item.strip().lower() for item in race_items[category].split(',')]
                     strategic_items.update(items)
+
+        # Manually add expansion and core production buildings as they are critical for strategy
+        strategic_items.update([
+            'hatchery', 'nexus', 'commandcenter',  # Expansions
+            'spawningpool', 'barracks', 'gateway' # Core production
+        ])
         
         # Extract strategic items with timing info - DEDUPLICATE (keep first occurrence)
         # Limit to early game (first 120 steps) to match pattern scope
