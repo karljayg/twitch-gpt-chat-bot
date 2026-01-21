@@ -868,8 +868,9 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 try:
                     # First try from replay data (most reliable after game ends)
                     if hasattr(self, 'last_replay_data') and self.last_replay_data:
+                        opponent_name_lower = opponent_names[0].lower() if opponent_names else None
                         for player_key, player_data in self.last_replay_data.get('players', {}).items():
-                            if player_data.get('name') == opponent_names[0]:
+                            if player_data.get('name', '').lower() == opponent_name_lower:
                                 opponent_race = player_data.get('race', 'Unknown')
                                 logger.debug(f"Got opponent race from replay data: {opponent_race}")
                                 break

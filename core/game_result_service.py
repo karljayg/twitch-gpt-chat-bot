@@ -495,10 +495,19 @@ Generate ONE short message only, no explanation."""
                         
                         player_accounts_lower = [name.lower() for name in config.SC2_PLAYER_ACCOUNTS]
                         
+                        # Log all players for debugging
+                        all_players = []
+                        for p_key, p_data in replay_data['players'].items():
+                            all_players.append(f"{p_data['name']} ({p_data.get('race', 'Unknown')})")
+                        logger.debug(f"All players in replay: {', '.join(all_players)}")
+                        
+                        opponent_p_key = None
                         for p_key, p_data in replay_data['players'].items():
                             if p_data['name'].lower() not in player_accounts_lower:
                                 opponent_name = p_data['name']
                                 opponent_race = p_data['race']
+                                opponent_p_key = p_key  # Store the player key for reliable matching
+                                logger.debug(f"Identified opponent: {opponent_name} ({opponent_race})")
                                 # Determine result relative to STREAMER
                                 # If opponent won, streamer lost.
                                 if p_data['is_winner']: 
@@ -506,6 +515,9 @@ Generate ONE short message only, no explanation."""
                                 else: 
                                     result = "Victory"
                                 break
+                        
+                        if opponent_name == "Unknown":
+                            logger.warning(f"Could not identify opponent - all players may be in SC2_PLAYER_ACCOUNTS: {all_players}")
                                 
                         game_data = {
                             'opponent_name': opponent_name,
@@ -517,12 +529,27 @@ Generate ONE short message only, no explanation."""
                             'build_order': [] # Extracted below
                         }
                         
-                        # Extract opponent build order
-                        if 'players' in replay_data:
+                        # Extract opponent build order using player key (more reliable than name matching)
+                        if 'players' in replay_data and opponent_p_key:
+                            p_data = replay_data['players'].get(opponent_p_key)
+                            if p_data:
+                                build_order = p_data.get('buildOrder', [])
+                                # Verify we got the right player (same key we identified as opponent)
+                                if p_data.get('name') == opponent_name:
+                                    logger.info(f"Extracted {len(build_order)} build order steps for {opponent_name} ({opponent_race}) from replay_data. First 5 units: {', '.join([step.get('name', '') for step in build_order[:5]])}")
+                                    game_data['build_order'] = build_order
+                                else:
+                                    logger.error(f"PLAYER KEY MISMATCH: Player key {opponent_p_key} points to {p_data.get('name')} but we expected {opponent_name}")
+                                    game_data['build_order'] = []
+                            else:
+                                logger.warning(f"Could not find player data for key {opponent_p_key}")
+                        else:
+                            # Fallback to name matching if we didn't store the key (shouldn't happen, but defensive)
+                            logger.warning(f"Fallback to name matching for build order extraction (opponent_p_key was not set)")
                             for p_key, p_data in replay_data['players'].items():
-                                if p_data['name'] == opponent_name:
+                                if p_data['name'].lower() == opponent_name.lower():
                                     build_order = p_data.get('buildOrder', [])
-                                    logger.info(f"Extracted {len(build_order)} build order steps for {opponent_name} from replay_data")
+                                    logger.info(f"Extracted {len(build_order)} build order steps for {opponent_name} (fallback name match) from replay_data")
                                     game_data['build_order'] = build_order
                                     break
                         
@@ -1005,10 +1032,11 @@ Generate ONE short message only, no explanation."""
                         else:
                             time_seconds = int(time_part)
                         
-                        # Find opponent (not streamer)
+                        # Find opponent (not streamer) - case-insensitive comparison
                         is_opponent = False
+                        current_player_lower = current_player.lower() if current_player else None
                         for p in players:
-                            if p['name'] == current_player and not game_info._is_streamer_account(current_player):
+                            if p['name'].lower() == current_player_lower and not game_info._is_streamer_account(current_player):
                                 is_opponent = True
                                 break
                         
@@ -1217,24 +1245,32 @@ Generate ONE short message only, no explanation."""
                         
                         player_accounts_lower = [name.lower() for name in config.SC2_PLAYER_ACCOUNTS]
                         
+                        opponent_p_key = None
                         for p_key, p_data in replay_data['players'].items():
                             if isinstance(p_data, dict):
                                 name = p_data.get('name', '')
                                 if name.lower() not in player_accounts_lower:
                                     opponent_name = name
                                     opponent_race = p_data.get('race', 'Unknown')
+                                    opponent_p_key = p_key  # Store player key for reliable matching
                                     if p_data.get('is_winner', False):
                                         result = "Defeat"
                                     else:
                                         result = "Victory"
                                     break
                         
-                        # Extract opponent build order
+                        # Extract opponent build order using player key (more reliable than name matching)
                         build_order = []
-                        for p_key, p_data in replay_data['players'].items():
-                            if isinstance(p_data, dict) and p_data.get('name') == opponent_name:
+                        if opponent_p_key:
+                            p_data = replay_data['players'].get(opponent_p_key)
+                            if isinstance(p_data, dict):
                                 build_order = p_data.get('buildOrder', [])
-                                break
+                        else:
+                            # Fallback to name matching if key not found (shouldn't happen)
+                            for p_key, p_data in replay_data['players'].items():
+                                if isinstance(p_data, dict) and p_data.get('name', '').lower() == opponent_name.lower():
+                                    build_order = p_data.get('buildOrder', [])
+                                    break
                         
                         game_data = {
                             'opponent_name': opponent_name,
