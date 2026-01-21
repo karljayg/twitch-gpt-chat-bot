@@ -721,13 +721,15 @@ class Database:
         if row and row['Replay_Summary']:  # Updated this line
             replay_summary = row['Replay_Summary']
 
-            # Find the index of the opponent's build order
-            build_order_start = replay_summary.find(
-                f"{opponent_name}'s Build Order")
-
+            # Find the index of the opponent's build order (case-insensitive search)
+            pattern = re.compile(re.escape(f"{opponent_name}'s Build Order"), re.IGNORECASE)
+            match = pattern.search(replay_summary)
+            
             # If the opponent's build order is not found, return an empty list
-            if build_order_start == -1:
+            if not match:
                 return []
+            
+            build_order_start = match.start()
 
             # Slice the replay summary from the start of the build order
             build_order_section = replay_summary[build_order_start:]
