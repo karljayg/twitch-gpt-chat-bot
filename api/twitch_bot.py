@@ -830,7 +830,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             msg_lower = msg.lower()
             migrated_commands = [
                 'wiki', 'career', 'history', 'head to head', 
-                'player comment', 'analyze', 'fsl_review'
+                'player comment', 'analyze', 'fsl_review',
+                'please retry', 'please replay', 'please preview', 'please review'
             ]
             
             # CommandService uses strict prefix matching usually, but legacy was loose.
