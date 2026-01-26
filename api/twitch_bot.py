@@ -845,6 +845,13 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                     is_migrated = True
                     break
             
+            # Also skip legacy processing for Y/N responses when pending_player_comment exists
+            # CommandService will handle these via CommentHandler
+            if hasattr(self, 'pending_player_comment') and self.pending_player_comment:
+                if msg_lower.strip() in ['y', 'yes', 'n', 'no']:
+                    logger.debug(f"Skipping legacy processing for Y/N response (handled by CommandService): {msg}")
+                    return
+            
             if is_migrated:
                 logger.debug(f"Skipping legacy processing for migrated command: {msg}")
                 return

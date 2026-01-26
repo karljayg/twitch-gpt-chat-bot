@@ -140,7 +140,7 @@ class CommentHandler(ICommandHandler):
                             else:
                                 await context.chat_service.send_message(context.channel, "Failed to save comment")
                     else:
-                        await context.chat_service.send_message(context.channel, "Comment not saved")
+                        await context.chat_service.send_message(context.channel, "User declined to overwrite existing comment")
                 except Exception as e:
                     logger.error(f"Error handling declined overwrite: {e}")
                 finally:

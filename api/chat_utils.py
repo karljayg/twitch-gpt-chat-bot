@@ -196,6 +196,8 @@ def process_pubmsg(self, event, logger, contextHistory):
     # user = {"name": tags["display-name"], "id": tags["user-id"]}
 
     # Check for Y/N response to overwrite confirmation (must be before player comment check)
+    # NOTE: If CommandService already handled this (via BotCore), it will return early and this won't be called
+    # But if we're here, CommandService didn't handle it, so we process it in legacy system
     if sender.lower() == config.PAGE.lower() and hasattr(self, 'pending_player_comment') and self.pending_player_comment:
         if msg.strip().lower() in ['y', 'yes']:
             logger.info("User confirmed overwrite of existing comment")
@@ -308,8 +310,8 @@ def process_pubmsg(self, event, logger, contextHistory):
                         else:
                             msgToChannel(self, "Failed to save comment to newer replay", logger)
                 else:
-                    # No new game
-                    msgToChannel(self, "No new empty replay found - comment not saved", logger)
+                    # No new game - user declined to overwrite
+                    msgToChannel(self, "User declined to overwrite existing comment", logger)
                     
             except Exception as e:
                 logger.error(f"Error handling no response: {e}")
