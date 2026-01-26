@@ -37,6 +37,25 @@ class CommandService:
         """
         if not message:
             return False
+        
+        # Check for Y/N response to pending_player_comment BEFORE command matching
+        # This handles overwrite confirmations for player comments
+        msg_lower = message.strip().lower()
+        if msg_lower in ['y', 'yes', 'n', 'no']:
+            # Get the chat service to access twitch_bot
+            service = self._get_chat_service(platform)
+            if service and hasattr(service, 'twitch_bot'):
+                twitch_bot = service.twitch_bot
+                if twitch_bot and hasattr(twitch_bot, 'pending_player_comment') and twitch_bot.pending_player_comment:
+                    # Route to comment handler to process Y/N response
+                    if 'player comment' in self.handlers:
+                        context = CommandContext(message, channel, author, platform, service)
+                        try:
+                            await self.handlers['player comment'].handle(context, message)
+                            return True
+                        except Exception as e:
+                            logger.error(f"Error handling Y/N response in comment handler: {e}")
+                            return True  # Still return True to prevent fallthrough
             
         msg_lower = message.lower()
         logger.debug(f"Checking command for: '{msg_lower}' (registered: {list(self.handlers.keys())})")

@@ -15,6 +15,138 @@ class CommentHandler(ICommandHandler):
         self.pattern_learner = pattern_learner
         
     async def handle(self, context: CommandContext, args: str):
+        # Check for Y/N response to overwrite confirmation FIRST (before processing as new comment)
+        twitch_bot = None
+        if hasattr(context.chat_service, 'twitch_bot'):
+            twitch_bot = context.chat_service.twitch_bot
+        
+        if twitch_bot and hasattr(twitch_bot, 'pending_player_comment') and twitch_bot.pending_player_comment:
+            msg_lower = args.strip().lower()
+            if msg_lower in ['y', 'yes']:
+                logger.info("User confirmed overwrite of existing comment")
+                try:
+                    pending = twitch_bot.pending_player_comment
+                    comment_text = pending['comment']
+                    replay_info = pending['replay']
+                    
+                    # Overwrite the comment
+                    success = await self.replay_repo.update_comment(comment_text)
+                    
+                    if success and self.pattern_learner:
+                        loop = asyncio.get_running_loop()
+                        game_data = {
+                            'opponent_name': replay_info['opponent'],
+                            'map': replay_info['map'],
+                            'date': replay_info['date'],
+                            'result': replay_info['result'],
+                            'duration': replay_info['duration']
+                        }
+                        
+                        # Get build_order from last replay JSON
+                        try:
+                            replay_json_path = config.LAST_REPLAY_JSON_FILE
+                            if os.path.exists(replay_json_path):
+                                with open(replay_json_path, 'r') as f:
+                                    replay_data = json.load(f)
+                                
+                                # Find opponent's build order
+                                player_accounts_lower = [name.lower() for name in config.SC2_PLAYER_ACCOUNTS]
+                                for p_key, p_data in replay_data.get('players', {}).items():
+                                    if p_data.get('name', '').lower() not in player_accounts_lower:
+                                        game_data['build_order'] = p_data.get('buildOrder', [])
+                                        game_data['opponent_race'] = p_data.get('race', 'Unknown')
+                                        logger.info(f"Loaded {len(game_data['build_order'])} build order steps from last replay")
+                                        break
+                        except Exception as e:
+                            logger.warning(f"Could not load build order from replay JSON: {e}")
+                        
+                        await loop.run_in_executor(
+                            None,
+                            self.pattern_learner._process_new_comment,
+                            game_data,
+                            comment_text
+                        )
+                        await loop.run_in_executor(None, self.pattern_learner.save_patterns_to_file)
+                        
+                        response = f"Overwritten comment for game vs {replay_info['opponent']} on {replay_info['map']} ({replay_info['date']}): '{comment_text}'"
+                        await context.chat_service.send_message(context.channel, response)
+                    else:
+                        await context.chat_service.send_message(context.channel, "Failed to save comment")
+                        
+                except Exception as e:
+                    logger.error(f"Error overwriting comment: {e}")
+                    await context.chat_service.send_message(context.channel, f"Error saving comment: {str(e)}")
+                finally:
+                    twitch_bot.pending_player_comment = None
+                return
+                
+            elif msg_lower in ['n', 'no']:
+                logger.info("User declined overwrite, checking for newer replay")
+                try:
+                    pending = twitch_bot.pending_player_comment
+                    original_timestamp = pending['timestamp']
+                    comment_text = pending['comment']
+                    
+                    # Get latest replay again to see if new game happened
+                    latest_replay = await self.replay_repo.get_latest_replay()
+                    
+                    if not latest_replay:
+                        await context.chat_service.send_message(context.channel, "No replays found")
+                    elif latest_replay.get('timestamp', 0) > original_timestamp:
+                        # New game exists!
+                        if latest_replay.get('existing_comment'):
+                            await context.chat_service.send_message(
+                                context.channel, 
+                                f"Newer replay vs {latest_replay['opponent']} also has a comment - cannot save"
+                            )
+                        else:
+                            # Save to new replay
+                            success = await self.replay_repo.update_comment(comment_text)
+                            if success and self.pattern_learner:
+                                loop = asyncio.get_running_loop()
+                                game_data = {
+                                    'opponent_name': latest_replay['opponent'],
+                                    'map': latest_replay['map'],
+                                    'date': latest_replay['date'],
+                                    'result': latest_replay['result'],
+                                    'duration': latest_replay['duration']
+                                }
+                                
+                                # Get build_order
+                                try:
+                                    replay_json_path = config.LAST_REPLAY_JSON_FILE
+                                    if os.path.exists(replay_json_path):
+                                        with open(replay_json_path, 'r') as f:
+                                            replay_data = json.load(f)
+                                        player_accounts_lower = [name.lower() for name in config.SC2_PLAYER_ACCOUNTS]
+                                        for p_key, p_data in replay_data.get('players', {}).items():
+                                            if p_data.get('name', '').lower() not in player_accounts_lower:
+                                                game_data['build_order'] = p_data.get('buildOrder', [])
+                                                game_data['opponent_race'] = p_data.get('race', 'Unknown')
+                                                break
+                                except Exception as e:
+                                    logger.warning(f"Could not load build order: {e}")
+                                
+                                await loop.run_in_executor(
+                                    None,
+                                    self.pattern_learner._process_new_comment,
+                                    game_data,
+                                    comment_text
+                                )
+                                await loop.run_in_executor(None, self.pattern_learner.save_patterns_to_file)
+                                
+                                response = f"Saved comment to newer replay vs {latest_replay['opponent']} on {latest_replay['map']}: '{comment_text}'"
+                                await context.chat_service.send_message(context.channel, response)
+                            else:
+                                await context.chat_service.send_message(context.channel, "Failed to save comment")
+                    else:
+                        await context.chat_service.send_message(context.channel, "Comment not saved")
+                except Exception as e:
+                    logger.error(f"Error handling declined overwrite: {e}")
+                finally:
+                    twitch_bot.pending_player_comment = None
+                return
+        
         # Strip "player comment" or "player comments" prefix if present (command_service passes full message)
         comment_text = args.strip()
         comment_lower = comment_text.lower()
@@ -29,9 +161,6 @@ class CommentHandler(ICommandHandler):
         
         # Check if there's an active pattern learning context from the legacy system
         # If so, we need to process this as a natural language response to the suggestions
-        twitch_bot = None
-        if hasattr(context.chat_service, 'twitch_bot'):
-            twitch_bot = context.chat_service.twitch_bot
         
         if twitch_bot and hasattr(twitch_bot, 'pattern_learning_context') and twitch_bot.pattern_learning_context:
             # Check if context is still fresh (within 5 minutes)
@@ -121,8 +250,17 @@ class CommentHandler(ICommandHandler):
             game_date = latest_replay.get('date', 'Unknown')
             existing_comment = latest_replay.get('existing_comment')
             
+            # Log for debugging
+            logger.info(f"Checking for existing comment: existing_comment={existing_comment!r} (type={type(existing_comment).__name__}, truthy={bool(existing_comment)})")
+            
             # Check if comment already exists - ask for confirmation before overwriting
-            if existing_comment:
+            # existing_comment can be None, empty string, or actual text
+            # Use explicit check: not None and not empty after stripping whitespace
+            has_existing_comment = existing_comment is not None and str(existing_comment).strip() != ''
+            
+            logger.info(f"Has existing comment check result: {has_existing_comment}")
+            
+            if has_existing_comment:
                 # Store pending state for Y/N confirmation in legacy bot
                 if twitch_bot:
                     twitch_bot.pending_player_comment = {

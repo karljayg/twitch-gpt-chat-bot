@@ -169,7 +169,7 @@ api-server/
 │   └── index.php          # Entry point
 ├── src/
 │   ├── Database.php       # Database queries
-│   ├── middleware/
+│   ├── Middleware/
 │   │   └── AuthMiddleware.php
 │   └── routes/
 │       ├── players.php

@@ -208,31 +208,35 @@ def process_pubmsg(self, event, logger, contextHistory):
                 success = self.db.update_player_comments_in_last_replay(comment_text)
                 
                 if success and hasattr(self, 'pattern_learner') and self.pattern_learner:
-                    game_data = {
-                        'opponent_name': replay_info['opponent'],
-                        'map': replay_info['map'],
-                        'date': replay_info['date'],
-                        'result': replay_info['result'],
-                        'duration': replay_info['duration']
-                    }
-                    
-                    # Get build_order from last replay JSON (saved after each game)
-                    try:
-                        replay_json_path = config.LAST_REPLAY_JSON_FILE
-                        if os.path.exists(replay_json_path):
-                            with open(replay_json_path, 'r') as f:
-                                replay_data = json.load(f)
-                            
-                            # Find opponent's build order
-                            player_accounts_lower = [name.lower() for name in config.SC2_PLAYER_ACCOUNTS]
-                            for p_key, p_data in replay_data.get('players', {}).items():
-                                if p_data.get('name', '').lower() not in player_accounts_lower:
-                                    game_data['build_order'] = p_data.get('buildOrder', [])
-                                    game_data['opponent_race'] = p_data.get('race', 'Unknown')
-                                    logger.info(f"Loaded {len(game_data['build_order'])} build order steps from last replay")
-                                    break
-                    except Exception as e:
-                        logger.warning(f"Could not load build order from replay JSON: {e}")
+                    # Use preserved game_data if available (from NLP system), otherwise construct from replay_info
+                    if 'game_data' in pending:
+                        game_data = pending['game_data']
+                    else:
+                        game_data = {
+                            'opponent_name': replay_info['opponent'],
+                            'map': replay_info['map'],
+                            'date': replay_info['date'],
+                            'result': replay_info['result'],
+                            'duration': replay_info['duration']
+                        }
+                        
+                        # Get build_order from last replay JSON (saved after each game)
+                        try:
+                            replay_json_path = config.LAST_REPLAY_JSON_FILE
+                            if os.path.exists(replay_json_path):
+                                with open(replay_json_path, 'r') as f:
+                                    replay_data = json.load(f)
+                                
+                                # Find opponent's build order
+                                player_accounts_lower = [name.lower() for name in config.SC2_PLAYER_ACCOUNTS]
+                                for p_key, p_data in replay_data.get('players', {}).items():
+                                    if p_data.get('name', '').lower() not in player_accounts_lower:
+                                        game_data['build_order'] = p_data.get('buildOrder', [])
+                                        game_data['opponent_race'] = p_data.get('race', 'Unknown')
+                                        logger.info(f"Loaded {len(game_data['build_order'])} build order steps from last replay")
+                                        break
+                        except Exception as e:
+                            logger.warning(f"Could not load build order from replay JSON: {e}")
                     
                     self.pattern_learner._process_new_comment(game_data, comment_text)
                     self.pattern_learner.save_patterns_to_file()
@@ -359,6 +363,28 @@ def process_pubmsg(self, event, logger, contextHistory):
                 map_name = game_data.get('map', 'Unknown')
                 game_date = game_data.get('date', 'Unknown')
                 
+                # Check if comment already exists - ask for confirmation before overwriting
+                latest_replay = self.db.get_latest_replay()
+                if latest_replay:
+                    existing_comment = latest_replay.get('existing_comment')
+                    if existing_comment and str(existing_comment).strip():
+                        # Store pending state for Y/N confirmation
+                        self.pending_player_comment = {
+                            'comment': comment_text,
+                            'replay': latest_replay,
+                            'timestamp': latest_replay.get('timestamp', 0),
+                            'action': action,  # Preserve action type (pattern/AI/custom)
+                            'game_data': game_data  # Preserve game_data for pattern learner
+                        }
+                        
+                        response = f"There is already data there for last game vs {opponent} on {map_name} ({game_date}). Are you sure you want to overwrite it? Y/N"
+                        logger.info(f"Existing comment found, asking for overwrite confirmation")
+                        msgToChannel(self, response, logger)
+                        # Clear pattern learning context but keep pending_player_comment
+                        self.pattern_learning_context = None
+                        return
+                
+                # No existing comment - save directly
                 # Save to database
                 if hasattr(self, 'pattern_learner') and self.pattern_learner:
                     success = self.db.update_player_comments_in_last_replay(comment_text)
