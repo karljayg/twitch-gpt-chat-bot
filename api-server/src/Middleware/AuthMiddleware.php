@@ -13,13 +13,11 @@ class AuthMiddleware {
     }
     
     public function __invoke(Request $request, RequestHandler $handler): Response {
-        // Skip auth for health check
         $path = $request->getUri()->getPath();
         if ($path === '/health' || strpos($path, '/health') !== false) {
             return $handler->handle($request);
         }
         
-        // Check Authorization header
         $auth_header = $request->getHeaderLine('Authorization');
         
         if (empty($auth_header)) {
@@ -33,7 +31,6 @@ class AuthMiddleware {
                 ->withHeader('Content-Type', 'application/json');
         }
         
-        // Expected format: "Bearer YOUR_API_KEY"
         if ($auth_header !== "Bearer {$this->api_key}") {
             $response = new Response();
             $response->getBody()->write(json_encode([
@@ -45,8 +42,6 @@ class AuthMiddleware {
                 ->withHeader('Content-Type', 'application/json');
         }
         
-        // Continue to next middleware/route
         return $handler->handle($request);
     }
 }
-

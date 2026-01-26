@@ -22,5 +22,9 @@ $db_config = [
 // Example: openssl rand -base64 32
 $api_key = 'CHANGE-THIS-TO-A-SECURE-RANDOM-KEY';
 
+// Base path when app is in a subpath. '' for local (php -S localhost:8000 -t public).
+// When URL is https://psistorm.com/api-server/public/health, set to '/api-server/public':
+$base_path = '';
+
 // Note: This same API key must be set in the bot's config.py as DB_API_KEY
 

@@ -217,7 +217,7 @@ class SC2PatternLearner:
                 ]
             
             # Save to database FIRST (this should always happen)
-            self._save_comment_to_db(game_data, comment)
+            self._save_comment_to_db(game_data, comment, comment_data)
             
             # Update keyword patterns and analyze for new patterns (only if keywords found)
             if keywords:
@@ -226,7 +226,11 @@ class SC2PatternLearner:
                     self.comment_keywords[keyword].append(comment_data)
                 
                 # Create pattern ONCE and reference it by all keywords
-                self._create_pattern_for_comment(comment_data)
+                pattern_entry = self._create_pattern_for_comment(comment_data)
+                
+                # Save pattern to database if created
+                if pattern_entry:
+                    self._save_pattern_to_db(pattern_entry)
                 
                 # Save patterns to file for persistence
                 self.save_patterns_to_file()
@@ -429,9 +433,12 @@ class SC2PatternLearner:
                     self.patterns[keyword].append(len(self.all_patterns) - 1)
                 
                 self.logger.info(f"Created pattern with {len(comment_data['keywords'])} keywords")
+                return pattern_entry
+            return None
                 
         except Exception as e:
             self.logger.error(f"Error creating pattern: {e}")
+            return None
     
     def _create_pattern_signature(self, build_data):
         """Create a signature for build order pattern with consolidated units"""
@@ -527,7 +534,7 @@ class SC2PatternLearner:
             self.logger.error(f"Error consolidating build order: {e}")
             return []
     
-    def _save_comment_to_db(self, game_data, comment):
+    def _save_comment_to_db(self, game_data, comment, comment_data=None):
         """Save comment to database for persistence"""
         try:
             # Save comment to the REPLAYS.Player_Comments table
@@ -541,8 +548,27 @@ class SC2PatternLearner:
                 self.logger.warning("Database method update_player_comments_in_last_replay not available")
                 self.logger.info(f"Comment logged only: {comment[:100]}...")
             
+            # Also save to PlayerComments table with full data (keywords, build_order, etc.)
+            if comment_data and hasattr(self.db, 'save_player_comment_with_data'):
+                try:
+                    self.db.save_player_comment_with_data(comment_data)
+                    self.logger.info("Comment data saved to PlayerComments table")
+                except Exception as e:
+                    self.logger.warning(f"Failed to save to PlayerComments table: {e}")
+            
         except Exception as e:
             self.logger.error(f"Error saving comment to DB: {e}")
+    
+    def _save_pattern_to_db(self, pattern_entry):
+        """Save pattern to PatternLearning table"""
+        try:
+            if hasattr(self.db, 'save_pattern_to_db'):
+                self.db.save_pattern_to_db(pattern_entry)
+                self.logger.info("Pattern saved to PatternLearning table")
+            else:
+                self.logger.debug("Database method save_pattern_to_db not available")
+        except Exception as e:
+            self.logger.warning(f"Failed to save pattern to database: {e}")
     
     def get_pattern_analysis(self, build_data, opponent_race):
         """Analyze current build against learned patterns"""

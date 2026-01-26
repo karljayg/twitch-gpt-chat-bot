@@ -859,6 +859,123 @@ class Database:
             print(f"Error: {e}")
             return None
         
+    def save_player_comment_with_data(self, comment_data):
+        """Save full comment data to PlayerComments table with keywords, build_order, etc."""
+        try:
+            self.ensure_connection()
+            self.cursor.reset()
+            
+            # Get latest replay timestamp
+            self.cursor.execute("SELECT MAX(UnixTimestamp) AS latest_timestamp FROM Replays")
+            result = self.cursor.fetchone()
+            latest_timestamp = result['latest_timestamp'] if result else None
+            
+            if not latest_timestamp:
+                raise ValueError("No recent replays found to link comment.")
+            
+            comment_id = f"comment_{latest_timestamp}"
+            raw_comment = comment_data.get('raw_comment', comment_data.get('comment', ''))
+            cleaned_comment = comment_data.get('cleaned_comment', raw_comment)
+            keywords = json.dumps(comment_data.get('keywords', []))
+            game_data = comment_data.get('game_data', {})
+            build_order = json.dumps(game_data.get('build_order', []))
+            
+            opponent_name = game_data.get('opponent_name', '')
+            opponent_race = game_data.get('opponent_race', '')
+            result = game_data.get('result', '')
+            map_name = game_data.get('map', '')
+            duration = game_data.get('duration', '')
+            date_played = game_data.get('date', '')
+            
+            # Check if comment exists
+            self.cursor.execute("SELECT comment_id FROM PlayerComments WHERE comment_id = %s", (comment_id,))
+            existing = self.cursor.fetchone()
+            
+            if existing:
+                sql = """
+                    UPDATE PlayerComments 
+                    SET raw_comment = %s, cleaned_comment = %s, keywords = %s,
+                        opponent_name = %s, opponent_race = %s, result = %s,
+                        map_name = %s, duration = %s, date_played = %s, build_order = %s
+                    WHERE comment_id = %s
+                """
+                self.cursor.execute(sql, (
+                    raw_comment, cleaned_comment, keywords, opponent_name, opponent_race,
+                    result, map_name, duration, date_played, build_order, comment_id
+                ))
+            else:
+                sql = """
+                    INSERT INTO PlayerComments 
+                    (comment_id, raw_comment, cleaned_comment, keywords, opponent_name,
+                     opponent_race, result, map_name, duration, date_played, build_order, pattern_id)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NULL)
+                """
+                self.cursor.execute(sql, (
+                    comment_id, raw_comment, cleaned_comment, keywords, opponent_name,
+                    opponent_race, result, map_name, duration, date_played, build_order
+                ))
+            
+            self.connection.commit()
+            return True
+        except Exception as e:
+            self.connection.rollback()
+            self.logger.error(f"Error saving comment data: {e}")
+            raise
+    
+    def save_pattern_to_db(self, pattern_entry):
+        """Save pattern to PatternLearning table"""
+        try:
+            self.ensure_connection()
+            self.cursor.reset()
+            
+            signature = pattern_entry.get('signature', {})
+            comment = pattern_entry.get('comment', '')
+            game_data = pattern_entry.get('game_data', {})
+            keywords = pattern_entry.get('keywords', [])
+            
+            # Generate pattern_id from signature hash
+            signature_str = json.dumps(signature, sort_keys=True)
+            pattern_id = f"pattern_{hash(signature_str) % 100000000:08d}"
+            
+            signature_json = json.dumps(signature)
+            metadata_json = json.dumps({
+                'comment': comment,
+                'keywords': keywords,
+                'game_data': game_data
+            })
+            
+            opponent_race = game_data.get('opponent_race', '').lower()
+            player_race = game_data.get('player_race', '').lower()
+            label = keywords[0] if keywords else ''
+            
+            # Check if pattern exists
+            self.cursor.execute("SELECT pattern_id FROM PatternLearning WHERE pattern_id = %s", (pattern_id,))
+            existing = self.cursor.fetchone()
+            
+            if existing:
+                sql = """
+                    UPDATE PatternLearning 
+                    SET game_count = game_count + 1, updated_at = NOW(), metadata = %s
+                    WHERE pattern_id = %s
+                """
+                self.cursor.execute(sql, (metadata_json, pattern_id))
+            else:
+                sql = """
+                    INSERT INTO PatternLearning 
+                    (pattern_id, signature, label, opponent_race, player_race, game_count, similarity_threshold, metadata)
+                    VALUES (%s, %s, %s, %s, %s, 1, 0.0, %s)
+                """
+                self.cursor.execute(sql, (
+                    pattern_id, signature_json, label, opponent_race, player_race, metadata_json
+                ))
+            
+            self.connection.commit()
+            return True
+        except Exception as e:
+            self.connection.rollback()
+            self.logger.error(f"Error saving pattern: {e}")
+            raise
+    
     def get_player_comments(self, player_name, player_race):
         """
         Fetch all games against the specified player and race that have Player_Comments.

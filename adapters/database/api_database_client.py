@@ -64,9 +64,27 @@ class ApiDatabaseClient(IDatabaseClient):
             else:
                 raise ValueError(f"Unsupported method: {method}")
             
+            # Check for HTTP errors and log details before raising
+            if response.status_code >= 400:
+                try:
+                    error_body = response.json()
+                    error_msg = error_body.get('message', error_body.get('error', 'Unknown error'))
+                    self._logger.error(f"API HTTP {response.status_code} error: {method} {endpoint}")
+                    self._logger.error(f"  Error message: {error_msg}")
+                    if 'details' in error_body:
+                        self._logger.error(f"  Details: {error_body['details']}")
+                except (ValueError, KeyError):
+                    # If response isn't JSON, log the raw text
+                    self._logger.error(f"API HTTP {response.status_code} error: {method} {endpoint}")
+                    self._logger.error(f"  Response: {response.text[:200]}")
+            
             response.raise_for_status()
             return response.json()
         
+        except requests.exceptions.HTTPError as e:
+            # This is raised by raise_for_status() - already logged above
+            self._logger.error(f"HTTP error raised: {method} {endpoint} - {e}")
+            raise
         except requests.exceptions.SSLError as e:
             self._logger.error(f"SSL Certificate error: {e}")
             self._logger.error(f"If this is a valid self-signed cert, you may need to add it to your system's trust store")
@@ -102,13 +120,63 @@ class ApiDatabaseClient(IDatabaseClient):
             return result['records']
         return str(result)
     
+    def get_player_race_matchup_records(self, player_name: str) -> str:
+        """Get race matchup records for a player"""
+        result = self._make_request('GET', f'/api/v1/players/{player_name}/race_matchup_records')
+        if isinstance(result, dict) and 'records' in result:
+            return result['records']
+        return str(result)
+    
+    def get_head_to_head_matchup(self, player1: str, player2: str) -> List[str]:
+        """Get head-to-head matchup records between two players"""
+        result = self._make_request('GET', '/api/v1/players/head_to_head', {
+            'player1': player1,
+            'player2': player2
+        })
+        return result if isinstance(result, list) else []
+    
     # ===== Replay Operations =====
     
     def get_last_replay_info(self) -> Optional[Dict]:
         return self._make_request('GET', '/api/v1/replays/last')
     
+    def get_latest_replay(self) -> Optional[Dict]:
+        """Get latest replay with processed data (opponent, map, result, etc.)"""
+        result = self._make_request('GET', '/api/v1/replays/latest')
+        if not result:
+            return None
+        
+        # Process result to determine opponent (matches Python logic)
+        from settings import config
+        streamer_accounts = [name.lower() for name in config.SC2_PLAYER_ACCOUNTS]
+        
+        player1_name = result.get('Player1_Name', '')
+        player2_name = result.get('Player2_Name', '')
+        
+        if player1_name.lower() in streamer_accounts:
+            opponent = player2_name
+            result_str = result.get('Player1_Result', '')
+        else:
+            opponent = player1_name
+            result_str = result.get('Player2_Result', '')
+        
+        return {
+            'opponent': opponent,
+            'map': result.get('map', ''),
+            'result': result_str,
+            'date': result.get('date', ''),
+            'duration': result.get('duration', ''),
+            'timestamp': result.get('timestamp', 0),
+            'existing_comment': result.get('existing_comment')
+        }
+    
     def get_replay_by_id(self, replay_id: int) -> Optional[Dict]:
         return self._make_request('GET', f'/api/v1/replays/{replay_id}')
+    
+    def get_games_for_last_x_hours(self, hours: int) -> List[str]:
+        """Get games played in the last X hours"""
+        result = self._make_request('GET', '/api/v1/replays/games', {'hours': hours})
+        return result if isinstance(result, list) else []
     
     def extract_opponent_build_order(self, opponent_name: str, opp_race: str, 
                                      streamer_picked_race: str) -> Optional[List[str]]:
@@ -118,6 +186,34 @@ class ApiDatabaseClient(IDatabaseClient):
             'streamer_race': streamer_picked_race
         })
         return result if isinstance(result, list) else None
+    
+    def insert_replay_info(self, replay_summary: str) -> bool:
+        """Insert replay information into database"""
+        result = self._make_request('POST', '/api/v1/replays', {
+            'replay_summary': replay_summary
+        })
+        return result.get('success', False) if isinstance(result, dict) else False
+    
+    def update_player_comments_in_last_replay(self, comment: str) -> bool:
+        """Update player comment for the last replay"""
+        result = self._make_request('PUT', '/api/v1/replays/last/comment', {
+            'comment': comment
+        })
+        return result.get('success', False) if isinstance(result, dict) else False
+    
+    def save_player_comment_with_data(self, comment_data: Dict) -> bool:
+        """Save full comment data to PlayerComments table with keywords, build_order, etc."""
+        result = self._make_request('POST', '/api/v1/comments/save', {
+            'comment_data': comment_data
+        })
+        return result.get('success', False) if isinstance(result, dict) else False
+    
+    def save_pattern_to_db(self, pattern_entry: Dict) -> bool:
+        """Save pattern to PatternLearning table"""
+        result = self._make_request('POST', '/api/v1/patterns/save', {
+            'pattern_entry': pattern_entry
+        })
+        return result.get('success', False) if isinstance(result, dict) else False
     
     # ===== Connection Management =====
     

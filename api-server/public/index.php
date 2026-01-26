@@ -26,6 +26,18 @@ require $config_file;
 // Create Slim app
 $app = AppFactory::create();
 
+$base_path = $base_path ?? '';
+if ($base_path === '') {
+    $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? ''));
+    $uri = (string) parse_url('http://a' . ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+    if ($scriptDir !== '' && $scriptDir !== '/' && stripos($uri, $scriptDir) === 0) {
+        $base_path = $scriptDir;
+    }
+}
+if ($base_path !== '') {
+    $app->setBasePath(rtrim($base_path, '/'));
+}
+
 // Add routing middleware
 $app->addRoutingMiddleware();
 

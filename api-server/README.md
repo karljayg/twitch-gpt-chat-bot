@@ -124,6 +124,7 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 - Check Authorization header format: `Bearer YOUR_KEY` (note the space)
 
 ### "404 Not Found" on all endpoints
+- If the app is under a subpath (e.g. `https://example.com/api-server/public/health`), set `$base_path = '/api-server/public'` in `config.php`.
 - Enable mod_rewrite: `sudo a2enmod rewrite`
 - Check Apache AllowOverride: should be `All` in virtual host config
 - Restart Apache: `sudo systemctl restart apache2`
