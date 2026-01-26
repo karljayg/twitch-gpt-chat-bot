@@ -79,6 +79,7 @@ else:
 import utils.tokensArray as tokensArray
 import utils.wiki_utils as wiki_utils
 from models.mathison_db import Database
+from adapters.database.database_client_factory import create_database_client
 from models.log_once_within_interval_filter import LogOnceWithinIntervalFilter
 from utils.emote_utils import get_random_emote
 from utils.file_utils import find_latest_file
@@ -102,6 +103,7 @@ from api.chat_utils import message_on_welcome, process_pubmsg
 from api.sc2_game_utils import handle_SC2_game_results
 # Ensure database initialization
 from models.mathison_db import Database
+from adapters.database.database_client_factory import create_database_client
 
 # Pattern learning imports
 try:
@@ -328,8 +330,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             self.sound_player = None
             _import_logger.info("Game sounds disabled - no SoundPlayer initialized")
 
-        # Initialize the database
-        self.db = Database()
+        # Initialize the database (uses factory to support local or API mode)
+        self.db = create_database_client()
         
         # Initialize FSL integration if available and enabled
         if (getattr(config, 'ENABLE_FSL_INTEGRATION', False) and 

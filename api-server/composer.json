@@ -1,0 +1,19 @@
+{
+    "name": "mathison/database-api",
+    "description": "REST API for Mathison database access",
+    "type": "project",
+    "require": {
+        "php": ">=7.4",
+        "slim/slim": "^4.12",
+        "slim/psr7": "^1.6"
+    },
+    "autoload": {
+        "psr-4": {
+            "Mathison\\API\\": "src/"
+        }
+    },
+    "scripts": {
+        "start": "php -S localhost:8000 -t public"
+    }
+}
+

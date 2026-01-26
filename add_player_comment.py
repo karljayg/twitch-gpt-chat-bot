@@ -6,6 +6,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from api.pattern_learning import SC2PatternLearner
 from models.mathison_db import Database
+from adapters.database.database_client_factory import create_database_client
 import logging
 
 # Set up logging
@@ -19,7 +20,7 @@ def main():
     
     try:
         # Create database and pattern learner
-        db = Database()
+        db = create_database_client()
         pattern_learner = SC2PatternLearner(db, logger)
         
         if len(sys.argv) < 2:

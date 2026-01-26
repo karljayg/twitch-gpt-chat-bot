@@ -432,8 +432,8 @@ class DiscordBot(commands.Bot):
                 db = self.twitch_bot.db
             else:
                 # Import and create database connection if needed
-                from models.mathison_db import Database
-                db = Database()
+                from adapters.database.database_client_factory import create_database_client
+                db = create_database_client()
             
             # Query player records from database
             history_list = db.get_player_records(player_name)

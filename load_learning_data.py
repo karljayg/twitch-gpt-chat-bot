@@ -25,6 +25,7 @@ import io
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from models.mathison_db import Database
+from adapters.database.database_client_factory import create_database_client
 from api.pattern_learning import SC2PatternLearner
 from settings import config
 import re
@@ -77,7 +78,7 @@ def close_logging():
 
 class LearningDataRegenerator:
     def __init__(self):
-        self.db = Database()
+        self.db = create_database_client()
         
         # Set up logging for the pattern learner
         logging.basicConfig(level=logging.INFO)

@@ -427,123 +427,190 @@ The bot is Python, the API is PHP. Each runs in its natural environment:
 
 No need to run Python on the webserver or PHP on the bot machine.
 
-#### 2.2 API Service Structure
+#### 2.2 API Service Structure (Using Slim Framework)
 
 **Folder**: `api-server/` (in main repo, self-contained)
+
+We use **Slim Framework** - a lightweight, mature PHP microframework that provides routing, middleware, and error handling with minimal overhead.
+
+**Why Slim?**
+- Saves ~80% of custom routing/middleware code
+- Battle-tested (10+ years, millions of downloads)
+- Still self-contained (vendor/ folder travels with code)
+- Simple deployment: `composer install`, done
+- Better error handling and security out-of-the-box
 
 ```
 twitch-gpt-chat-bot/
 ├── api-server/                  # Self-contained PHP API
-│   ├── index.php                # Main entry point (router)
+│   ├── composer.json            # Dependencies (Slim + PDO)
+│   ├── composer.lock            # Locked versions
+│   ├── vendor/                  # Slim framework (auto-generated, gitignored)
+│   ├── public/
+│   │   └── index.php            # Entry point (~50 lines)
+│   ├── src/
+│   │   ├── Database.php         # MySQL connection & queries
+│   │   ├── middleware/
+│   │   │   └── AuthMiddleware.php  # API key validation
+│   │   └── routes/
+│   │       ├── players.php      # Player endpoints
+│   │       ├── replays.php      # Replay endpoints
+│   │       ├── build_orders.php # Build order endpoints
+│   │       └── patterns.php     # Pattern endpoints (Phase 7)
 │   ├── config.example.php       # Template (committed to git)
 │   ├── config.php               # Actual config (gitignored)
-│   ├── .htaccess                # URL rewriting for clean URLs
-│   ├── lib/
-│   │   ├── Database.php         # MySQL connection & queries
-│   │   ├── Router.php           # Request routing
-│   │   ├── Auth.php             # API key validation
-│   │   └── Response.php         # JSON response helper
-│   ├── routes/
-│   │   ├── players.php          # Player endpoints
-│   │   ├── replays.php          # Replay endpoints
-│   │   ├── build_orders.php     # Build order endpoints
-│   │   └── patterns.php         # Pattern endpoints (Phase 7)
+│   ├── .htaccess                # URL rewriting to public/index.php
 │   ├── README.md                # Deployment instructions
-│   └── .gitignore               # Ignore config.php
+│   └── .gitignore               # Ignore config.php and vendor/
 ```
 
-#### 2.3 Example PHP API Implementation
+#### 2.3 Slim Framework Implementation
 
-**File**: `api-server/index.php`
+##### File: `api-server/composer.json`
+
+```json
+{
+    "name": "mathison/database-api",
+    "description": "REST API for Mathison database access",
+    "type": "project",
+    "require": {
+        "php": ">=7.4",
+        "slim/slim": "^4.12",
+        "slim/psr7": "^1.6"
+    },
+    "autoload": {
+        "psr-4": {
+            "Mathison\\API\\": "src/"
+        }
+    }
+}
+```
+
+##### File: `api-server/public/index.php`
 
 ```php
 <?php
 /**
- * Mathison Database API
- * Self-contained PHP API for remote database access
+ * Mathison Database API - Entry Point
+ * Using Slim Framework for routing and middleware
  */
 
-// Load configuration
-if (!file_exists('config.php')) {
-    http_response_code(500);
-    die(json_encode(['error' => 'Configuration file missing. Copy config.example.php to config.php']));
-}
-require_once 'config.php';
+use Psr\Http\Message\ResponseInterface as Response;
+use Psr\Http\Message\ServerRequestInterface as Request;
+use Slim\Factory\AppFactory;
+use Mathison\API\Database;
+use Mathison\API\Middleware\AuthMiddleware;
 
-// Load libraries
-require_once 'lib/Auth.php';
-require_once 'lib/Database.php';
-require_once 'lib/Router.php';
-require_once 'lib/Response.php';
+require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/../config.php';
 
-// Enable CORS if needed
-header('Access-Control-Allow-Origin: *');
-header('Content-Type: application/json');
-
-// Authenticate all requests except /health
-$request_uri = $_SERVER['REQUEST_URI'];
-if (strpos($request_uri, '/health') === false) {
-    Auth::validateApiKey();
-}
+// Create Slim app
+$app = AppFactory::create();
+$app->addRoutingMiddleware();
+$app->addErrorMiddleware(true, true, true);
 
 // Initialize database
-try {
-    $db = new Database($db_config);
-} catch (Exception $e) {
-    Response::error('Database connection failed', 500);
+$db = new Database($db_config);
+
+// Add authentication middleware (except /health)
+$app->add(new AuthMiddleware($api_key));
+
+// Health check (no auth required)
+$app->get('/health', function (Request $request, Response $response) use ($db) {
+    $data = [
+        'status' => 'healthy',
+        'timestamp' => time(),
+        'database' => $db->isConnected() ? 'connected' : 'disconnected'
+    ];
+    $response->getBody()->write(json_encode($data));
+    return $response->withHeader('Content-Type', 'application/json');
+});
+
+// Load route files
+require __DIR__ . '/../src/routes/players.php';
+require __DIR__ . '/../src/routes/replays.php';
+require __DIR__ . '/../src/routes/build_orders.php';
+
+$app->run();
+```
+
+##### File: `api-server/src/middleware/AuthMiddleware.php`
+
+```php
+<?php
+namespace Mathison\API\Middleware;
+
+use Psr\Http\Message\ServerRequestInterface as Request;
+use Psr\Http\Server\RequestHandlerInterface as RequestHandler;
+use Slim\Psr7\Response;
+
+class AuthMiddleware {
+    private $api_key;
+    
+    public function __construct($api_key) {
+        $this->api_key = $api_key;
+    }
+    
+    public function __invoke(Request $request, RequestHandler $handler): Response {
+        // Skip auth for health check
+        $path = $request->getUri()->getPath();
+        if ($path === '/health') {
+            return $handler->handle($request);
+        }
+        
+        // Check Authorization header
+        $auth_header = $request->getHeaderLine('Authorization');
+        if ($auth_header !== "Bearer {$this->api_key}") {
+            $response = new Response();
+            $response->getBody()->write(json_encode([
+                'error' => 'Unauthorized',
+                'message' => 'Invalid or missing API key'
+            ]));
+            return $response
+                ->withStatus(401)
+                ->withHeader('Content-Type', 'application/json');
+        }
+        
+        // Continue to next middleware/route
+        return $handler->handle($request);
+    }
 }
-
-// Route request
-$router = new Router($db);
-$router->handleRequest();
-?>
 ```
 
-**File**: `api-server/config.example.php`
+##### File: `api-server/src/Database.php`
 
 ```php
 <?php
-/**
- * Database API Configuration Template
- * 
- * Copy this file to config.php and fill in your values
- * config.php is gitignored for security
- */
+namespace Mathison\API;
 
-// MySQL Database Configuration
-$db_config = [
-    'host'     => 'localhost',
-    'user'     => 'your_mysql_user',
-    'password' => 'your_mysql_password',
-    'database' => 'mathison',
-    'charset'  => 'utf8mb4'
-];
+use PDO;
+use PDOException;
 
-// API Security
-$api_key = 'your-secure-api-key-here-change-this';
-
-// Optional: Enable debug mode (logs errors)
-$debug_mode = false;
-?>
-```
-
-**File**: `api-server/lib/Database.php`
-
-```php
-<?php
 class Database {
     private $conn;
+    private $config;
     
     public function __construct($config) {
-        $dsn = "mysql:host={$config['host']};dbname={$config['database']};charset={$config['charset']}";
+        $this->config = $config;
+        $this->connect();
+    }
+    
+    private function connect() {
+        $dsn = "mysql:host={$this->config['host']};dbname={$this->config['database']};charset={$this->config['charset']}";
         
         try {
-            $this->conn = new PDO($dsn, $config['user'], $config['password']);
-            $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-            $this->conn->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+            $this->conn = new PDO($dsn, $this->config['user'], $this->config['password'], [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES => false
+            ]);
         } catch (PDOException $e) {
-            throw new Exception("Database connection failed: " . $e->getMessage());
+            throw new \Exception("Database connection failed: " . $e->getMessage());
         }
+    }
+    
+    public function isConnected() {
+        return $this->conn !== null;
     }
     
     public function checkPlayerAndRaceExists($player_name, $player_race) {
@@ -590,132 +657,707 @@ class Database {
         return $stmt->fetchAll(PDO::FETCH_COLUMN);
     }
     
-    // Additional methods follow same pattern...
+    public function getPlayerComments($player_name, $player_race) {
+        $sql = "
+            SELECT 
+                r.Player_Comments,
+                r.Map,
+                r.Date_Played,
+                r.GameDuration
+            FROM Replays r
+            JOIN Players p1 ON r.Player1_Id = p1.Id
+            JOIN Players p2 ON r.Player2_Id = p2.Id
+            WHERE ((p1.SC2_UserId = ? AND r.Player1_Race = ?)
+                OR (p2.SC2_UserId = ? AND r.Player2_Race = ?))
+                AND r.Player_Comments IS NOT NULL
+                AND r.GameDuration > '00:02:00'
+            ORDER BY r.Date_Played DESC
+        ";
+        
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute([$player_name, $player_race, $player_name, $player_race]);
+        
+        $results = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $results[] = [
+                'player_comments' => $row['Player_Comments'],
+                'map' => $row['Map'],
+                'date_played' => $row['Date_Played'],
+                'game_duration' => $row['GameDuration']
+            ];
+        }
+        return $results;
+    }
+    
+    // Additional methods...
 }
-?>
 ```
 
-**File**: `api-server/lib/Router.php`
+##### File: `api-server/src/routes/players.php`
 
 ```php
 <?php
-class Router {
+/**
+ * Player-related endpoints
+ */
+
+use Psr\Http\Message\ResponseInterface as Response;
+use Psr\Http\Message\ServerRequestInterface as Request;
+
+// GET /api/v1/players/check?player_name=X&player_race=Y
+$app->get('/api/v1/players/check', function (Request $request, Response $response) use ($db) {
+    $params = $request->getQueryParams();
+    
+    if (empty($params['player_name']) || empty($params['player_race'])) {
+        $data = ['error' => 'Missing player_name or player_race parameter'];
+        $response->getBody()->write(json_encode($data));
+        return $response->withStatus(400)->withHeader('Content-Type', 'application/json');
+    }
+    
+    $result = $db->checkPlayerAndRaceExists($params['player_name'], $params['player_race']);
+    $response->getBody()->write(json_encode($result));
+    return $response->withHeader('Content-Type', 'application/json');
+});
+
+// GET /api/v1/players/{player_name}/exists
+$app->get('/api/v1/players/{player_name}/exists', function (Request $request, Response $response, $args) use ($db) {
+    $result = $db->checkPlayerExists($args['player_name']);
+    $data = [
+        'exists' => $result !== false,
+        'data' => $result
+    ];
+    $response->getBody()->write(json_encode($data));
+    return $response->withHeader('Content-Type', 'application/json');
+});
+
+// GET /api/v1/players/{player_name}/records
+$app->get('/api/v1/players/{player_name}/records', function (Request $request, Response $response, $args) use ($db) {
+    $records = $db->getPlayerRecords($args['player_name']);
+    $response->getBody()->write(json_encode($records));
+    return $response->withHeader('Content-Type', 'application/json');
+});
+
+// GET /api/v1/players/{player_name}/comments?race=Protoss
+$app->get('/api/v1/players/{player_name}/comments', function (Request $request, Response $response, $args) use ($db) {
+    $params = $request->getQueryParams();
+    
+    if (empty($params['race'])) {
+        $data = ['error' => 'Missing race parameter'];
+        $response->getBody()->write(json_encode($data));
+        return $response->withStatus(400)->withHeader('Content-Type', 'application/json');
+    }
+    
+    $comments = $db->getPlayerComments($args['player_name'], $params['race']);
+    $response->getBody()->write(json_encode($comments));
+    return $response->withHeader('Content-Type', 'application/json');
+});
+```
+
+##### File: `api-server/config.example.php`
+
+```php
+<?php
+/**
+ * Database API Configuration Template
+ * 
+ * Copy this file to config.php and fill in your values
+ * config.php is gitignored for security
+ */
+
+// MySQL Database Configuration
+$db_config = [
+    'host'     => 'localhost',
+    'user'     => 'your_mysql_user',
+    'password' => 'your_mysql_password',
+    'database' => 'mathison',
+    'charset'  => 'utf8mb4'
+];
+
+// API Security
+$api_key = 'your-secure-api-key-here-change-this';
+```
+
+**File**: `api-server/.htaccess`
+
+```apache
+# Redirect all requests to public/index.php (Slim Framework)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Redirect to public/ folder
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ public/index.php [QSA,L]
+</IfModule>
+
+# Security headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "DENY"
+    Header set X-XSS-Protection "1; mode=block"
+</IfModule>
+```
+
+**File**: `api-server/.gitignore`
+
+```gitignore
+# Configuration (contains credentials)
+config.php
+
+# Composer dependencies
+/vendor/
+
+# IDE files
+.vscode/
+.idea/
+
+# Logs (if any)
+*.log
+```
+
+**File**: `api-server/README.md`
+
+```markdown
+# Mathison Database API
+
+REST API for remote Mathison database access using Slim Framework.
+
+## Installation
+
+### 1. Copy to Server
+
+```bash
+# On your PHP server
+cd /var/www/html/
+cp -r /path/to/repo/api-server mathison-api
+cd mathison-api
+```
+
+### 2. Install Dependencies
+
+```bash
+# Install Slim Framework via Composer
+composer install --no-dev --optimize-autoloader
+```
+
+**Note**: If composer is not installed:
+```bash
+# Install composer first
+curl -sS https://getcomposer.org/installer | php
+php composer.phar install --no-dev --optimize-autoloader
+```
+
+### 3. Configure
+
+```bash
+# Copy configuration template
+cp config.example.php config.php
+
+# Edit with your MySQL credentials
+nano config.php
+```
+
+Set your MySQL credentials and generate a secure API key:
+```php
+$db_config = [
+    'host'     => 'localhost',
+    'user'     => 'your_user',
+    'password' => 'your_password',
+    'database' => 'mathison',
+    'charset'  => 'utf8mb4'
+];
+
+$api_key = 'generate-a-secure-random-key-here';
+```
+
+### 4. Set Permissions
+
+```bash
+# Ensure Apache can read files
+chmod -R 755 .
+chmod 644 config.php  # Protect config file
+```
+
+### 5. Test
+
+```bash
+# Health check (no auth required)
+curl https://yourdomain.com/mathison-api/health
+
+# Test authenticated endpoint
+curl -H "Authorization: Bearer YOUR_API_KEY" \
+     "https://yourdomain.com/mathison-api/api/v1/players/check?player_name=TestPlayer&player_race=Protoss"
+```
+
+## API Endpoints
+
+### Health Check
+- `GET /health` - No authentication required
+- Returns: `{"status": "healthy", "timestamp": 1234567890, "database": "connected"}`
+
+### Players
+- `GET /api/v1/players/check?player_name=X&player_race=Y`
+- `GET /api/v1/players/{player_name}/exists`
+- `GET /api/v1/players/{player_name}/records`
+- `GET /api/v1/players/{player_name}/comments?race=Protoss`
+
+### Replays
+- `GET /api/v1/replays/last`
+- `GET /api/v1/replays/{replay_id}`
+- `POST /api/v1/replays` - Create new replay
+- `PUT /api/v1/replays/{replay_id}/comment` - Update comment
+
+### Build Orders
+- `GET /api/v1/build_orders/extract?opponent_name=X&opponent_race=Y&streamer_race=Z`
+
+## Authentication
+
+All endpoints (except `/health`) require an API key in the Authorization header:
+
+```
+Authorization: Bearer YOUR_API_KEY_HERE
+```
+
+## Updating
+
+```bash
+cd /var/www/html/mathison-api
+git pull  # If using git
+composer install --no-dev --optimize-autoloader
+# No service restart needed - PHP automatically uses new code
+```
+
+## Troubleshooting
+
+### Error: "Class not found"
+```bash
+# Regenerate autoloader
+composer dump-autoload
+```
+
+### Error: "Database connection failed"
+- Check `config.php` credentials
+- Verify MySQL is running: `systemctl status mysql`
+- Test connection: `mysql -u USERNAME -p`
+
+### Error: "Unauthorized"
+- Check API key in bot's `config.py` matches `api-server/config.php`
+- Ensure Authorization header format: `Bearer YOUR_KEY`
+
+### Error: 404 on all endpoints
+- Check `.htaccess` is being read: `sudo a2enmod rewrite && sudo systemctl restart apache2`
+- Verify AllowOverride is enabled in Apache config
+
+## Development
+
+Run locally for testing:
+```bash
+cd api-server
+php -S localhost:8000 -t public
+```
+
+Then test at: `http://localhost:8000/health`
+```
+
+#### 2.4 API Extensibility & Future-Proofing
+
+**Design Principles for Long-Term Maintainability:**
+
+##### A) Version the API
+
+Use versioned endpoints to allow changes without breaking existing clients:
+
+```
+/api/v1/players/...    # Current version
+/api/v2/players/...    # Future version with breaking changes
+```
+
+**In code:**
+```php
+// api-server/lib/Router.php
+public function handleRequest() {
+    // Extract API version from path
+    if (preg_match('#^api/(v\d+)/(.+)#', $path, $matches)) {
+        $version = $matches[1];  // 'v1', 'v2', etc.
+        $endpoint = $matches[2];
+        
+        // Route to version-specific handler
+        if ($version === 'v1') {
+            $this->handleV1($endpoint);
+        } elseif ($version === 'v2') {
+            $this->handleV2($endpoint);
+        }
+    }
+}
+```
+
+**Benefits:**
+- Can add new fields to v2 without breaking v1 clients
+- Can restructure responses in v2
+- Old bot installations keep working on v1
+
+##### B) Schema Versioning
+
+Track database schema version to handle migrations:
+
+```sql
+-- Add to your MySQL database
+CREATE TABLE IF NOT EXISTS Schema_Version (
+    Version INT PRIMARY KEY,
+    Applied_At DATETIME DEFAULT CURRENT_TIMESTAMP,
+    Description VARCHAR(255)
+);
+
+INSERT INTO Schema_Version (Version, Description) 
+VALUES (1, 'Initial schema');
+```
+
+**In API:**
+```php
+// api-server/lib/Database.php
+public function getSchemaVersion() {
+    $sql = "SELECT MAX(Version) as version FROM Schema_Version";
+    $result = $this->conn->query($sql)->fetch();
+    return $result['version'] ?? 0;
+}
+
+// Health check includes schema version
+// GET /health returns:
+// {"status": "healthy", "schema_version": 1, "api_version": "v1"}
+```
+
+##### C) Generic Query Builder (for flexibility)
+
+Add a flexible query method for future tables:
+
+```php
+// api-server/lib/Database.php
+/**
+ * Generic SELECT query builder
+ * Allows querying any table without hardcoding methods
+ */
+public function select($table, $where = [], $columns = '*', $orderBy = null, $limit = null) {
+    // Whitelist allowed tables for security
+    $allowed_tables = ['Players', 'Replays', 'Patterns', 'Player_Comments'];
+    if (!in_array($table, $allowed_tables)) {
+        throw new Exception("Table not allowed: $table");
+    }
+    
+    $sql = "SELECT $columns FROM $table";
+    $params = [];
+    
+    if (!empty($where)) {
+        $conditions = [];
+        foreach ($where as $col => $val) {
+            $conditions[] = "$col = ?";
+            $params[] = $val;
+        }
+        $sql .= " WHERE " . implode(' AND ', $conditions);
+    }
+    
+    if ($orderBy) {
+        $sql .= " ORDER BY $orderBy";
+    }
+    
+    if ($limit) {
+        $sql .= " LIMIT " . (int)$limit;
+    }
+    
+    $stmt = $this->conn->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchAll();
+}
+
+/**
+ * Generic INSERT
+ */
+public function insert($table, $data) {
+    $allowed_tables = ['Players', 'Replays', 'Patterns', 'Player_Comments'];
+    if (!in_array($table, $allowed_tables)) {
+        throw new Exception("Table not allowed: $table");
+    }
+    
+    $columns = implode(', ', array_keys($data));
+    $placeholders = implode(', ', array_fill(0, count($data), '?'));
+    
+    $sql = "INSERT INTO $table ($columns) VALUES ($placeholders)";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->execute(array_values($data));
+    
+    return $this->conn->lastInsertId();
+}
+
+/**
+ * Generic UPDATE
+ */
+public function update($table, $data, $where) {
+    $allowed_tables = ['Players', 'Replays', 'Patterns', 'Player_Comments'];
+    if (!in_array($table, $allowed_tables)) {
+        throw new Exception("Table not allowed: $table");
+    }
+    
+    $set = [];
+    $params = [];
+    foreach ($data as $col => $val) {
+        $set[] = "$col = ?";
+        $params[] = $val;
+    }
+    
+    $conditions = [];
+    foreach ($where as $col => $val) {
+        $conditions[] = "$col = ?";
+        $params[] = $val;
+    }
+    
+    $sql = "UPDATE $table SET " . implode(', ', $set) . 
+           " WHERE " . implode(' AND ', $conditions);
+    
+    $stmt = $this->conn->prepare($sql);
+    return $stmt->execute($params);
+}
+```
+
+**Usage:**
+```php
+// Future: Add new table without changing Database.php
+$results = $db->select('New_Table', ['field' => 'value']);
+
+// Insert into new table
+$id = $db->insert('New_Table', [
+    'field1' => 'value1',
+    'field2' => 'value2'
+]);
+```
+
+##### D) Dynamic Field Support
+
+Handle new fields without code changes:
+
+```php
+// api-server/lib/Database.php
+/**
+ * Get all columns for a table dynamically
+ */
+public function getTableColumns($table) {
+    $sql = "SHOW COLUMNS FROM $table";
+    $stmt = $this->conn->query($sql);
+    return $stmt->fetchAll(PDO::FETCH_COLUMN);
+}
+
+/**
+ * Build SELECT with all available columns
+ */
+public function getPlayerFull($player_name) {
+    $columns = $this->getTableColumns('Players');
+    $columnList = implode(', ', $columns);
+    
+    $sql = "SELECT $columnList FROM Players WHERE SC2_UserId = ?";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->execute([$player_name]);
+    return $stmt->fetch();
+}
+```
+
+**Benefits:**
+- Add new columns to database, API automatically includes them
+- No code changes needed for new fields
+- Response automatically has new data
+
+##### E) Configuration-Driven Endpoints
+
+Define available operations in config:
+
+```php
+// api-server/config.php
+$api_config = [
+    'allowed_tables' => [
+        'Players' => [
+            'select' => true,
+            'insert' => true,
+            'update' => true,
+            'delete' => false  // Don't allow player deletion via API
+        ],
+        'Replays' => [
+            'select' => true,
+            'insert' => true,
+            'update' => true,
+            'delete' => false
+        ],
+        'Patterns' => [
+            'select' => true,
+            'insert' => true,
+            'update' => true,
+            'delete' => true   // Allow pattern management
+        ]
+    ],
+    
+    'rate_limits' => [
+        'default' => 100,  // requests per minute
+        'write' => 20      // write operations per minute
+    ]
+];
+```
+
+##### F) Migration System
+
+Handle schema changes over time:
+
+```php
+// api-server/migrations/001_add_player_rating.php
+<?php
+return [
+    'version' => 2,
+    'description' => 'Add rating field to Players table',
+    'up' => "ALTER TABLE Players ADD COLUMN Rating INT DEFAULT 0",
+    'down' => "ALTER TABLE Players DROP COLUMN Rating"
+];
+?>
+
+// api-server/lib/Migrator.php
+<?php
+class Migrator {
     private $db;
     
     public function __construct($db) {
         $this->db = $db;
     }
     
-    public function handleRequest() {
-        $method = $_SERVER['REQUEST_METHOD'];
-        $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-        $path = trim($path, '/');
+    public function migrate() {
+        $current_version = $this->db->getSchemaVersion();
+        $migrations = $this->loadMigrations();
         
-        // Remove base path if present (e.g., /mathison-api/)
-        $path = preg_replace('#^mathison-api/#', '', $path);
+        foreach ($migrations as $migration) {
+            if ($migration['version'] > $current_version) {
+                echo "Applying migration {$migration['version']}: {$migration['description']}\n";
+                $this->db->conn->exec($migration['up']);
+                
+                $sql = "INSERT INTO Schema_Version (Version, Description) VALUES (?, ?)";
+                $stmt = $this->db->conn->prepare($sql);
+                $stmt->execute([$migration['version'], $migration['description']]);
+            }
+        }
+    }
+    
+    private function loadMigrations() {
+        $files = glob(__DIR__ . '/../migrations/*.php');
+        $migrations = [];
         
-        // Health check
-        if ($path === 'health' || $path === 'api/health') {
-            Response::success(['status' => 'healthy']);
-            return;
+        foreach ($files as $file) {
+            $migrations[] = require $file;
         }
         
-        // Route to appropriate handler
-        if (preg_match('#^api/v1/players/(.+)#', $path, $matches)) {
-            require_once 'routes/players.php';
-            PlayerRoutes::handle($this->db, $method, $matches[1]);
-        }
-        elseif (preg_match('#^api/v1/replays/(.*)#', $path, $matches)) {
-            require_once 'routes/replays.php';
-            ReplayRoutes::handle($this->db, $method, $matches[1]);
-        }
-        elseif (preg_match('#^api/v1/build_orders/(.*)#', $path, $matches)) {
-            require_once 'routes/build_orders.php';
-            BuildOrderRoutes::handle($this->db, $method, $matches[1]);
-        }
-        else {
-            Response::error('Endpoint not found', 404);
-        }
+        usort($migrations, fn($a, $b) => $a['version'] <=> $b['version']);
+        return $migrations;
     }
 }
 ?>
+
+// Usage: Run migrations
+// php api-server/migrate.php
 ```
 
-**File**: `api-server/routes/players.php`
+##### G) OpenAPI/Swagger Documentation
+
+Auto-generate API docs that update with changes:
 
 ```php
+// api-server/docs.php
 <?php
-class PlayerRoutes {
-    public static function handle($db, $method, $endpoint) {
-        if ($method !== 'GET') {
-            Response::error('Method not allowed', 405);
-        }
-        
-        // Parse endpoint: check, {player_name}/exists, {player_name}/records, etc.
-        if ($endpoint === 'check') {
-            self::checkPlayerAndRace($db);
-        }
-        elseif (preg_match('#^([^/]+)/exists$#', $endpoint, $matches)) {
-            self::checkPlayerExists($db, $matches[1]);
-        }
-        elseif (preg_match('#^([^/]+)/records$#', $endpoint, $matches)) {
-            self::getPlayerRecords($db, $matches[1]);
-        }
-        elseif (preg_match('#^([^/]+)/comments$#', $endpoint, $matches)) {
-            self::getPlayerComments($db, $matches[1]);
-        }
-        elseif (preg_match('#^([^/]+)/overall_records$#', $endpoint, $matches)) {
-            self::getOverallRecords($db, $matches[1]);
-        }
-        else {
-            Response::error('Player endpoint not found', 404);
-        }
+/**
+ * Auto-generate OpenAPI documentation
+ */
+require_once 'config.php';
+require_once 'lib/Database.php';
+
+$db = new Database($db_config);
+
+$spec = [
+    'openapi' => '3.0.0',
+    'info' => [
+        'title' => 'Mathison Database API',
+        'version' => '1.0.0'
+    ],
+    'paths' => []
+];
+
+// Auto-discover endpoints from allowed tables
+foreach ($api_config['allowed_tables'] as $table => $operations) {
+    if ($operations['select']) {
+        $spec['paths']["/api/v1/$table"] = [
+            'get' => [
+                'summary' => "Get all $table",
+                'responses' => [
+                    '200' => ['description' => 'Success']
+                ]
+            ]
+        ];
     }
-    
-    private static function checkPlayerAndRace($db) {
-        $player_name = $_GET['player_name'] ?? null;
-        $player_race = $_GET['player_race'] ?? null;
-        
-        if (!$player_name || !$player_race) {
-            Response::error('Missing player_name or player_race parameter', 400);
-        }
-        
-        $result = $db->checkPlayerAndRaceExists($player_name, $player_race);
-        Response::success($result);
-    }
-    
-    private static function checkPlayerExists($db, $player_name) {
-        $result = $db->checkPlayerExists($player_name);
-        Response::success([
-            'exists' => $result !== false,
-            'data' => $result
-        ]);
-    }
-    
-    private static function getPlayerRecords($db, $player_name) {
-        $records = $db->getPlayerRecords($player_name);
-        Response::success($records);
-    }
-    
-    // Additional methods...
+    // ... generate other operations
 }
+
+header('Content-Type: application/json');
+echo json_encode($spec, JSON_PRETTY_PRINT);
 ?>
 ```
 
-**File**: `api-server/.htaccess`
+**Access at:** `https://yourdomain.com/mathison-api/docs.php`
 
-```apache
-# Enable URL rewriting for clean API URLs
-RewriteEngine On
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.*)$ index.php [QSA,L]
+##### H) Backward Compatibility Strategy
 
-# Security headers
-Header set X-Content-Type-Options "nosniff"
-Header set X-Frame-Options "DENY"
-Header set X-XSS-Protection "1; mode=block"
+When adding new features:
+
+```php
+// api-server/lib/Response.php
+class Response {
+    /**
+     * Send JSON response with version-aware formatting
+     */
+    public static function success($data, $api_version = 'v1') {
+        $response = [
+            'success' => true,
+            'data' => $data
+        ];
+        
+        // v2 might add metadata
+        if ($api_version === 'v2') {
+            $response['meta'] = [
+                'timestamp' => time(),
+                'version' => 'v2'
+            ];
+        }
+        
+        http_response_code(200);
+        echo json_encode($response);
+        exit;
+    }
+}
 ```
+
+### Extensibility Summary
+
+With these patterns, you can:
+
+| Change Type | How to Handle | Code Changes Needed |
+|-------------|--------------|---------------------|
+| **New Table** | Add to `allowed_tables` config | Config only |
+| **New Field** | Add column to MySQL | None (auto-detected) |
+| **New Endpoint** | Add route in `routes/` folder | New file |
+| **Breaking Change** | Create v2 API endpoints | New version folder |
+| **Schema Migration** | Add migration file | One PHP file |
+| **New Query Type** | Use generic `select()`/`insert()` | None |
+
+**Key Principle:** The API grows with your database schema, not the other way around.
+
+**Example Growth Path:**
+```
+Phase 1: Basic CRUD on Players/Replays ✓
+Phase 2: Add Patterns table → Just update config ✓
+Phase 3: Add Rating field → ALTER TABLE, no API changes ✓
+Phase 4: New analysis endpoints → Add routes/analysis.php ✓
+Phase 5: Breaking changes → Create /api/v2/ ✓
+```
+
+The API is designed to be **data-driven** rather than **code-driven**, making it flexible for future needs.
 
 ---
 

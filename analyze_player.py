@@ -11,6 +11,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from api.ml_opponent_analyzer import MLOpponentAnalyzer
 from models.mathison_db import Database
+from adapters.database.database_client_factory import create_database_client
 
 class MockLogger:
     """Mock logger for testing purposes"""
@@ -28,7 +29,7 @@ def test_ml_analysis_for_opponent(opponent_name, opponent_race):
         # Create analyzer instance, mock logger, and database connection
         analyzer = MLOpponentAnalyzer()
         logger = MockLogger()
-        db = Database()
+        db = create_database_client()
         
         # Test the analysis
         result = analyzer.analyze_opponent_for_chat(

@@ -1,0 +1,28 @@
+# Redirect all requests to public/index.php (Slim Framework)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Redirect to public/ folder if not already there
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ public/index.php [QSA,L]
+</IfModule>
+
+# Security headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "DENY"
+    Header set X-XSS-Protection "1; mode=block"
+    
+    # CORS headers (adjust as needed)
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    Header set Access-Control-Allow-Headers "Authorization, Content-Type"
+</IfModule>
+
+# Deny access to sensitive files
+<FilesMatch "^(config\.php|composer\.(json|lock))$">
+    Require all denied
+</FilesMatch>
+

@@ -9,6 +9,7 @@ import json
 import sys
 from datetime import datetime, timedelta
 from models.mathison_db import Database
+from adapters.database.database_client_factory import create_database_client
 from settings import config
 
 # Define race-specific units and buildings
@@ -170,7 +171,7 @@ def validate_database(days=4):
     print("="*60)
     
     try:
-        db = Database()
+        db = create_database_client()
     except Exception as e:
         print(f"Error connecting to database: {e}")
         return []

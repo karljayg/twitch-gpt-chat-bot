@@ -13,6 +13,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from settings import config
 from models.mathison_db import Database
+from adapters.database.database_client_factory import create_database_client
 from datetime import datetime
 # Date range input
 start_date, end_date = input('Enter the date range (YYYY-MM-DD to YYYY-MM-DD): ').split(' to ')
@@ -241,7 +242,7 @@ class ReplayLoader:
         file_handler = logging.FileHandler(log_file_name, encoding='utf-8')
         file_handler.setFormatter(formatter)
         self.logger.addHandler(file_handler)
-        self.db = Database()
+        self.db = create_database_client()
         self.find_replay_files(folder_path)
 
 
