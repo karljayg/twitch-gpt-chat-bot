@@ -10,6 +10,10 @@ import logging
 from typing import List, Dict, Any, Optional
 from core.interfaces import IDatabaseClient
 
+# Suppress SSL warnings when verification is disabled
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 
 class ApiDatabaseClient(IDatabaseClient):
     """
@@ -17,16 +21,16 @@ class ApiDatabaseClient(IDatabaseClient):
     Used when DB_MODE='api' in config.
     """
     
-    def __init__(self, api_base_url: str = None, api_key: str = None):
+    def __init__(self, api_base_url: str = None, api_key: str = None, verify_ssl: bool = None):
         # Lazy import to avoid circular dependencies and allow mocking in tests
-        if api_base_url is None or api_key is None:
-            from settings import config
-            self.api_base_url = api_base_url or config.DB_API_URL
-            self.api_key = api_key or config.DB_API_KEY
-        else:
-            self.api_base_url = api_base_url
-            self.api_key = api_key
+        from settings import config
+        
+        self.api_base_url = api_base_url if api_base_url is not None else config.DB_API_URL
+        self.api_key = api_key if api_key is not None else config.DB_API_KEY
+        self.verify_ssl = verify_ssl if verify_ssl is not None else getattr(config, 'DB_API_VERIFY_SSL', True)
+        
         self._logger = logging.getLogger("ApiDatabaseClient")
+        self._request_count = 0  # Initialize counter BEFORE making any requests
         
         # Session for connection pooling
         self.session = requests.Session()
@@ -34,6 +38,9 @@ class ApiDatabaseClient(IDatabaseClient):
             'Authorization': f'Bearer {self.api_key}',
             'Content-Type': 'application/json'
         })
+        
+        if not self.verify_ssl:
+            self._logger.warning("SSL verification disabled - use only for testing!")
         
         self._logger.info(f"ApiDatabaseClient initialized for {self.api_base_url}")
     
@@ -49,17 +56,21 @@ class ApiDatabaseClient(IDatabaseClient):
         
         try:
             if method == 'GET':
-                response = self.session.get(url, params=data, timeout=10)
+                response = self.session.get(url, params=data, timeout=10, verify=self.verify_ssl)
             elif method == 'POST':
-                response = self.session.post(url, json=data, timeout=10)
+                response = self.session.post(url, json=data, timeout=10, verify=self.verify_ssl)
             elif method == 'PUT':
-                response = self.session.put(url, json=data, timeout=10)
+                response = self.session.put(url, json=data, timeout=10, verify=self.verify_ssl)
             else:
                 raise ValueError(f"Unsupported method: {method}")
             
             response.raise_for_status()
             return response.json()
         
+        except requests.exceptions.SSLError as e:
+            self._logger.error(f"SSL Certificate error: {e}")
+            self._logger.error(f"If this is a valid self-signed cert, you may need to add it to your system's trust store")
+            raise
         except requests.exceptions.RequestException as e:
             self._logger.error(f"API request failed: {method} {endpoint} - {e}")
             raise

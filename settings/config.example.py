@@ -86,6 +86,7 @@ HEARTBEAT_MYSQL = 20 # iterations, usually GAME_DURATION_SECONDS / MONITOR_GAME_
 # API settings (used when DB_MODE = 'api')
 DB_API_URL = "https://your-server.com/api-server/public"
 DB_API_KEY = "your-secret-api-key-here"
+DB_API_VERIFY_SSL = True  # Set to False if using self-signed certificate
 
 """
 |   SC2 Settings

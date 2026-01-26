@@ -42,13 +42,14 @@ def create_database_client() -> IDatabaseClient:
         logger.info("=" * 60)
         logger.info("DATABASE MODE: API (Remote database via REST API)")
         logger.info(f"API Endpoint: {config.DB_API_URL}")
+        logger.info(f"SSL Verification: {getattr(config, 'DB_API_VERIFY_SSL', True)}")
         logger.info("=" * 60)
         try:
             client = ApiDatabaseClient(
                 api_base_url=config.DB_API_URL,
                 api_key=config.DB_API_KEY
             )
-            # Test the connection
+            # Test the connection (client now has verify_ssl set)
             response = client._make_request('GET', '/health')
             if response.get('status') != 'healthy':
                 raise Exception("API health check failed")
