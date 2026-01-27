@@ -48,6 +48,7 @@ class TestApiDatabaseClient:
         
         # Mock response
         mock_response = Mock()
+        mock_response.status_code = 200  # Set status code to avoid Mock comparison error
         mock_response.json.return_value = {'Player1_Name': 'TestPlayer', 'Player1_Race': 'Protoss'}
         mock_response.raise_for_status = Mock()
         mock_session.get.return_value = mock_response
@@ -74,6 +75,7 @@ class TestApiDatabaseClient:
         from adapters.database.api_database_client import ApiDatabaseClient
         
         mock_response = Mock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {
             'exists': True,
             'data': {'Id': 1, 'SC2_UserId': 'TestPlayer'}
@@ -96,6 +98,7 @@ class TestApiDatabaseClient:
         from adapters.database.api_database_client import ApiDatabaseClient
         
         mock_response = Mock()
+        mock_response.status_code = 200
         mock_response.json.return_value = [
             "TestPlayer, Opponent1, 5 wins, 3 losses",
             "TestPlayer, Opponent2, 2 wins, 1 losses"
@@ -119,6 +122,7 @@ class TestApiDatabaseClient:
         from adapters.database.api_database_client import ApiDatabaseClient
         
         mock_response = Mock()
+        mock_response.status_code = 200
         mock_response.json.return_value = [
             {
                 'player_comments': 'Fast expand',
@@ -147,6 +151,7 @@ class TestApiDatabaseClient:
         from adapters.database.api_database_client import ApiDatabaseClient
         
         mock_response = Mock()
+        mock_response.status_code = 200
         mock_response.json.return_value = [
             "Probe at 12",
             "Pylon at 13",
