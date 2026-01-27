@@ -24,12 +24,27 @@ class ApiDatabaseClient(IDatabaseClient):
     def __init__(self, api_base_url: str = None, api_key: str = None, verify_ssl: bool = None):
         # Lazy import to avoid circular dependencies and allow mocking in tests
         from settings import config
+        from datetime import datetime
         
         self.api_base_url = api_base_url if api_base_url is not None else config.DB_API_URL
         self.api_key = api_key if api_key is not None else config.DB_API_KEY
         self.verify_ssl = verify_ssl if verify_ssl is not None else getattr(config, 'DB_API_VERIFY_SSL', True)
         
-        self._logger = logging.getLogger("ApiDatabaseClient")
+        # Setup logger with file handler (similar to Database class)
+        self._logger = logging.getLogger("api_logger")
+        self._logger.setLevel(logging.DEBUG)
+        
+        # Create timestamped log file for API operations
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s')
+        log_file_name = f"logs/api_{timestamp}.log"
+        
+        # Only add file handler if not already present (avoid duplicates in tests)
+        if not any(isinstance(h, logging.FileHandler) for h in self._logger.handlers):
+            file_handler = logging.FileHandler(log_file_name, encoding='utf-8')
+            file_handler.setFormatter(formatter)
+            self._logger.addHandler(file_handler)
+        
         self._request_count = 0  # Initialize counter BEFORE making any requests
         
         # Session for connection pooling
@@ -43,6 +58,7 @@ class ApiDatabaseClient(IDatabaseClient):
             self._logger.warning("SSL verification disabled - use only for testing!")
         
         self._logger.info(f"ApiDatabaseClient initialized for {self.api_base_url}")
+        self._logger.info(f"API logging to: {log_file_name}")
     
     def _make_request(self, method: str, endpoint: str, data: dict = None) -> Any:
         """Generic API request handler with error handling"""
@@ -96,13 +112,23 @@ class ApiDatabaseClient(IDatabaseClient):
     # ===== Player Operations =====
     
     def check_player_and_race_exists(self, player_name: str, player_race: str) -> Optional[Dict]:
-        return self._make_request('GET', '/api/v1/players/check', {
+        result = self._make_request('GET', '/api/v1/players/check', {
             'player_name': player_name,
             'player_race': player_race
         })
+        if result:
+            self._logger.debug(f"Player and race exists: {player_name} ({player_race}) - {result}")
+        else:
+            self._logger.debug(f"Player and race not found: {player_name} ({player_race})")
+        return result
     
     def check_player_exists(self, player_name: str) -> Optional[Dict]:
-        return self._make_request('GET', f'/api/v1/players/{player_name}/exists')
+        result = self._make_request('GET', f'/api/v1/players/{player_name}/exists')
+        if result:
+            self._logger.debug(f"Player exists: {result}")
+        else:
+            self._logger.debug(f"Player not found: {player_name}")
+        return result
     
     def get_player_records(self, player_name: str) -> List[str]:
         result = self._make_request('GET', f'/api/v1/players/{player_name}/records')
@@ -112,7 +138,9 @@ class ApiDatabaseClient(IDatabaseClient):
         result = self._make_request('GET', f'/api/v1/players/{player_name}/comments', {
             'race': player_race
         })
-        return result if isinstance(result, list) else []
+        comments = result if isinstance(result, list) else []
+        self._logger.debug(f"Retrieved {len(comments)} comments for {player_name} ({player_race})")
+        return comments
     
     def get_player_overall_records(self, player_name: str) -> str:
         result = self._make_request('GET', f'/api/v1/players/{player_name}/overall_records')
@@ -189,10 +217,24 @@ class ApiDatabaseClient(IDatabaseClient):
     
     def insert_replay_info(self, replay_summary: str) -> bool:
         """Insert replay information into database"""
+        # Extract key info from replay summary for logging
+        lines = replay_summary.split('\n')
+        players_line = next((l for l in lines if l.startswith('Players:')), 'Players: unknown')
+        map_line = next((l for l in lines if l.startswith('Map:')), 'Map: unknown')
+        
+        self._logger.debug(f"Inserting replay: {players_line}, {map_line}")
+        
         result = self._make_request('POST', '/api/v1/replays', {
             'replay_summary': replay_summary
         })
-        return result.get('success', False) if isinstance(result, dict) else False
+        success = result.get('success', False) if isinstance(result, dict) else False
+        
+        if success:
+            self._logger.info(f"✓ Saved replay summary")
+        else:
+            self._logger.error(f"✗ Failed to save replay summary")
+        
+        return success
     
     def update_player_comments_in_last_replay(self, comment: str) -> bool:
         """Update player comment for the last replay"""
@@ -203,17 +245,39 @@ class ApiDatabaseClient(IDatabaseClient):
     
     def save_player_comment_with_data(self, comment_data: Dict) -> bool:
         """Save full comment data to PlayerComments table with keywords, build_order, etc."""
+        opponent = comment_data.get('opponent_name', 'unknown')
+        comment = comment_data.get('comment', '')[:50] + ('...' if len(comment_data.get('comment', '')) > 50 else '')
+        self._logger.debug(f"Saving comment for {opponent}: '{comment}'")
+        
         result = self._make_request('POST', '/api/v1/comments/save', {
             'comment_data': comment_data
         })
-        return result.get('success', False) if isinstance(result, dict) else False
+        success = result.get('success', False) if isinstance(result, dict) else False
+        
+        if success:
+            self._logger.info(f"✓ Saved comment for {opponent}")
+        else:
+            self._logger.error(f"✗ Failed to save comment for {opponent}")
+        
+        return success
     
     def save_pattern_to_db(self, pattern_entry: Dict) -> bool:
         """Save pattern to PatternLearning table"""
+        keywords = pattern_entry.get('keywords', [])
+        opponent = pattern_entry.get('opponent_name', 'unknown')
+        self._logger.debug(f"Saving pattern for {opponent} with {len(keywords)} keywords")
+        
         result = self._make_request('POST', '/api/v1/patterns/save', {
             'pattern_entry': pattern_entry
         })
-        return result.get('success', False) if isinstance(result, dict) else False
+        success = result.get('success', False) if isinstance(result, dict) else False
+        
+        if success:
+            self._logger.info(f"✓ Saved pattern for {opponent}")
+        else:
+            self._logger.error(f"✗ Failed to save pattern for {opponent}")
+        
+        return success
     
     # ===== Connection Management =====
     
