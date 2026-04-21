@@ -7,7 +7,7 @@ Used when DB_MODE='local' for direct MySQL connection.
 
 from core.interfaces import IDatabaseClient
 from models.mathison_db import Database
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 
 
 class LocalDatabaseClient(IDatabaseClient):
@@ -94,7 +94,85 @@ class LocalDatabaseClient(IDatabaseClient):
         if hasattr(self._db, 'save_pattern_to_db'):
             return self._db.save_pattern_to_db(pattern_entry)
         return False
-    
+
+    # FSL lives in psistorm; local client is mathison-only — use DB_MODE=api for /api/v1/fsl/.
+    def fsl_players_search(self, q: str, limit: int = 40) -> Dict[str, Any]:
+        return {}
+
+    def fsl_player_by_id(self, player_id: int) -> Optional[Dict[str, Any]]:
+        return None
+
+    def fsl_player_by_name_exact(self, name: str) -> Optional[Dict[str, Any]]:
+        return None
+
+    def fsl_teams_search(self, q: str, limit: int = 40) -> Dict[str, Any]:
+        return {}
+
+    def fsl_team_by_id(self, team_id: int) -> Optional[Dict[str, Any]]:
+        return None
+
+    def fsl_team_players(self, team_id: int) -> Dict[str, Any]:
+        return {}
+
+    def fsl_schedule(
+        self,
+        season: Optional[int] = None,
+        week: Optional[int] = None,
+        limit: int = 120,
+    ) -> Dict[str, Any]:
+        return {}
+
+    def fsl_schedule_entry(self, schedule_id: int) -> Optional[Dict[str, Any]]:
+        return None
+
+    def fsl_schedule_match_links(self, schedule_id: int) -> Dict[str, Any]:
+        return {}
+
+    def fsl_team_league_season_summary(self, season: int) -> Dict[str, Any]:
+        return {}
+
+    def fsl_solo_division_season_standings(
+        self, season: int, division: str
+    ) -> Dict[str, Any]:
+        return {}
+
+    def fsl_matches(
+        self,
+        season: Optional[int] = None,
+        player_name: Optional[str] = None,
+        player_id: Optional[int] = None,
+        opponent_name: Optional[str] = None,
+        limit: int = 60,
+    ) -> Dict[str, Any]:
+        return {}
+
+    def fsl_matches_h2h(
+        self,
+        player_name: str,
+        opponent_name: str,
+        season: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        return {}
+
+    def fsl_match_by_id(self, fsl_match_id: int) -> Optional[Dict[str, Any]]:
+        return None
+
+    def fsl_statistics_for_player(self, player_id: int) -> Dict[str, Any]:
+        return {}
+
+    def fsl_leaderboard_match_win_pct(
+        self, min_matches: int = 10, limit: int = 15
+    ) -> Dict[str, Any]:
+        return {}
+
+    def fsl_leaderboard_match_total_wins(
+        self, min_matches: int = 1, limit: int = 15
+    ) -> Dict[str, Any]:
+        return {}
+
+    def fsl_leaderboard_maps_won(self, limit: int = 15) -> Dict[str, Any]:
+        return {}
+
     # ===== Connection Management =====
     
     def ensure_connection(self):

@@ -351,6 +351,251 @@ class ApiDatabaseClient(IDatabaseClient):
         
         return success
     
+    # ===== FSL (psistorm via api-server GET /api/v1/fsl/*; read-only) =====
+    
+    def fsl_players_search(self, q: str, limit: int = 40) -> Dict[str, Any]:
+        result = self._make_request(
+            'GET', '/api/v1/fsl/players/search', {'q': q, 'limit': limit}
+        )
+        return result if isinstance(result, dict) else {}
+    
+    def fsl_player_by_id(self, player_id: int) -> Optional[Dict[str, Any]]:
+        result = self._make_request(
+            'GET', f'/api/v1/fsl/players/{int(player_id)}', None
+        )
+        if isinstance(result, dict) and result.get('player'):
+            return result['player']
+        return None
+    
+    def fsl_player_by_name_exact(self, name: str) -> Optional[Dict[str, Any]]:
+        result = self._make_request(
+            'GET', '/api/v1/fsl/players/by-name', {'name': name}
+        )
+        if isinstance(result, dict) and result.get('player'):
+            return result['player']
+        return None
+    
+    def fsl_teams_search(self, q: str, limit: int = 40) -> Dict[str, Any]:
+        result = self._make_request(
+            'GET', '/api/v1/fsl/teams/search', {'q': q, 'limit': limit}
+        )
+        return result if isinstance(result, dict) else {}
+    
+    def fsl_team_by_id(self, team_id: int) -> Optional[Dict[str, Any]]:
+        result = self._make_request(
+            'GET', f'/api/v1/fsl/teams/{int(team_id)}', None
+        )
+        if isinstance(result, dict) and result.get('team'):
+            return result['team']
+        return None
+
+    def fsl_team_players(self, team_id: int) -> Dict[str, Any]:
+        try:
+            result = self._make_request(
+                'GET',
+                f'/api/v1/fsl/teams/{int(team_id)}/players',
+                None,
+            )
+            return result if isinstance(result, dict) else {}
+        except requests.exceptions.HTTPError as e:
+            if e.response is not None and e.response.status_code == 404:
+                self._logger.warning(
+                    "FSL GET /api/v1/fsl/teams/{id}/players not on server (404) — "
+                    "deploy api-server FslDatabase::listPlayersForTeam + fsl.php route"
+                )
+                return {
+                    'players': [],
+                    'count': 0,
+                    '_roster_endpoint_unavailable': True,
+                }
+            raise
+
+    def fsl_leaderboard_maps_won(self, limit: int = 15) -> Dict[str, Any]:
+        params: Dict[str, Any] = {'limit': max(1, int(limit))}
+        try:
+            result = self._make_request(
+                'GET',
+                '/api/v1/fsl/statistics/leaderboard/maps-won',
+                params,
+            )
+            return result if isinstance(result, dict) else {}
+        except requests.exceptions.HTTPError as e:
+            if e.response is not None and e.response.status_code == 404:
+                self._logger.warning(
+                    "FSL GET .../leaderboard/maps-won not on server (404) — deploy api-server"
+                )
+                return {
+                    'leaderboard': [],
+                    'count': 0,
+                    '_maps_won_endpoint_unavailable': True,
+                }
+            raise
+
+    def fsl_schedule(
+        self,
+        season: Optional[int] = None,
+        week: Optional[int] = None,
+        limit: int = 120,
+    ) -> Dict[str, Any]:
+        params: Dict[str, Any] = {'limit': limit}
+        if season is not None:
+            params['season'] = season
+        if week is not None:
+            params['week'] = week
+        result = self._make_request('GET', '/api/v1/fsl/schedule', params)
+        return result if isinstance(result, dict) else {}
+    
+    def fsl_schedule_entry(self, schedule_id: int) -> Optional[Dict[str, Any]]:
+        result = self._make_request(
+            'GET', f'/api/v1/fsl/schedule/{int(schedule_id)}', None
+        )
+        if isinstance(result, dict) and result.get('entry'):
+            return result['entry']
+        return None
+    
+    def fsl_schedule_match_links(self, schedule_id: int) -> Dict[str, Any]:
+        result = self._make_request(
+            'GET', f'/api/v1/fsl/schedule/{int(schedule_id)}/matches', None
+        )
+        return result if isinstance(result, dict) else {}
+
+    def fsl_team_league_season_summary(self, season: int) -> Dict[str, Any]:
+        try:
+            result = self._make_request(
+                'GET',
+                f'/api/v1/fsl/team-league/season/{int(season)}/summary',
+                None,
+            )
+            return result if isinstance(result, dict) else {}
+        except requests.exceptions.HTTPError as e:
+            if e.response is not None and e.response.status_code == 404:
+                self._logger.warning(
+                    "FSL GET .../team-league/season/{n}/summary not on server (404)"
+                )
+                return {'summary': {}, '_team_league_summary_unavailable': True}
+            raise
+
+    def fsl_solo_division_season_standings(
+        self, season: int, division: str
+    ) -> Dict[str, Any]:
+        """division: single letter S, A, or B (fsl_matches.t_code)."""
+        d = str(division).strip().upper()
+        if len(d) != 1 or d not in ("S", "A", "B"):
+            return {"summary": {}, "_solo_division_standings_unavailable": True}
+        try:
+            result = self._make_request(
+                "GET",
+                f"/api/v1/fsl/solo-league/season/{int(season)}/division/{d}/standings",
+                None,
+            )
+            return result if isinstance(result, dict) else {}
+        except requests.exceptions.HTTPError as e:
+            if e.response is not None and e.response.status_code in (404, 400):
+                self._logger.warning(
+                    "FSL GET .../solo-league/season/{n}/division/{S|A|B}/standings not on server or bad request"
+                )
+                return {"summary": {}, "_solo_division_standings_unavailable": True}
+            raise
+
+    def fsl_matches(
+        self,
+        season: Optional[int] = None,
+        player_name: Optional[str] = None,
+        player_id: Optional[int] = None,
+        opponent_name: Optional[str] = None,
+        limit: int = 60,
+    ) -> Dict[str, Any]:
+        params: Dict[str, Any] = {'limit': limit}
+        if season is not None:
+            params['season'] = season
+        if player_name:
+            params['player_name'] = player_name
+        if player_id is not None:
+            params['player_id'] = player_id
+        if opponent_name:
+            params['opponent_name'] = opponent_name
+        result = self._make_request('GET', '/api/v1/fsl/matches', params)
+        return result if isinstance(result, dict) else {}
+
+    def fsl_matches_h2h(
+        self,
+        player_name: str,
+        opponent_name: str,
+        season: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        params: Dict[str, Any] = {
+            'player_name': player_name,
+            'opponent_name': opponent_name,
+        }
+        if season is not None:
+            params['season'] = int(season)
+        try:
+            result = self._make_request(
+                'GET', '/api/v1/fsl/matches/h2h', params
+            )
+            return result if isinstance(result, dict) else {}
+        except requests.exceptions.HTTPError as e:
+            if e.response is not None and e.response.status_code == 404:
+                self._logger.warning(
+                    "FSL GET /api/v1/fsl/matches/h2h not on server (404) — deploy api-server"
+                )
+                return {'h2h': {}, '_h2h_endpoint_unavailable': True}
+            raise
+
+    def fsl_match_by_id(self, fsl_match_id: int) -> Optional[Dict[str, Any]]:
+        result = self._make_request(
+            'GET', f'/api/v1/fsl/matches/{int(fsl_match_id)}', None
+        )
+        if isinstance(result, dict) and result.get('match'):
+            return result['match']
+        return None
+    
+    def fsl_statistics_for_player(self, player_id: int) -> Dict[str, Any]:
+        result = self._make_request(
+            'GET', f'/api/v1/fsl/statistics/player/{int(player_id)}', None
+        )
+        return result if isinstance(result, dict) else {}
+
+    def fsl_leaderboard_match_win_pct(
+        self, min_matches: int = 10, limit: int = 15
+    ) -> Dict[str, Any]:
+        params: Dict[str, Any] = {
+            'min_matches': max(1, int(min_matches)),
+            'limit': max(1, int(limit)),
+        }
+        result = self._make_request(
+            'GET',
+            '/api/v1/fsl/statistics/leaderboard/win-pct',
+            params,
+        )
+        return result if isinstance(result, dict) else {}
+
+    def fsl_leaderboard_match_total_wins(
+        self, min_matches: int = 1, limit: int = 15
+    ) -> Dict[str, Any]:
+        params: Dict[str, Any] = {
+            'min_matches': max(1, int(min_matches)),
+            'limit': max(1, int(limit)),
+        }
+        try:
+            result = self._make_request(
+                'GET',
+                '/api/v1/fsl/statistics/leaderboard/total-wins',
+                params,
+            )
+            return result if isinstance(result, dict) else {}
+        except requests.exceptions.HTTPError as e:
+            if e.response is not None and e.response.status_code == 404:
+                self._logger.warning(
+                    "FSL GET .../leaderboard/total-wins not on server (404) — deploy api-server"
+                )
+                return {
+                    'leaderboard': [],
+                    'count': 0,
+                    '_total_wins_endpoint_unavailable': True,
+                }
+            raise
+
     # ===== Connection Management =====
     
     def ensure_connection(self):

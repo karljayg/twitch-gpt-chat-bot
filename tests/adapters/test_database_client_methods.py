@@ -109,6 +109,40 @@ class TestDatabaseClientMethods:
         for method_name in connection_methods:
             assert hasattr(local_client, method_name), f"LocalDatabaseClient missing {method_name}"
             assert hasattr(api_client, method_name), f"ApiDatabaseClient missing {method_name}"
+
+    def test_fsl_methods_exist(self, local_client, api_client):
+        """FSL helpers (psistorm via api-server); local stubs return empty."""
+        fsl_methods = [
+            'fsl_players_search',
+            'fsl_player_by_id',
+            'fsl_player_by_name_exact',
+            'fsl_teams_search',
+            'fsl_team_by_id',
+            'fsl_team_players',
+            'fsl_schedule',
+            'fsl_schedule_entry',
+            'fsl_schedule_match_links',
+            'fsl_team_league_season_summary',
+            'fsl_solo_division_season_standings',
+            'fsl_matches',
+            'fsl_matches_h2h',
+            'fsl_match_by_id',
+            'fsl_statistics_for_player',
+            'fsl_leaderboard_match_win_pct',
+            'fsl_leaderboard_match_total_wins',
+            'fsl_leaderboard_maps_won',
+        ]
+        for method_name in fsl_methods:
+            assert hasattr(local_client, method_name), f"LocalDatabaseClient missing {method_name}"
+            local_method = getattr(local_client, method_name)
+            assert callable(local_method), f"LocalDatabaseClient.{method_name} is not callable"
+            assert hasattr(api_client, method_name), f"ApiDatabaseClient missing {method_name}"
+            api_method = getattr(api_client, method_name)
+            assert callable(api_method), f"ApiDatabaseClient.{method_name} is not callable"
+            local_sig = signature(local_method)
+            api_sig = signature(api_method)
+            assert len(local_sig.parameters) == len(api_sig.parameters), \
+                f"{method_name} parameter count mismatch: Local={len(local_sig.parameters)}, API={len(api_sig.parameters)}"
     
     def test_legacy_properties_exist(self, local_client, api_client):
         """Verify legacy compatibility properties exist"""

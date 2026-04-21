@@ -9,6 +9,7 @@ BOT_COMMANDS = """
  career <player>,
  history <player>,
  head to head <player1> <player2>,
+ fsl help | fsl players <q> | fsl player <name> | fsl team <q> | fsl schedule [season [week]] | fsl matches <player> [season <n>] | @OWNER FSL question if ENABLE_FSL_ASK,
  games in last <hrs> hours - limit 72,
  open sesame - ignored users will be responded to
 """
@@ -24,6 +25,10 @@ OWNER = "psi_mathison"
 TRAINING_FILE = f"hypebot/training/twitchchatbot-gpt-ex-{NAME}-1"
 PAGE = "kj_freeedom"
 STREAMER_NICKNAME = "KJ"
+# Max saved-comment lines in "Saved notes vs ..." (newest first); avoids wall of timestamps
+TWITCH_SAVED_NOTES_MAX_ITEMS = 3
+SHORT_LAST_GAME_DURATION_SECONDS = 120
+MIN_HEAD_TO_HEAD_GAMES_TO_SHOW_RECORD = 2
 
 # IRC Bot settings
 HOST = "irc.chat.twitch.tv"
@@ -73,7 +78,7 @@ TOKENIZER_ENCODING = "cl100k_base"  # cl100k_base
 """
 |   DB Settings
 """
-# Database Mode: 'local' = direct MySQL connection, 'api' = remote API
+# Database Mode: 'local' = direct MySQL connection, 'api' = remote API (required for FSL league DB commands / FSL @-ask)
 DB_MODE = "local"
 
 # Local MySQL settings (used when DB_MODE = 'local')
@@ -84,6 +89,7 @@ DB_NAME = "mathison"
 HEARTBEAT_MYSQL = 20 # iterations, usually GAME_DURATION_SECONDS / MONITOR_GAME_SLEEP_SECONDS * this number
 
 # API settings (used when DB_MODE = 'api')
+# Use the Mathison api-server base that serves GET /api/v1/fsl/* (psistorm DB configured server-side).
 DB_API_URL = "https://your-server.com/api-server/public"
 DB_API_KEY = "your-secret-api-key-here"
 DB_API_VERIFY_SSL = True  # Set to False if using self-signed certificate
@@ -173,12 +179,39 @@ FSL_API_URL = "https://psistorm.com/fsl/api/service.php"
 FSL_API_TOKEN = "fsl_api_7x9k2m4n8p3q6r9s2t5v8w1y4z7a0c3f6h9j2m5p8s1v4y7"
 FSL_REVIEWER_WEIGHT = 0.5  # Default weight for Twitch viewers
 FSL_VERIFY_SSL = False  # Set to False if SSL certificate verification fails
+# FSL league DB via api-server /api/v1/fsl/* (requires DB_MODE=api + api-server psistorm_db_config)
+ENABLE_FSL_DB_COMMANDS = True  # Chat: fsl help | fsl players … | fsl matches … (explicit commands only)
+# @OWNER / @PAGE → router LLM outputs JSON action → Python calls allowlisted db.fsl_* (not general chat)
+ENABLE_FSL_ASK = False  # set True to enable; requires OPENAI_DISABLED=False and working DB_API_* to api-server
+# Gate: empty list [] = no keyword filter. Example: ["fsl", "league", "schedule", "player", "team", "match", "season", "vs", "record", "win"]
+FSL_ASK_TRIGGER_KEYWORDS = []
+# First LLM pass: question + compact schema → prose “which API/domain?” then router JSON.
+# Recommended True: you maintain FSL_API_SCHEMA_GROUNDING + SCHEMA_GROUNDING_PROMPT_TEMPLATE instead of growing CRITICAL/rules; one extra LLM call per question.
+# When True, the solo H2H regex shortcut is skipped (routing is GenAI-only + allowlisted actions).
+FSL_ASK_SCHEMA_GROUNDING = True
+FSL_ASK_FORMAT_WITH_LLM = True  # second LLM shapes the reply to the QUESTION using FACTS (recommended for team league champion / placement)
+# FSL_ASK_SKIP_FORMAT_ACTIONS = ["team_league_season"]  # optional; add actions to skip that answer step (leaderboard_* skipped by default)
+# FSL_ASK_NONE_REPLY = "That's not something I can look up in the FSL league database. Try: fsl help"
+# FSL_ASK_OFF_TOPIC_REPLY = "Add an FSL keyword (league, schedule, player, …) or use `fsl help`."
+# FSL_ASK_EXTRA_MENTIONS = []  # extra substrings that count as “mentioned the bot” beyond @OWNER / @PAGE
+# FSL voting API (spider / chat tallies) — https://psistorm.com/fsl/docs/FSL_Voting_API_spec.md
+# FSL_VOTING_API_URL = "https://psistorm.com/fsl/api/voting.php"  # optional; script defaults if unset
+# FSL_VOTING_API_KEY = None  # optional; if unset, FSL_API_TOKEN is used for Bearer auth
+# FSL_VOTING_VERIFY_SSL = False  # optional; defaults to FSL_VERIFY_SSL
+# FSL_BOT_REVIEWER_ID = None  # REQUIRED: reviewers.id WHERE name='TwitchChat' only — never use your personal id
+# (wrong id attributes all chat votes to that human reviewer in Player_Attribute_Votes).
+# ENABLE_FSL_CHAT_VOTING = False  # accept ratings / end ratings + capture mic1/mac2… in Twitch chat
+# FSL_RATINGS_ADMIN_LOGINS = []  # optional extra Twitch logins allowed to start/end (PAGE/OWNER always)
+# FSL_TUNNEL_TEST_MATCH_ID = 99001  # reserved fsl_match_id for tunnel tests (Freeedom vs SirMalagant); see schema_changes.sql
+# FSL_VOTING_SUBMIT_BUFFER_SEC = 15.0  # auto-submit this many seconds before API expires_at (reduces 403 VOTING_CLOSED)
 
 # Pattern Learning System Settings
 ENABLE_PATTERN_LEARNING = True  # Enable SC2 build pattern learning from player comments
 PLAYER_COMMENT_TIMEOUT_SECONDS = 60  # Timeout for player comment input (in seconds)
 PATTERN_LEARNING_DELAY_SECONDS = 10  # Delay before prompting for player comments (wait for replay processing and OpenAI analysis)
 PATTERN_LEARNING_SIMILARITY_THRESHOLD = 0.7  # Minimum similarity score to consider patterns matching
+# Post-game Twitch line: append Pattern: "…" only when top pattern match similarity >= this (0–1)
+STRATEGY_PATTERN_LABEL_MIN_SIMILARITY = 0.85
 PATTERN_LEARNING_MAX_PATTERNS = 1000  # Maximum number of patterns to store in memory
 PATTERN_DATA_DIR = "data"  # Directory to store learned patterns
 PATTERN_LEARNING_PROMPT_FOR_COMMENTS = True  # Set to True to always prompt for player comments (never auto-process)
