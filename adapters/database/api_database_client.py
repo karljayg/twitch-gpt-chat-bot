@@ -189,17 +189,82 @@ class ApiDatabaseClient(IDatabaseClient):
             result_str = result.get('Player2_Result', '')
         
         return {
+            'replay_id': result.get('ReplayId', result.get('replay_id')),
             'opponent': opponent,
-            'map': result.get('map', ''),
+            'map': result.get('map', result.get('Map', '')),
             'result': result_str,
             'date': result.get('date', ''),
             'duration': result.get('duration', ''),
             'timestamp': result.get('timestamp', 0),
             'existing_comment': result.get('existing_comment')
         }
+
+    def get_replay_by_recency_offset(self, offset: int) -> Optional[Dict]:
+        off = max(0, int(offset))
+        try:
+            result = self._make_request('GET', f'/api/v1/replays/recency/{off}')
+        except Exception:
+            return None
+        if not isinstance(result, dict) or result.get('error'):
+            return None
+        rid = result.get('ReplayId') or result.get('replay_id')
+        if rid is None:
+            return None
+        return self.get_replay_by_id(int(rid))
     
     def get_replay_by_id(self, replay_id: int) -> Optional[Dict]:
-        return self._make_request('GET', f'/api/v1/replays/{replay_id}')
+        result = self._make_request('GET', f'/api/v1/replays/{replay_id}')
+        if not isinstance(result, dict):
+            return result
+
+        # Normalize API row shape to legacy keys expected by services.
+        if "opponent" in result:
+            return result
+
+        # API may return raw DB columns (Replay_Summary, Date_Played, Player1_Name, etc.)
+        from settings import config
+        p1_name = str(result.get("Player1_Name", ""))
+        p2_name = str(result.get("Player2_Name", ""))
+        p1_race = result.get("Player1_Race", "Unknown")
+        p2_race = result.get("Player2_Race", "Unknown")
+        p1_result = result.get("Player1_Result", "Unknown")
+        p2_result = result.get("Player2_Result", "Unknown")
+        streamer_accounts = [n.lower() for n in getattr(config, "SC2_PLAYER_ACCOUNTS", [])]
+
+        if p1_name.lower() in streamer_accounts:
+            opponent = p2_name or "Unknown"
+            opponent_race = p2_race
+            streamer_race = p1_race
+            result_str = p1_result
+        elif p2_name.lower() in streamer_accounts:
+            opponent = p1_name or "Unknown"
+            opponent_race = p1_race
+            streamer_race = p2_race
+            result_str = p2_result
+        else:
+            # Observer / unknown: best effort fallback.
+            opponent = p2_name or p1_name or "Unknown"
+            opponent_race = p2_race if p2_name else p1_race
+            streamer_race = "Unknown"
+            result_str = "Observed"
+
+        return {
+            "replay_id": result.get("ReplayId", replay_id),
+            "opponent": opponent,
+            "opponent_race": opponent_race,
+            "streamer_race": streamer_race,
+            "player1_name": p1_name,
+            "player2_name": p2_name,
+            "player1_race": p1_race,
+            "player2_race": p2_race,
+            "map": result.get("Map", result.get("map", "")),
+            "result": result_str,
+            "date": str(result.get("Date_Played", result.get("date", ""))),
+            "duration": result.get("GameDuration", result.get("duration", "")),
+            "timestamp": result.get("UnixTimestamp", result.get("timestamp", 0)),
+            "existing_comment": result.get("Player_Comments", result.get("existing_comment")),
+            "replay_summary": result.get("Replay_Summary", result.get("replay_summary", "")),
+        }
     
     def get_games_for_last_x_hours(self, hours: int) -> List[str]:
         """Get games played in the last X hours"""
@@ -239,6 +304,13 @@ class ApiDatabaseClient(IDatabaseClient):
     def update_player_comments_in_last_replay(self, comment: str) -> bool:
         """Update player comment for the last replay"""
         result = self._make_request('PUT', '/api/v1/replays/last/comment', {
+            'comment': comment
+        })
+        return result.get('success', False) if isinstance(result, dict) else False
+
+    def update_player_comments_by_replay_id(self, replay_id: int, comment: str) -> bool:
+        """Update player comment for a specific ReplayId."""
+        result = self._make_request('PUT', f'/api/v1/replays/{replay_id}/comment', {
             'comment': comment
         })
         return result.get('success', False) if isinstance(result, dict) else False

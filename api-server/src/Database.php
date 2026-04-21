@@ -153,7 +153,7 @@ class Database {
     public function getLatestReplay() {
         // Get latest replay with player names (matches Python get_latest_replay)
         $sql = "
-            SELECT r.UnixTimestamp, r.Player1_Id, r.Player2_Id, 
+            SELECT r.ReplayId, r.UnixTimestamp, r.Player1_Id, r.Player2_Id, 
                    r.Player1_Result, r.Player2_Result,
                    r.Map, r.GameDuration, r.Date_Played, r.Player_Comments,
                    p1.SC2_UserId as Player1_Name, p2.SC2_UserId as Player2_Name
@@ -174,6 +174,7 @@ class Database {
         $date_played = is_string($result['Date_Played']) ? $result['Date_Played'] : $result['Date_Played']->format('Y-m-d H:i:s');
         
         return [
+            'ReplayId' => $result['ReplayId'],
             'Player1_Name' => $result['Player1_Name'],
             'Player2_Name' => $result['Player2_Name'],
             'Player1_Result' => $result['Player1_Result'],
@@ -184,6 +185,24 @@ class Database {
             'timestamp' => $result['UnixTimestamp'],
             'existing_comment' => $result['Player_Comments']
         ];
+    }
+
+    public function getReplayByRecencyOffset($offset) {
+        $offset = max(0, (int)$offset);
+        $sql = "
+            SELECT r.*, 
+                   p1.SC2_UserId AS Player1_Name, 
+                   p2.SC2_UserId AS Player2_Name
+            FROM Replays r
+            JOIN Players p1 ON r.Player1_Id = p1.Id
+            JOIN Players p2 ON r.Player2_Id = p2.Id
+            ORDER BY r.UnixTimestamp DESC
+            LIMIT 1 OFFSET ?
+        ";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute([$offset]);
+        $result = $stmt->fetch();
+        return $result ?: null;
     }
     
     public function getGamesForLastXHours($hours) {
@@ -340,11 +359,47 @@ class Database {
     }
     
     public function getReplayById($replay_id) {
-        $sql = "SELECT * FROM Replays WHERE Id = ?";
-        $stmt = $this->conn->prepare($sql);
+        // Prefer SC2 ReplayId (external id used by chat commands).
+        // Some deployments may not have Replays.Id; avoid hard failing on schema differences.
+        $sqlReplayId = "
+            SELECT r.*, 
+                   p1.SC2_UserId AS Player1_Name, 
+                   p2.SC2_UserId AS Player2_Name
+            FROM Replays r
+            JOIN Players p1 ON r.Player1_Id = p1.Id
+            JOIN Players p2 ON r.Player2_Id = p2.Id
+            WHERE r.ReplayId = ?
+            ORDER BY r.Date_Played DESC
+            LIMIT 1
+        ";
+        $stmt = $this->conn->prepare($sqlReplayId);
         $stmt->execute([$replay_id]);
         $result = $stmt->fetch();
-        return $result ?: null;
+        if ($result) {
+            return $result;
+        }
+
+        // Optional backward compatibility: if internal Id exists, allow fallback.
+        try {
+            $sqlId = "
+                SELECT r.*, 
+                       p1.SC2_UserId AS Player1_Name, 
+                       p2.SC2_UserId AS Player2_Name
+                FROM Replays r
+                JOIN Players p1 ON r.Player1_Id = p1.Id
+                JOIN Players p2 ON r.Player2_Id = p2.Id
+                WHERE r.Id = ?
+                ORDER BY r.Date_Played DESC
+                LIMIT 1
+            ";
+            $stmt2 = $this->conn->prepare($sqlId);
+            $stmt2->execute([$replay_id]);
+            $result2 = $stmt2->fetch();
+            return $result2 ?: null;
+        } catch (Exception $e) {
+            // If Id column doesn't exist in this schema, just treat as not found.
+            return null;
+        }
     }
     
     public function extractOpponentBuildOrder($opponent_name, $opp_race, $streamer_picked_race) {
@@ -506,6 +561,13 @@ class Database {
         }
         
         return ['success' => true, 'timestamp' => $latest_timestamp, 'comment_id' => $comment_id];
+    }
+
+    public function updatePlayerCommentsByReplayId($replay_id, $comment) {
+        $sql = "UPDATE Replays SET Player_Comments = ? WHERE ReplayId = ?";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute([$comment, $replay_id]);
+        return ['success' => $stmt->rowCount() > 0, 'replay_id' => (int)$replay_id];
     }
     
     public function savePlayerCommentWithData($comment_data) {

@@ -29,6 +29,33 @@ $app->get('/api/v1/replays/latest', function (Request $request, Response $respon
     }
 });
 
+// GET /api/v1/replays/recency/{offset} — 0=latest, 1=one game ago (must be before /{replay_id})
+$app->get('/api/v1/replays/recency/{offset}', function (Request $request, Response $response, array $args) use ($db) {
+    try {
+        $offset = isset($args['offset']) ? (int)$args['offset'] : 0;
+        if ($offset < 0) {
+            $data = ['error' => 'Bad Request', 'message' => 'offset must be >= 0'];
+            $response->getBody()->write(json_encode($data));
+            return $response->withStatus(400)->withHeader('Content-Type', 'application/json');
+        }
+        $result = $db->getReplayByRecencyOffset($offset);
+        if ($result === null) {
+            $data = ['error' => 'Not Found', 'message' => 'No replay at that offset'];
+            $response->getBody()->write(json_encode($data));
+            return $response->withStatus(404)->withHeader('Content-Type', 'application/json');
+        }
+        $response->getBody()->write(json_encode($result));
+        return $response->withHeader('Content-Type', 'application/json');
+    } catch (Exception $e) {
+        $data = [
+            'error' => 'Database Error',
+            'message' => $e->getMessage()
+        ];
+        $response->getBody()->write(json_encode($data));
+        return $response->withStatus(500)->withHeader('Content-Type', 'application/json');
+    }
+});
+
 // GET /api/v1/replays/games?hours=X
 $app->get('/api/v1/replays/games', function (Request $request, Response $response) use ($db) {
     try {
@@ -63,6 +90,34 @@ $app->put('/api/v1/replays/last/comment', function (Request $request, Response $
         }
         
         $result = $db->updatePlayerCommentsInLastReplay($body['comment']);
+        $response->getBody()->write(json_encode($result));
+        return $response->withHeader('Content-Type', 'application/json');
+    } catch (Exception $e) {
+        $data = [
+            'error' => 'Database Error',
+            'message' => $e->getMessage()
+        ];
+        $response->getBody()->write(json_encode($data));
+        return $response->withStatus(500)->withHeader('Content-Type', 'application/json');
+    }
+});
+
+// PUT /api/v1/replays/{replay_id}/comment - update specific replay comment
+$app->put('/api/v1/replays/{replay_id}/comment', function (Request $request, Response $response, array $args) use ($db) {
+    try {
+        $body = json_decode($request->getBody()->getContents(), true);
+        $replay_id = (int)($args['replay_id'] ?? 0);
+
+        if ($replay_id <= 0 || empty($body['comment'])) {
+            $data = [
+                'error' => 'Bad Request',
+                'message' => 'Missing required parameters: replay_id/comment'
+            ];
+            $response->getBody()->write(json_encode($data));
+            return $response->withStatus(400)->withHeader('Content-Type', 'application/json');
+        }
+
+        $result = $db->updatePlayerCommentsByReplayId($replay_id, $body['comment']);
         $response->getBody()->write(json_encode($result));
         return $response->withHeader('Content-Type', 'application/json');
     } catch (Exception $e) {

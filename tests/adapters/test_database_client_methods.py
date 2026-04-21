@@ -75,6 +75,7 @@ class TestDatabaseClientMethods:
             'get_last_replay_info',
             'get_latest_replay',
             'get_replay_by_id',
+            'get_replay_by_recency_offset',
             'get_games_for_last_x_hours',
             'extract_opponent_build_order',
             'insert_replay_info',

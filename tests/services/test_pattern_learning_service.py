@@ -72,6 +72,7 @@ async def test_interpret_user_response_with_extra_text(mock_llm, mock_legacy_lea
 async def test_interpret_user_response_custom_text(mock_llm, mock_legacy_learner):
     service = PatternLearningService(mock_llm, mock_legacy_learner)
     
+    # Even if the LLM returns a paraphrased "text", storage must use the raw chat line.
     mock_llm.generate_response.return_value = '{"action": "custom", "text": "It was actually a bane bust"}'
     
     context = {} # Context matters less here
@@ -79,7 +80,7 @@ async def test_interpret_user_response_custom_text(mock_llm, mock_legacy_learner
     action, text = await service.interpret_user_response("No it was bane bust", context)
     
     assert action == "custom"
-    assert text == "It was actually a bane bust"
+    assert text == "No it was bane bust"
 
 @pytest.mark.asyncio
 async def test_interpret_user_response_malformed_json_recovery(mock_llm, mock_legacy_learner):

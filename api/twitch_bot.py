@@ -126,6 +126,84 @@ except ImportError as e:
 # Build preview constants for Twitch chat messages
 BUILD_PREVIEW_ITEMS = 12  # Number of build order items to show in chat previews (workers filtered after first 2)
 
+# Short follow-ups asking for the streamer's label (varied so chat/logs aren't identical).
+# Omit "player comment …" — that command is documented elsewhere; repeating it reads like spam next to freeform replies.
+_PATTERN_LEARNING_FOLLOWUP_VARIANTS = (
+    "How would you label this opening?",
+    "What do you call this build?",
+    "Roughly what was their plan here?",
+    "Your one-line take on their build?",
+    "How would you sum up what they opened with?",
+)
+
+
+def pick_pattern_learning_followup_prompt() -> str:
+    return random.choice(_PATTERN_LEARNING_FOLLOWUP_VARIANTS)
+
+
+_LAST_BUILD_TEMPLATE_INDEX = None
+_LAST_STRATEGY_TEMPLATE_INDEX = None
+
+
+def compose_build_followup_line(
+    opponent_name: str,
+    first_line: str,
+    follow_prompt: str,
+    versus_name: str = "",
+) -> str:
+    """
+    Compose one natural line for build+question while preserving the build text exactly.
+    If first_line is not a plain build preview, fall back to simple concatenation.
+    """
+    msg1 = (first_line or "").strip()
+    prompt = (follow_prompt or "").strip()
+    if not msg1:
+        return prompt
+    marker = "'s build:"
+    if marker not in msg1:
+        return f"{msg1} {prompt}".strip() if prompt else msg1
+
+    build_part = msg1.split(marker, 1)[1].strip().rstrip(". ").strip()
+    vs = f" vs {versus_name}" if versus_name else ""
+    templates = (
+        f"{opponent_name}{vs}'s build: {build_part}. {prompt}",
+        f"{opponent_name}{vs} opened with {build_part}. {prompt}",
+        f"{opponent_name}{vs} showed {build_part}. {prompt}",
+        f"From {opponent_name}{vs}: {build_part}. {prompt}",
+        f"{opponent_name}{vs} started {build_part}. {prompt}",
+    )
+
+    global _LAST_BUILD_TEMPLATE_INDEX
+    if len(templates) == 1:
+        choice_idx = 0
+    else:
+        available = list(range(len(templates)))
+        if _LAST_BUILD_TEMPLATE_INDEX in available:
+            available.remove(_LAST_BUILD_TEMPLATE_INDEX)
+        choice_idx = random.choice(available)
+    _LAST_BUILD_TEMPLATE_INDEX = choice_idx
+    return templates[choice_idx].strip()
+
+
+def compose_strategy_line(opponent_name: str, strategy_label: str, versus_name: str = "") -> str:
+    """Compose a concise casual strategy line with light variance."""
+    label = (strategy_label or "").strip().strip(".")
+    if not label:
+        return ""
+    vs = f" vs {versus_name}" if versus_name else ""
+    templates = (
+        f"{opponent_name}{vs} looks like {label}.",
+        f"{opponent_name}{vs} seems like {label}.",
+        f"{opponent_name}{vs} reads as {label}.",
+    )
+    global _LAST_STRATEGY_TEMPLATE_INDEX
+    available = list(range(len(templates)))
+    if _LAST_STRATEGY_TEMPLATE_INDEX in available and len(available) > 1:
+        available.remove(_LAST_STRATEGY_TEMPLATE_INDEX)
+    choice_idx = random.choice(available)
+    _LAST_STRATEGY_TEMPLATE_INDEX = choice_idx
+    return templates[choice_idx]
+
 # The contextHistory array is a list of tuples, where each tuple contains two elements: the message string and its
 # corresponding token size. This allows us to keep track of both the message content and its size in the array. When
 # a new message is added to the contextHistory array, its token size is determined using the nltk.word_tokenize()
@@ -363,6 +441,20 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
             self.pattern_learner = None
             _import_logger.info("Pattern learning disabled - no SC2PatternLearner initialized")
 
+        self.fsl_voting_session = None
+
+    def send_channel_message_sync(self, text: str) -> None:
+        """IRC privmsg from a worker thread (e.g. FSL voting auto-submit)."""
+        conn = getattr(self, "connection", None)
+        if not conn:
+            logger.warning("send_channel_message_sync: no IRC connection")
+            return
+        try:
+            lim = getattr(config, "TWITCH_CHAT_BYTE_LIMIT", 450)
+            conn.privmsg(self.channel, text[:lim])
+        except Exception as e:
+            logger.error(f"send_channel_message_sync failed: {e}")
+
     def play_SC2_sound(self, game_event):
         # Check if game sounds are available and enabled
         if not (getattr(config, 'ENABLE_AUDIO', True) and 
@@ -428,6 +520,13 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
     def die(self, msg="Bye, world!"):
         """Override die to not sys.exit, allowing clean shutdown by orchestrator."""
         self.shutdown_flag = True
+        vs = getattr(self, "fsl_voting_session", None)
+        if vs:
+            try:
+                vs.cancel_timer()
+            except Exception:
+                pass
+            self.fsl_voting_session = None
         # Ensure connection is closed
         if hasattr(self, 'connection') and self.connection and self.connection.is_connected():
             try:
@@ -817,7 +916,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
 
         # Get message content
         msg = event.arguments[0]
-        
+
         # Forward to adapter if registered
         if hasattr(self, 'message_handler') and self.message_handler:
             # Send to BotCore
@@ -826,14 +925,21 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 self.message_handler(source, msg, self.channel)
             except Exception as e:
                 logger.error(f"Error forwarding message to adapter: {e}")
-            
+
+            vm = getattr(self, "fsl_voting_session", None)
+            if vm and vm.is_active():
+                dec = vm.record_chat_line(source.lower(), msg)
+                if dec == "consume":
+                    return
+
             # Check if this is a command that should be handled ONLY by BotCore
             # This prevents double-processing for migrated commands
-            msg_lower = msg.lower()
+            msg_lower = msg.strip().lower()
             migrated_commands = [
-                'wiki', 'career', 'history', 'head to head', 
+                'wiki', 'career', 'history', 'head to head',
                 'player comment', 'analyze', 'fsl_review',
-                'please retry', 'please replay', 'please preview', 'please review'
+                'please retry', 'please replay', 'please preview', 'please review',
+                'accept ratings', 'end ratings', '!ratings',
             ]
             
             # CommandService uses strict prefix matching usually, but legacy was loose.
@@ -853,7 +959,7 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                     return
             
             if is_migrated:
-                logger.debug(f"Skipping legacy processing for migrated command: {msg}")
+                logger.info(f"Skipping legacy (CommandService): {msg_lower[:120]!r}")
                 return
 
         #process the message sent by the viewers in the twitch chat room
@@ -1043,7 +1149,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
     def _process_natural_language_pattern_response(self, user_message, logger):
         """
         Process natural language response for pattern learning using OpenAI to interpret intent
-        Returns: tuple (action, comment_text) where action is 'use_pattern', 'use_ai_summary', 'custom', or 'skip'
+        Returns: tuple (action, comment_text) where action is 'use_pattern', 'use_ai_summary', 'custom', or 'skip'.
+        For 'custom' (including modify_* mapped to custom), comment_text is always KJ's raw chat line — never an LLM paraphrase.
         """
         try:
             import json
@@ -1055,12 +1162,22 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 logger.warning("Pattern learning context is None, cannot process response")
                 return ('skip', None)
             
-            pattern_text = f"Pattern Match ({ctx['pattern_similarity']:.0f}%): \"{ctx['pattern_match']}\"" if ctx['pattern_match'] else "No pattern match"
-            ai_text = f"AI Summary: \"{ctx['ai_summary']}\"" if ctx['ai_summary'] else "No AI summary"
-            
-            prompt = f"""You help interpret KJ's response about StarCraft 2 build order suggestions. KJ is the streamer who just played the game and knows what actually happened.
+            intent_prompt_leads = (
+                (
+                    "You interpret KJ's replies about StarCraft 2 build-order suggestions. "
+                    "KJ streamed the game and knows what happened.\n\nYou see three things:"
+                ),
+                (
+                    "KJ is responding to stored pattern and AI skim lines about the last game. "
+                    "Treat their message as the source of truth when it conflicts with suggestions.\n\nYou see three things:"
+                ),
+                (
+                    "Map KJ's short Twitch message to one structured action (JSON below). "
+                    "KJ is the human player; the two suggestions below may be imperfect.\n\nYou see three things:"
+                ),
+            )
 
-You see three things:
+            prompt = f"""{random.choice(intent_prompt_leads)}
 
 1. Pattern Match: "{ctx.get('pattern_match', 'N/A')}" (similarity: {ctx.get('pattern_similarity', 0):.0f}%)
 
@@ -1072,7 +1189,9 @@ Your job: Decide what KJ wants to do with these suggestions.
 
 IMPORTANT:
 
-If KJ describes what the strategy IS and talks about removing or changing parts of a suggestion, that is a MODIFICATION, not a custom description. In that case you must use a modify action, not custom.
+The database must store KJ's exact Twitch line (verbatim). Your JSON must NEVER invent a cleaned-up or paraphrased version of what they typed.
+
+If KJ describes what the strategy IS and talks about removing or changing parts of a suggestion, that is a MODIFICATION intent — use modify_ai / modify_pattern so we know what they were reacting to. The runtime will still save their raw chat text, not an AI-merged rewrite.
 
 INTENT CATEGORIES
 
@@ -1116,13 +1235,13 @@ Use this when KJ is basically replacing everything with their own wording, or wh
 
 Use:
 
-{{"action": "custom", "text": "<final description to save>"}}
+{{"action": "custom"}}
 
 Examples:
 
 - KJ: "fast expand immortal defense"
 
-  → {{"action": "custom", "text": "fast expand immortal defense"}}
+  → {{"action": "custom"}}
 
 3. AGREEMENT
 
@@ -1166,7 +1285,7 @@ Examples:
 
   KJ: "that is wrong, it was a late game carrier transition"
 
-  → {{"action": "custom", "text": "late game carrier transition"}}
+  → {{"action": "custom"}}
 
 OUTPUT RULES
 
@@ -1276,9 +1395,43 @@ Just the JSON object."""
             
             if not parsed:
                 return ('skip', None)
-            
-            action = parsed.get('action', 'skip')
-            
+
+            raw_action = parsed.get('action', 'skip')
+            action = str(raw_action if raw_action is not None else 'skip').lower().strip()
+
+            # Never persist OpenAI paraphrases of expert text. If the model returns a modify_* action,
+            # we still only save what KJ actually typed in chat.
+            if action.startswith('modify_'):
+                logger.info(
+                    "NLP returned %r — saving expert message verbatim (no AI merge into Player_Comments)",
+                    action,
+                )
+                return ('custom', user_message.strip())
+
+            # Run BEFORE use_pattern/use_ai returns: descriptive replies must save as custom, not as agreeing with a label.
+            game_terms_chk = [
+                'expand', 'immortal', 'defense', 'proxy', 'pool', 'gateway', 'zealot', 'stalker', 'sentry',
+                'roach', 'ling', 'muta', 'baneling', 'ravager', 'hydra', 'lurker', 'ultra', 'brood',
+                'marine', 'marauder', 'medivac', 'tank', 'hellion', 'cyclone', 'liberator', 'banshee',
+                'adept', 'archon', 'colossus', 'disruptor', 'tempest', 'carrier', 'void', 'oracle', 'phoenix',
+                'rush', 'all in', 'timing', 'push', 'macro', 'cheese', 'cannon', 'bunker', 'spine', 'spore',
+                'hatch', 'hatchery', 'orbital', 'cc ', 'command center', 'nydus', 'fusion', 'spire',
+            ]
+            modification_patterns_chk = [
+                'correct,', 'right,', 'accurate,', 'yes but', 'yes, but', 'take out', 'remove', 'add', 'include',
+            ]
+            ul = user_message.lower()
+            is_mod_chk = any(p in ul for p in modification_patterns_chk) and any(
+                t in ul for t in game_terms_chk
+            )
+            if action in ('use_pattern', 'use_ai_summary'):
+                if any(t in ul for t in game_terms_chk) and not is_mod_chk:
+                    logger.warning(
+                        "NLP chose %s but message looks like a fresh strategy label — saving as custom",
+                        action,
+                    )
+                    return ('custom', user_message.strip())
+
             if action == 'ask_clarification':
                 # User said "yes" without specifying - ask for clarification
                 return ('ask_clarification', None)
@@ -1302,145 +1455,19 @@ Just the JSON object."""
                 else:
                     logger.warning("NLP returned 'use_ai_summary' but both ai_summary and pattern_match are missing from context")
                     return ('skip', None)
-            elif action == 'modify_ai':
-                # User wants to modify the AI suggestion - let AI understand and apply it naturally
-                ai_summary = ctx.get('ai_summary', '')
-                if not ai_summary:
-                    logger.warning("NLP returned 'modify_ai' but ai_summary is missing from context")
-                    return ('skip', None)
-                
-                # Let the AI understand the modification naturally
-                try:
-                    modify_prompt = f"""KJ (the streamer) was shown this AI analysis suggestion: "{ai_summary}"
-
-KJ responded: "{user_message}"
-
-CRITICAL: KJ wants to MODIFY the AI suggestion. Your task is to understand what KJ wants and apply it to create the final accurate comment.
-
-Rules:
-1. Use the AI suggestion as the BASE/FRAMEWORK
-2. Understand KJ's intent:
-   - If KJ says "it is X" or "it was X", they're describing what the strategy actually is
-   - If KJ says "no need to mention Y" or "remove Y" or "don't mention Y", remove Y from the suggestion
-   - If KJ says "add X" or "include X", add X to the suggestion
-   - If KJ explains why something should be removed (e.g., "redundant", "we only talk about what we see"), apply that reasoning
-3. Keep the structure and flow natural
-4. The result should be ONE cohesive comment that reflects what actually happened, not KJ's explanation
-
-Examples:
-- AI: "2 base Oracle-Adept harass into Zealot pressure with potential transition to Skytoss."
-  KJ: "it is a zealot charge all in. No need to mention potential transition to Skytoss. We only talk about what we see."
-  Result: "2 base Oracle-Adept harass into Zealot charge all in."
-
-- AI: "2 base Oracle Adept pressure into Twilight Council for Zealot Charge timing attack."
-  KJ: "take out the Twilight council because Charge is an upgrade that is from it, and is redundant."
-  Result: "2 base Oracle Adept pressure to Zealot Charge timing attack."
-
-- AI: "2 base Stargate Oracle adept timing attack with Zealot support and Photon Cannon defense."
-  KJ: "yes but zealot has charge upgrade"
-  Result: "2 base Stargate Oracle adept timing attack with Zealot with charge upgrade and Photon Cannon defense."
-
-- AI: "3 base roach ravager macro"
-  KJ: "correct, add hydra transition"
-  Result: "3 base roach ravager macro with hydra transition"
-
-- AI: "2 base blink stalker all-in"
-  KJ: "right, but no all-in, it was macro"
-  Result: "2 base blink stalker macro"
-
-Return ONLY the final modified comment text, nothing else. Do NOT include KJ's explanation or reasoning - just the final strategy description. Keep it concise and natural."""
-                    
-                    modify_completion = send_prompt_to_openai(modify_prompt)
-                    if modify_completion and modify_completion.choices and modify_completion.choices[0].message:
-                        modified_text = modify_completion.choices[0].message.content.strip()
-                        logger.info(f"AI modified summary: '{ai_summary}' -> '{modified_text}' (based on: '{user_message}')")
-                        return ('custom', modified_text)
-                    else:
-                        logger.warning("Failed to get modification response from OpenAI, using original AI summary")
-                        return ('use_ai_summary', ai_summary)
-                except Exception as e:
-                    logger.error(f"Error applying modification to AI summary: {e}")
-                    return ('use_ai_summary', ai_summary)
-            elif action == 'modify_pattern':
-                # User wants to modify the pattern match - let AI understand and apply it naturally
-                pattern_match = ctx.get('pattern_match', '')
-                if not pattern_match:
-                    logger.warning("NLP returned 'modify_pattern' but pattern_match is missing from context")
-                    return ('skip', None)
-                
-                # Let the AI understand the modification naturally
-                try:
-                    modify_prompt = f"""KJ (the streamer) was shown this pattern match suggestion: "{pattern_match}"
-
-KJ responded: "{user_message}"
-
-CRITICAL: KJ is agreeing with the pattern match but wants to ADD or MODIFY it. Your task is to COMBINE the pattern match with KJ's modification into a single, natural comment.
-
-Rules:
-1. Use the pattern match as the BASE/FRAMEWORK
-2. Integrate KJ's modification naturally into that base
-3. The result should be ONE cohesive comment that includes both the pattern match AND the modification
-4. Do NOT just repeat what KJ said - merge it with the pattern match
-
-Examples:
-- Pattern: "2 base Stargate Oracle adept timing attack with Zealot support and Photon Cannon defense."
-  KJ: "yes but zealot has charge upgrade"
-  Result: "2 base Stargate Oracle adept timing attack with Zealot with charge upgrade and Photon Cannon defense."
-
-- Pattern: "3 base roach ravager macro"
-  KJ: "correct, add hydra transition"
-  Result: "3 base roach ravager macro with hydra transition"
-
-- Pattern: "2 base blink stalker all-in"
-  KJ: "right, but no all-in, it was macro"
-  Result: "2 base blink stalker macro"
-
-Return ONLY the final combined comment text, nothing else. Keep it concise and natural."""
-                    
-                    modify_completion = send_prompt_to_openai(modify_prompt)
-                    if modify_completion and modify_completion.choices and modify_completion.choices[0].message:
-                        modified_text = modify_completion.choices[0].message.content.strip()
-                        logger.info(f"AI modified pattern: '{pattern_match}' -> '{modified_text}' (based on: '{user_message}')")
-                        return ('custom', modified_text)
-                    else:
-                        logger.warning("Failed to get modification response from OpenAI, using original pattern match")
-                        return ('use_pattern', pattern_match)
-                except Exception as e:
-                    logger.error(f"Error applying modification to pattern match: {e}")
-                    return ('use_pattern', pattern_match)
             elif action == 'custom':
-                custom_text = parsed.get('text', '').strip()
-                if not custom_text:
-                    # Fallback: extract anything descriptive from user message
-                    custom_text = user_message.strip()
-                return ('custom', custom_text)
-            
-            # SAFETY CHECK: If NLP returned use_pattern or use_ai_summary but user message contains game terms,
-            # AND it's not a modification pattern, override to custom (NLP might have misinterpreted)
-            if action in ('use_pattern', 'use_ai_summary'):
-                user_lower = user_message.lower()
-                game_terms = ['expand', 'immortal', 'defense', 'proxy', 'pool', 'gateway', 'zealot', 'stalker', 'sentry', 
-                             'roach', 'ling', 'muta', 'baneling', 'ravager', 'hydra', 'lurker', 'ultra', 'brood',
-                             'marine', 'marauder', 'medivac', 'tank', 'hellion', 'cyclone', 'liberator', 'banshee',
-                             'adept', 'archon', 'colossus', 'disruptor', 'tempest', 'carrier', 'void', 'oracle', 'phoenix',
-                             'rush', 'all in', 'timing', 'push', 'macro', 'cheese', 'cannon', 'bunker', 'spine', 'spore']
-                # Check if it's a modification pattern (contains agreement word + game terms)
-                modification_patterns = ['correct,', 'right,', 'accurate,', 'yes but', 'yes, but', 'take out', 'remove', 'add', 'include']
-                is_modification = any(pattern in user_lower for pattern in modification_patterns) and any(term in user_lower for term in game_terms)
-                
-                if any(term in user_lower for term in game_terms) and not is_modification:
-                    # User provided descriptive text without agreement/modification - override NLP and use as custom
-                    logger.warning(f"NLP returned '{action}' but user message contains game terms (not modification) - overriding to custom")
-                    return ('custom', user_message.strip())
-            else:
-                # Default to skip if uncertain or no valid option
-                logger.debug(f"Pattern learning response defaulting to skip: action='{action}', parsed={parsed}")
-                return ('skip', None)
-                
+                # Always persist the exact Twitch message KJ typed (including typos / shorthand).
+                # The JSON "text" field must not be used for DB storage — models often paraphrase.
+                return ('custom', user_message.strip())
+
+            logger.debug(f"Pattern learning NLP unhandled action='{action}', parsed={parsed}")
+            return ('skip', None)
+
         except Exception as e:
             logger.error(f"Error processing natural language pattern response: {e}")
             import traceback
             logger.error(f"Traceback: {traceback.format_exc()}")
+            return ('skip', None)
     
     def _display_pattern_validation(self, game_data, logger):
         """Display pattern learning validation and store suggestion if confidence is high"""
@@ -1450,6 +1477,9 @@ Return ONLY the final combined comment text, nothing else. Keep it concise and n
             
             opponent_name = game_data.get('opponent_name', 'Unknown')
             opponent_race = game_data.get('opponent_race', 'Unknown')
+            versus_name = game_data.get('versus_name', config.STREAMER_NICKNAME)
+            suppress_followup_prompt = bool(game_data.get('suppress_followup_prompt', False))
+            existing_replay_comment = (game_data.get('existing_comment') or '').strip()
             result = game_data.get('result', 'Unknown')
             duration = game_data.get('duration', 'Unknown')
             map_name = game_data.get('map', 'Unknown')
@@ -1458,11 +1488,14 @@ Return ONLY the final combined comment text, nothing else. Keep it concise and n
             analyzer = get_ml_analyzer()
             db_instance = getattr(self, 'db', None)
             
-            # Check if this is a known opponent
+            # Check if this is a known opponent (do this ONCE and reuse)
+            opponent_record = None
             is_known_opponent = False
             if db_instance:
                 opponent_record = db_instance.check_player_and_race_exists(opponent_name, opponent_race)
                 is_known_opponent = opponent_record is not None
+                if opponent_record:
+                    logger.debug(f"Using cached player check result for {opponent_name} ({opponent_race})")
             
             # Run pattern matching against ALL learned patterns (not just this opponent)
             # Extract build order from game data
@@ -1488,6 +1521,13 @@ Return ONLY the final combined comment text, nothing else. Keep it concise and n
             
             # For backwards compatibility, also create a list version (used later in code)
             build_summary = build_summary_string.split(", ") if build_summary_string else []
+
+            # If this replay already has a human comment, keep chat concise and skip rebuild/prompt spam.
+            if existing_replay_comment and hasattr(self, 'connection') and hasattr(self.connection, 'privmsg'):
+                concise = compose_strategy_line(opponent_name, existing_replay_comment, versus_name)
+                self.connection.privmsg(self.channel, concise.strip())
+                logger.debug(f"Sent existing-comment concise line: {concise}")
+                return
             
             # Display validation report in stdout
             print("\n" + "=" * 60)
@@ -1562,7 +1602,10 @@ Return ONLY the final combined comment text, nothing else. Keep it concise and n
             if analysis_data:
                 matched_patterns = analysis_data.get('matched_patterns', [])
                 min_similarity = config.PATTERN_SUGGESTION_MIN_SIMILARITY * 100
-                
+                label_min_pct = (
+                    float(getattr(config, "STRATEGY_PATTERN_LABEL_MIN_SIMILARITY", 0.85)) * 100
+                )
+
                 # Track weak matches for display (even if filtered)
                 weak_match = None
                 if matched_patterns:
@@ -1625,13 +1668,27 @@ Return ONLY the final combined comment text, nothing else. Keep it concise and n
                             from api.ml_opponent_analyzer import analyze_opponent_for_game_start
                             from api.chat_utils import processMessageForOpenAI
                             
-                            # Check if opponent is known in database
-                            if db_instance:
-                                opponent_record = db_instance.check_player_and_race_exists(opponent_name, opponent_race)
-                                if opponent_record:
-                                    # Trigger ML analysis
+                            # Use already-queried opponent_record (no need to query again)
+                            if opponent_record:
+                                # If we already have an expert DB note on this row, avoid extra standalone ML chat line.
+                                existing_note = (opponent_record.get("Player_Comments") or "").strip()
+                                if existing_note:
+                                    logger.info(
+                                        f"Skipping standalone ML chat line for {opponent_name} (DB comment already present)"
+                                    )
+                                else:
+                                    # Trigger ML analysis (pass opponent_record to avoid duplicate query)
                                     logger.info(f"Triggering ML analysis for known opponent: {opponent_name}")
-                                    analyze_opponent_for_game_start(opponent_name, opponent_race, map_name, self, logger, getattr(self, 'contextHistory', []))
+                                    analyze_opponent_for_game_start(
+                                        opponent_name,
+                                        opponent_race,
+                                        map_name,
+                                        self,
+                                        logger,
+                                        getattr(self, 'contextHistory', []),
+                                        opponent_record,
+                                        post_game=True,
+                                    )
                         except Exception as e:
                             logger.debug(f"ML analysis not available or failed: {e}")
                     
@@ -1666,24 +1723,30 @@ Return ONLY the final combined comment text, nothing else. Keep it concise and n
                         else:
                             print("To accept, type in Twitch:  player comment yes")
                         
-                        # Send TWO conversational messages to Twitch chat
+                        # Send build line, then prompt (below 85%: no pattern label and no AI — build + ask only)
                         if hasattr(self, 'connection') and hasattr(self.connection, 'privmsg'):
                             try:
-                                # Message 1: Pattern match with build preview
+                                import time
                                 build_preview = f"{opponent_name}'s build: {', '.join(build_summary[:BUILD_PREVIEW_ITEMS])}. " if build_summary else ""
-                                msg1 = f"{build_preview}Pattern learning found {similarity:.0f}% match: '{pattern_comment}'."
-                                self.connection.privmsg(self.channel, msg1)
-                                logger.debug(f"Sent pattern match to Twitch: {msg1}")
-                                
-                                # Message 2: AI summary + prompt for response (if AI summary exists)
-                                if ai_summary:
-                                    import time
-                                    time.sleep(1)  # Brief delay between messages
-                                    discrepancy_note = " (Note: these differ - review carefully!)" if self.pattern_learning_context['discrepancy_detected'] else ""
-                                    msg2 = f"AI analysis sees: '{ai_summary}'{discrepancy_note}. Thoughts? Or just describe what you saw."
-                                    self.connection.privmsg(self.channel, msg2)
-                                    logger.debug(f"Sent AI summary to Twitch: {msg2}")
-                                
+                                if similarity >= label_min_pct:
+                                    msg1 = compose_strategy_line(opponent_name, pattern_comment, versus_name).strip()
+                                else:
+                                    msg1 = build_preview.rstrip()
+                                if msg1:
+                                    logger.debug(f"Prepared pattern line for Twitch: {msg1}")
+                                if similarity >= label_min_pct:
+                                    msg2 = ""
+                                elif suppress_followup_prompt:
+                                    msg2 = ""
+                                elif build_summary:
+                                    msg2 = pick_pattern_learning_followup_prompt()
+                                elif ai_summary:
+                                    msg2 = f"Build seems to include {ai_summary}."
+                                else:
+                                    msg2 = pick_pattern_learning_followup_prompt()
+                                combined = msg1 if not msg2 else compose_build_followup_line(opponent_name, msg1, msg2, versus_name)
+                                self.connection.privmsg(self.channel, combined)
+                                logger.debug(f"Sent pattern learning combined line: {combined}")
                             except Exception as e:
                                 logger.error(f"Error sending pattern match to Twitch chat: {e}")
                     else:
@@ -1715,20 +1778,30 @@ Return ONLY the final combined comment text, nothing else. Keep it concise and n
                         else:
                             print("To add custom, type in Twitch:  player comment <your text>")
                         
-                        # Send TWO messages to Twitch
+                        # Same rule: below label threshold — build only, then ask (no noisy AI/pattern guess)
                         if hasattr(self, 'connection') and hasattr(self.connection, 'privmsg'):
                             try:
+                                import time
                                 build_preview = f"{opponent_name}'s build: {', '.join(build_summary[:BUILD_PREVIEW_ITEMS])}. " if build_summary else ""
-                                msg1 = f"{build_preview}Weak pattern match ({similarity:.0f}%): '{pattern_comment}'."
-                                self.connection.privmsg(self.channel, msg1)
-                                logger.debug(f"Sent low confidence pattern to Twitch: {msg1}")
-                                
-                                if ai_summary:
-                                    import time
-                                    time.sleep(1)
-                                    msg2 = f"AI analysis: '{ai_summary}'. What's your take?"
-                                    self.connection.privmsg(self.channel, msg2)
-                                    logger.debug(f"Sent AI summary to Twitch: {msg2}")
+                                if similarity >= label_min_pct:
+                                    msg1 = compose_strategy_line(opponent_name, pattern_comment, versus_name).strip()
+                                else:
+                                    msg1 = build_preview.rstrip()
+                                if msg1:
+                                    logger.debug(f"Prepared low-confidence line for Twitch: {msg1}")
+                                if similarity >= label_min_pct:
+                                    msg2 = ""
+                                elif suppress_followup_prompt:
+                                    msg2 = ""
+                                elif build_summary:
+                                    msg2 = pick_pattern_learning_followup_prompt()
+                                elif ai_summary:
+                                    msg2 = f"Build seems to include {ai_summary}."
+                                else:
+                                    msg2 = pick_pattern_learning_followup_prompt()
+                                combined = msg1 if not msg2 else compose_build_followup_line(opponent_name, msg1, msg2, versus_name)
+                                self.connection.privmsg(self.channel, combined)
+                                logger.debug(f"Sent pattern learning combined line: {combined}")
                             except Exception as e:
                                 logger.error(f"Error sending pattern match to Twitch chat: {e}")
                 else:
@@ -1762,18 +1835,16 @@ Return ONLY the final combined comment text, nothing else. Keep it concise and n
                         print("Please describe this strategy in Twitch:")
                         print("  player comment <your description>")
                     
-                    # Send message(s) to Twitch
+                    # No pattern hit suggestion bar: supply build + ask only (no AI paraphrase — avoids fake "predictions")
                     if hasattr(self, 'connection') and hasattr(self.connection, 'privmsg'):
                         try:
+                            import time
                             build_preview = f"{opponent_name}'s build: {', '.join(build_summary[:BUILD_PREVIEW_ITEMS])}. " if build_summary else ""
-                            
-                            if ai_summary:
-                                msg = f"{build_preview}No strong match on build pattern. AI suggests: '{ai_summary}'. Agree?"
-                            else:
-                                msg = f"{build_preview}No strong match on build pattern. What strategy was this?"
-                            
-                            self.connection.privmsg(self.channel, msg)
-                            logger.debug(f"Sent no strong pattern match to Twitch: {msg}")
+                            msg1 = build_preview.rstrip()
+                            msg2 = "" if suppress_followup_prompt else pick_pattern_learning_followup_prompt()
+                            combined = msg1 if not msg2 else compose_build_followup_line(opponent_name, msg1, msg2, versus_name)
+                            self.connection.privmsg(self.channel, combined)
+                            logger.debug(f"Sent no-pattern combined line: {combined}")
                         except Exception as e:
                             logger.error(f"Error sending pattern match to Twitch chat: {e}")
             else:
@@ -1804,25 +1875,18 @@ Return ONLY the final combined comment text, nothing else. Keep it concise and n
                     print("Type in Twitch:  player comment <your description>")
                 
                 # Send message(s) to Twitch
+                follow_prompt = "" if suppress_followup_prompt else pick_pattern_learning_followup_prompt()
                 if hasattr(self, 'connection') and self.connection and hasattr(self.connection, 'is_connected') and self.connection.is_connected():
                     try:
+                        import time
+                        from api.chat_utils import clean_text_for_chat
                         build_preview = f"{opponent_name}'s build: {', '.join(build_summary[:BUILD_PREVIEW_ITEMS])}. " if build_summary else ""
-                        
-                        if hasattr(self, 'connection') and self.connection and hasattr(self.connection, 'is_connected') and self.connection.is_connected():
-                            try:
-                                if ai_summary:
-                                    msg = f"{build_preview}Pattern DB empty. AI suggests: '{ai_summary}'. Thoughts?"
-                                else:
-                                    msg = f"{build_preview}Pattern DB empty - describe {opponent_name}'s strategy!"
-                                
-                                from api.chat_utils import clean_text_for_chat
-                                msg = clean_text_for_chat(msg)  # Remove carriage returns and newlines
-                                self.connection.privmsg(self.channel, msg)
-                            except Exception as e:
-                                logger.error(f"Error sending pattern match to Twitch chat: {e}")
-                        logger.info(f"Sent pattern learning prompt to Twitch: {msg[:100]}...")
+                        msg1 = build_preview.rstrip()
+                        combined = msg1 if not follow_prompt else compose_build_followup_line(opponent_name, msg1, follow_prompt, versus_name)
+                        self.connection.privmsg(self.channel, clean_text_for_chat(combined))
                     except Exception as e:
                         logger.error(f"Error sending pattern match to Twitch chat: {e}")
+                logger.info(f"Sent pattern learning prompt to Twitch: {follow_prompt[:80]}...")
             
             print()
             print("To skip, don't type anything (DB will remain empty)")

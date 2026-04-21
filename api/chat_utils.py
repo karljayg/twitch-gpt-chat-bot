@@ -2,6 +2,7 @@ from settings import config
 import openai
 import re
 import random
+from datetime import datetime
 import sys
 import time
 import math
@@ -13,6 +14,99 @@ import utils.wiki_utils as wiki_utils
 import utils.tokensArray as tokensArray
 import string
 from models.mathison_db import Database
+from utils.player_comment_args import split_replay_ref_prefix
+
+# Prepended to every OpenAI request in last_time_played mode (game-start summaries, build-only lines, etc.)
+LAST_TIME_PLAYED_INSTRUCTIONS = (
+    "You write ONE short Twitch chat message using ONLY facts present in the USER message.\n\n"
+    "ALLOWED:\n"
+    "- Map name, duration, approximate date / how long ago when given\n"
+    "- Who won / lost when explicitly stated\n"
+    "- Buildings and units listed under each player's BUILD ORDER sections only "
+    "(name them; no story about fights)\n"
+    "- Exact quoted text labeled as player comment / Player_Comments when present\n\n"
+    "FORBIDDEN:\n"
+    "- Inferring intent, motivation, typical play, aggression, macro style, timing attacks, cheese, harass, multiprong\n"
+    "- Describing how a game was decided ('overwhelmed', 'broke through', 'couldn't defend')\n"
+    "- Inventing battles, insufficient units, air vs ground outcomes, positions on the map\n"
+    "- Words like: indicating, suggests, typical, aggressive, defensive, macro, rush, pressure, "
+    "mobility, mimics, utilizes (unless inside a verbatim quote from the user message)\n\n"
+    "If there are no saved player comments in the USER text, describe ONLY build-order facts "
+    "(structures/units trained), not how the matchup played out.\n"
+)
+
+def _parse_date_played_for_notes(date_val):
+    """Parse DB date_played into datetime or None."""
+    if date_val is None:
+        return None
+    s = str(date_val).strip()
+    if not s:
+        return None
+    for fmt in (
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M:%S.%f",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%dT%H:%M:%S.%f",
+        "%Y-%m-%d",
+    ):
+        try:
+            return datetime.strptime(s[:26], fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def _relative_when(dt: datetime) -> str:
+    """Short relative phrase for humans (local naive vs DB timestamps)."""
+    if dt is None:
+        return ""
+    now = datetime.now()
+    try:
+        delta = now - dt
+    except TypeError:
+        return ""
+    secs = max(0, int(delta.total_seconds()))
+    days = secs // 86400
+    if days <= 0:
+        return "today"
+    if days == 1:
+        return "yesterday"
+    if days < 14:
+        return f"{int(days)} days ago"
+    wk = days // 7
+    if wk < 12:
+        return f"{int(wk)} weeks ago" if wk != 1 else "1 week ago"
+    mo = days // 30
+    if mo < 12:
+        return f"{int(mo)} months ago" if mo != 1 else "1 month ago"
+    return f"{int(days // 365)} years ago"
+
+
+def twitch_notes_from_saved_comments(sorted_comments, opponent_name: str, max_len: int = 470) -> str:
+    """Format saved DB comments for Twitch — verbatim notes, short relative time + map. No AI."""
+    if not sorted_comments:
+        return ""
+    segments = []
+    max_items = int(getattr(config, "TWITCH_SAVED_NOTES_MAX_ITEMS", 3))
+    for c in sorted_comments[:max_items]:
+        note = (c.get('player_comments') or "").strip()
+        if not note:
+            continue
+        map_n = (c.get("map") or "").strip() or "?"
+        dt = _parse_date_played_for_notes(c.get("date_played"))
+        when = _relative_when(dt) if dt else ""
+        if when:
+            segments.append(f"{note} (~{when}, {map_n})")
+        else:
+            segments.append(f"{note} ({map_n})")
+    if not segments:
+        return ""
+    body = " | ".join(segments)
+    prefix = f"Saved notes vs {opponent_name}: "
+    msg = prefix + body
+    if len(msg) > max_len:
+        msg = msg[: max_len - 3] + "..."
+    return msg
 
 def clean_text_for_logging(text):
     """Clean text for logging by replacing problematic Unicode characters"""
@@ -95,7 +189,10 @@ def msgToChannel(self, message, logger, text2speech=False, send_to_discord=False
     # Send to Twitch if this is a Twitch bot
     if hasattr(self, 'connection') and hasattr(self.connection, 'privmsg'):
         self.connection.privmsg(self.channel, truncated_message_str)
-    
+        # INFO so file logs capture outbound chat even when callers use loggers stuck at INFO (e.g. core.bot).
+        safe_message = tokensArray.replace_non_ascii(truncated_message_str, replacement='?')
+        logger.info(f"Sent to Twitch: {safe_message}")
+
     # Send to Discord only if explicitly requested
     if send_to_discord:
         logger.debug("Checking Discord integration...")
@@ -183,12 +280,33 @@ def process_pubmsg(self, event, logger, contextHistory):
 
     # Get message from chat
     original_msg = event.arguments[0]
-    msg = original_msg.lower()
+    msg = original_msg.strip().lower()
     sender = event.source.split('!')[0]
+
+    def _replay_from_context():
+        ctx = getattr(self, "pattern_learning_context", None) or {}
+        game_data = ctx.get("game_data") if isinstance(ctx, dict) else None
+        replay_id = game_data.get("replay_id") if isinstance(game_data, dict) else None
+        if replay_id and hasattr(self.db, "get_replay_by_id"):
+            try:
+                replay = self.db.get_replay_by_id(int(replay_id))
+                if isinstance(replay, dict):
+                    replay["replay_id"] = replay.get("replay_id", int(replay_id))
+                    return replay
+            except Exception as e:
+                logger.warning(f"Could not load replay by id from pattern context: {e}")
+        return None
+
+    def _save_comment_for_replay(comment_text, replay):
+        replay_id = replay.get("replay_id") if isinstance(replay, dict) else None
+        if replay_id and hasattr(self.db, "update_player_comments_by_replay_id"):
+            return self.db.update_player_comments_by_replay_id(int(replay_id), comment_text)
+        return self.db.update_player_comments_in_last_replay(comment_text)
     
     # Skip command messages that are handled by CommandService (don't send to OpenAI)
-    command_prefixes = ['please retry', 'please preview', 'please review', 'please replay', 
-                        'player comment', 'player comments', 'head to head', 'fsl', 'analyze', 'wiki', 'career', 'history']
+    command_prefixes = ['please retry', 'please preview', 'please review', 'please replay',
+                        'player comment', 'player comments', 'head to head', 'accept ratings',
+                        'end ratings', '!accept ratings', '!end ratings', '!ratings', 'fsl', 'analyze', 'wiki', 'career', 'history']
     if any(msg.startswith(prefix) for prefix in command_prefixes):
         logger.debug(f"Skipping command message from OpenAI processing: {msg[:30]}...")
         return
@@ -207,7 +325,7 @@ def process_pubmsg(self, event, logger, contextHistory):
                 replay_info = pending['replay']
                 
                 # Overwrite the comment
-                success = self.db.update_player_comments_in_last_replay(comment_text)
+                success = _save_comment_for_replay(comment_text, replay_info)
                 
                 if success and hasattr(self, 'pattern_learner') and self.pattern_learner:
                     # Use preserved game_data if available (from NLP system), otherwise construct from replay_info
@@ -273,7 +391,7 @@ def process_pubmsg(self, event, logger, contextHistory):
                         msgToChannel(self, f"Newer replay vs {latest_replay['opponent']} also has a comment - cannot save", logger)
                     else:
                         # Save to new replay
-                        success = self.db.update_player_comments_in_last_replay(comment_text)
+                        success = _save_comment_for_replay(comment_text, latest_replay)
                         
                         if success and hasattr(self, 'pattern_learner') and self.pattern_learner:
                             game_data = {
@@ -344,8 +462,26 @@ def process_pubmsg(self, event, logger, contextHistory):
             else:
                 # Process natural language response
                 logger.info(f"Processing natural language pattern learning response: '{original_msg}'")
-                action, comment_text = self._process_natural_language_pattern_response(original_msg, logger)
+                nlp_result = self._process_natural_language_pattern_response(original_msg, logger)
+                if nlp_result is None:
+                    logger.error("Pattern learning NLP returned None (internal error)")
+                    msgToChannel(
+                        self,
+                        "Could not interpret that reply — try again or use: player comment <your notes>",
+                        logger,
+                    )
+                    self.pattern_learning_context = None
+                    return
+                action, comment_text = nlp_result
             logger.debug(f"NLP interpreted as: action='{action}', comment='{comment_text}'")
+
+            if action == 'ask_clarification':
+                msgToChannel(
+                    self,
+                    "Say pattern, AI skim, or type your own one-line description.",
+                    logger,
+                )
+                return
             
             if action == 'skip':
                 msgToChannel(self, "Skipping - no comment saved.", logger)
@@ -360,13 +496,22 @@ def process_pubmsg(self, event, logger, contextHistory):
             
             # Save the comment using the existing save logic
             try:
-                game_data = self.pattern_learning_context['game_data']
+                game_data = self.pattern_learning_context.get('game_data')
+                if not isinstance(game_data, dict):
+                    logger.error("pattern_learning_context has no game_data dict")
+                    msgToChannel(
+                        self,
+                        "Could not tie this reply to the last game — use: player comment <your notes>",
+                        logger,
+                    )
+                    self.pattern_learning_context = None
+                    return
                 opponent = game_data.get('opponent_name', 'Unknown')
                 map_name = game_data.get('map', 'Unknown')
                 game_date = game_data.get('date', 'Unknown')
                 
                 # Check if comment already exists - ask for confirmation before overwriting
-                latest_replay = self.db.get_latest_replay()
+                latest_replay = _replay_from_context() or self.db.get_latest_replay()
                 if latest_replay:
                     existing_comment = latest_replay.get('existing_comment')
                     if existing_comment and str(existing_comment).strip():
@@ -375,6 +520,7 @@ def process_pubmsg(self, event, logger, contextHistory):
                             'comment': comment_text,
                             'replay': latest_replay,
                             'timestamp': latest_replay.get('timestamp', 0),
+                            'replay_id': latest_replay.get('replay_id'),
                             'action': action,  # Preserve action type (pattern/AI/custom)
                             'game_data': game_data  # Preserve game_data for pattern learner
                         }
@@ -389,7 +535,7 @@ def process_pubmsg(self, event, logger, contextHistory):
                 # No existing comment - save directly
                 # Save to database
                 if hasattr(self, 'pattern_learner') and self.pattern_learner:
-                    success = self.db.update_player_comments_in_last_replay(comment_text)
+                    success = _save_comment_for_replay(comment_text, latest_replay)
                     
                     if success:
                         self.pattern_learner._process_new_comment(game_data, comment_text)
@@ -425,6 +571,16 @@ def process_pubmsg(self, event, logger, contextHistory):
         else:
             msgToChannel(self, "Usage: player comment <your comment text>", logger)
             return
+
+        explicit_ref, comment_text = split_replay_ref_prefix(comment_text)
+        if explicit_ref is not None and not (comment_text or "").strip():
+            msgToChannel(
+                self,
+                "Usage: player comment <ReplayID|-N> <your comment>. Examples: "
+                "'player comment 25456 ling bane' or 'player comment -1 one-liner'",
+                logger,
+            )
+            return
         
         if not comment_text:
             msgToChannel(self, "Please provide comment text after 'player comment'", logger)
@@ -456,8 +612,46 @@ def process_pubmsg(self, event, logger, contextHistory):
                 return
         
         try:
-            # Get the latest replay from database
-            latest_replay = self.db.get_latest_replay()
+            latest_replay = None
+            if explicit_ref is not None:
+                if not getattr(self, "db", None):
+                    msgToChannel(
+                        self,
+                        "Replay-specific player comments require database access on this bot instance.",
+                        logger,
+                    )
+                    return
+                if explicit_ref > 0:
+                    if not hasattr(self.db, "get_replay_by_id"):
+                        msgToChannel(self, "Database client does not support replay-by-id lookup.", logger)
+                        return
+                    latest_replay = self.db.get_replay_by_id(int(explicit_ref))
+                    if not latest_replay:
+                        msgToChannel(self, f"Replay ID {explicit_ref} not found.", logger)
+                        return
+                    if latest_replay.get("replay_id") is None:
+                        latest_replay["replay_id"] = int(explicit_ref)
+                else:
+                    n_back = abs(int(explicit_ref))
+                    if not hasattr(self.db, "get_replay_by_recency_offset"):
+                        msgToChannel(
+                            self,
+                            "Database client does not support -N (games ago) replay lookup.",
+                            logger,
+                        )
+                        return
+                    latest_replay = self.db.get_replay_by_recency_offset(n_back)
+                    if not latest_replay:
+                        msgToChannel(
+                            self,
+                            f"Could not find replay from {n_back} game(s) ago.",
+                            logger,
+                        )
+                        return
+            else:
+                latest_replay = _replay_from_context()
+                if not latest_replay:
+                    latest_replay = self.db.get_latest_replay()
             
             if not latest_replay:
                 msgToChannel(self, "No replays found in database - please play a game first", logger)
@@ -477,18 +671,23 @@ def process_pubmsg(self, event, logger, contextHistory):
                     'timestamp': latest_replay['timestamp']
                 }
                 
-                response = f"There is already data there for last game vs {opponent} on {map_name} ({game_date}). Are you sure you want to overwrite it? Y/N"
+                rid = latest_replay.get("replay_id")
+                scope = f"replay {rid}" if rid else f"last game vs {opponent}"
+                response = (
+                    f"There is already a comment for {scope} on {map_name} ({game_date}). Overwrite? Y/N"
+                )
                 msgToChannel(self, response, logger)
                 return
             
             # No existing comment - save directly
             if hasattr(self, 'pattern_learner') and self.pattern_learner:
                 # Update database with player comment
-                success = self.db.update_player_comments_in_last_replay(comment_text)
+                success = _save_comment_for_replay(comment_text, latest_replay)
                 
                 if success:
                     # Process comment for pattern learning
                     game_data = {
+                        'replay_id': latest_replay.get('replay_id'),
                         'opponent_name': opponent,
                         'map': map_name,
                         'date': game_date,
@@ -866,35 +1065,13 @@ def send_prompt_to_openai(msg):
 
 def summarize_strategy_with_units(player_name: str, pattern_name: str, 
                                    real_units: list, is_winner: bool = None,
-                                   logger=None) -> str:
+                                   similarity=None, logger=None) -> str:
     """
-    Generate a factual strategy summary combining pattern context with real units.
-    
-    Uses the pattern name for strategic context (e.g., "bio harass", "cannon rush")
-    but only mentions units that were ACTUALLY built.
-    
-    Args:
-        player_name: Name of the player
-        pattern_name: Pattern/strategy label (e.g., "bio with banshee harass")
-        real_units: List of units actually built (e.g., ["Marine", "Marauder", "Tank"])
-        is_winner: True if won, False if lost, None if unknown
-        logger: Optional logger instance
-    
-    Returns:
-        Concise factual summary string
-    
-    Example:
-        summarize_strategy_with_units("Stradale", "bio with banshee harass", 
-                                       ["Marine", "Marauder", "Tank"], is_winner=False)
-        -> "Stradale (L) did bio play with Marine, Marauder, Tank"
+    Deterministic post-game line: key units from the replay build only; pattern label only if
+    similarity meets STRATEGY_PATTERN_LABEL_MIN_SIMILARITY (default 85%).
     """
-    import logging
-    log = logger or logging.getLogger(__name__)
-    
-    # Extract key units mentioned in pattern name (for comparison)
-    pattern_lower = pattern_name.lower()
-    
-    # Build result indicator
+    min_label = float(getattr(config, 'STRATEGY_PATTERN_LABEL_MIN_SIMILARITY', 0.85))
+
     if is_winner is True:
         result = "(W)"
     elif is_winner is False:
@@ -902,45 +1079,23 @@ def summarize_strategy_with_units(player_name: str, pattern_name: str,
     else:
         result = ""
     
-    # Format real units (first 6)
-    units_str = ", ".join(real_units[:6]) if real_units else "unknown units"
-    
-    # Build prompt that uses pattern for context but is strict about real units
-    prompt = f"""Write a SHORT factual summary (under 15 words) for this SC2 player.
+    units_str = ", ".join(real_units[:6]) if real_units else ""
+    label = (pattern_name or "").strip()
+    if len(label) > 90:
+        label = label[:87] + "..."
 
-Player: {player_name} {result}
-Strategy type (context only): {pattern_name}
-Units ACTUALLY built: {units_str}
+    show_pattern = (
+        bool(label)
+        and similarity is not None
+        and float(similarity) >= min_label
+    )
 
-RULES:
-1. You may ONLY mention units from the "Units ACTUALLY built" list
-2. You can use the strategy type for general context (e.g., "bio play", "macro game")
-3. Do NOT mention any units from the strategy type that aren't in the actual list
-4. Do NOT use speculative words: "tried", "going for", "all-in", "rush"
-5. Keep it very short and factual
-
-Example good outputs:
-- "Stradale (L) did bio with Marine, Marauder, Tank"
-- "Alpha (W) made Gateway units with Stalker, Zealot"
-
-Your summary:"""
-
-    try:
-        completion = send_prompt_to_openai(prompt)
-        
-        if completion and completion.choices and completion.choices[0].message:
-            summary = completion.choices[0].message.content.strip()
-            summary = summary.strip('"\'')
-            summary = summary.replace('\n', ' ').replace('\r', '')
-            return summary
-        
-        # Fallback
-        return f"{player_name} {result}: {units_str}"
-        
-    except Exception as e:
-        if log:
-            log.warning(f"OpenAI error in summarize_strategy_with_units: {e}")
-        return f"{player_name} {result}: {units_str}"
+    if units_str and show_pattern:
+        return f"{player_name} {result}: {units_str}. Pattern: \"{label}\""
+    if show_pattern:
+        return f"{player_name} {result}: Pattern: \"{label}\""
+    # Omit raw comma-separated builds when no qualifying label — redundant with replay / ML noise.
+    return ""
 
 def process_ai_message(user_message, conversation_mode="normal", contextHistory=None, platform="twitch", logger=None):
     """
@@ -1000,8 +1155,7 @@ def process_ai_message(user_message, conversation_mode="normal", contextHistory=
         contextHistory.clear()
 
     if conversation_mode == "last_time_played":
-        # no mood / perspective
-        pass
+        msg = LAST_TIME_PLAYED_INSTRUCTIONS + "\n\n" + msg
     else:
         # add complete array as msg to OpenAI
         try:
@@ -1075,15 +1229,13 @@ def process_ai_message(user_message, conversation_mode="normal", contextHistory=
                             + "5. When comparing units lost, be mathematically accurate: if one player lost 61 probes and another lost 2, do NOT say 'almost twice as many'. "
                             + msg)
                 elif conversation_mode == "ml_analysis":
-                    # ML analysis mode: factual analysis only, no mood/perspective, no conversation
-                    msg = ("You are providing a factual ML analysis for a StarCraft 2 stream. "
-                            + "CRITICAL RULES: "
-                            + "1. Output ONLY the ML Analysis statement in the exact format requested. "
-                            + "2. Do NOT add mood, personality, or conversational elements. "
-                            + "3. Do NOT ask questions, make suggestions, or request input. "
-                            + "4. Do NOT say things like 'should we play together' or any casual conversation. "
-                            + "5. Be factual, analytical, and professional. "
-                            + "6. If there are no strong pattern matches, say 'ML Analysis: No strong matches on pattern analysis' (you can vary the wording slightly but keep it factual). "
+                    # ML analysis mode (fallback only — prefer deterministic formatter in ml_opponent_analyzer)
+                    msg = ("You output ONE casual Twitch line starting with 'ML Analysis: ' (max 180 chars). "
+                            "Sound like chat, not a spreadsheet; use ONLY labels, opening unit names, "
+                            "or quoted notes given in the prompt. "
+                            "FORBIDDEN: implying intent, calling play aggressive/defensive/macro, 'typical', "
+                            "'indicating', multiprong, harassment, mobility, mimics, utilizes. "
+                            "Do not interpret pattern names — repeat text in quotes only. "
                             + msg)
                 else:
                     msg = (f"As a {mood} observer of matches in StarCraft 2, {perspective}, "

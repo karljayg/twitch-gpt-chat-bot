@@ -165,7 +165,7 @@ class Database:
             
             # First get the latest replay data
             sql = """
-                SELECT r.UnixTimestamp, r.Player1_Id, r.Player2_Id, 
+                SELECT r.ReplayId, r.UnixTimestamp, r.Player1_Id, r.Player2_Id, 
                        r.Player1_Result, r.Player2_Result,
                        r.Map, r.GameDuration, r.Date_Played, r.Player_Comments,
                        p1.SC2_UserId as Player1_Name, p2.SC2_UserId as Player2_Name
@@ -192,6 +192,7 @@ class Database:
                 result_str = result['Player2_Result']
             
             return {
+                'replay_id': result['ReplayId'],
                 'opponent': opponent,
                 'map': result['Map'],
                 'result': result_str,
@@ -202,6 +203,26 @@ class Database:
             }
         except Exception as e:
             self.logger.error(f"Error fetching latest replay: {e}")
+            return None
+
+    def get_replay_by_recency_offset(self, n_back: int):
+        """Replay at index n_back by UnixTimestamp DESC (0=latest, 1=one game ago, ...)."""
+        try:
+            self.ensure_connection()
+            self.cursor.reset()
+            off = max(0, int(n_back))
+            sql = """
+                SELECT r.ReplayId FROM Replays r
+                ORDER BY r.UnixTimestamp DESC
+                LIMIT 1 OFFSET %s
+            """
+            self.cursor.execute(sql, (off,))
+            row = self.cursor.fetchone()
+            if not row or row.get('ReplayId') is None:
+                return None
+            return self.get_replay_by_id(int(row['ReplayId']))
+        except Exception as e:
+            self.logger.error(f"Error fetching replay by recency offset {n_back}: {e}")
             return None
     
     def get_replay_by_id(self, replay_id: int):
@@ -243,6 +264,10 @@ class Database:
                 'replay_id': result['ReplayId'],
                 'opponent': opponent,
                 'opponent_race': opponent_race,
+                'player1_name': result.get('Player1_Name', ''),
+                'player2_name': result.get('Player2_Name', ''),
+                'player1_race': result.get('Player1_Race', ''),
+                'player2_race': result.get('Player2_Race', ''),
                 'map': result['Map'],
                 'result': result_str,
                 'date': str(result['Date_Played']),
@@ -284,6 +309,23 @@ class Database:
             except:
                 pass
             self.logger.error(f"SQL Error: {e}")
+            raise
+
+    def update_player_comments_by_replay_id(self, replay_id, comment):
+        """Update Player_Comments for a specific ReplayId."""
+        try:
+            self.ensure_connection()
+            self.cursor.reset()
+            sql = "UPDATE Replays SET Player_Comments = %s WHERE ReplayId = %s"
+            self.cursor.execute(sql, (comment, replay_id))
+            self.connection.commit()
+            return self.cursor.rowcount > 0
+        except Exception as e:
+            try:
+                self.connection.rollback()
+            except Exception:
+                pass
+            self.logger.error(f"SQL Error updating replay {replay_id}: {e}")
             raise
 
     def check_player_and_race_exists(self, player_name, player_race):

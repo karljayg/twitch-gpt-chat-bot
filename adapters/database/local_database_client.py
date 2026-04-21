@@ -55,6 +55,11 @@ class LocalDatabaseClient(IDatabaseClient):
     
     def get_replay_by_id(self, replay_id: int) -> Optional[Dict]:
         return self._db.get_replay_by_id(replay_id)
+
+    def get_replay_by_recency_offset(self, offset: int) -> Optional[Dict]:
+        if hasattr(self._db, 'get_replay_by_recency_offset'):
+            return self._db.get_replay_by_recency_offset(offset)
+        return None
     
     def get_games_for_last_x_hours(self, hours: int) -> List[str]:
         """Get games played in the last X hours"""
@@ -71,6 +76,12 @@ class LocalDatabaseClient(IDatabaseClient):
     def update_player_comments_in_last_replay(self, comment: str) -> bool:
         """Update player comment for the last replay"""
         return self._db.update_player_comments_in_last_replay(comment)
+
+    def update_player_comments_by_replay_id(self, replay_id: int, comment: str) -> bool:
+        """Update player comment for a specific ReplayId."""
+        if hasattr(self._db, 'update_player_comments_by_replay_id'):
+            return self._db.update_player_comments_by_replay_id(replay_id, comment)
+        return False
     
     def save_player_comment_with_data(self, comment_data: Dict) -> bool:
         """Save full comment data to PlayerComments table with keywords, build_order, etc."""

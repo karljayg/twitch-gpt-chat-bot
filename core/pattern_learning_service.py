@@ -15,7 +15,8 @@ class PatternLearningService:
     async def interpret_user_response(self, user_message: str, ctx: Dict[str, Any]) -> Tuple[str, Optional[str]]:
         """
         Process natural language response for pattern learning using LLM to interpret intent
-        Returns: tuple (action, comment_text) where action is 'use_pattern', 'use_ai_summary', 'custom', or 'skip'
+        Returns: tuple (action, comment_text) where action is 'use_pattern', 'use_ai_summary', 'custom', or 'skip'.
+        For 'custom', comment_text is always the user's raw message (never LLM "text").
         """
         try:
             # Construct context strings
@@ -44,14 +45,11 @@ Determine the user's intent and respond with ONLY valid JSON (use double quotes)
 2. If choosing AI summary AS-IS (keywords: second, 2, AI is right, AI summary is correct):
    {{"action": "use_ai_summary"}}
 
-3. If user REFINES option 1 or 2 with additional details (keywords: "but", "except", "actually", "close but", "pretty close" + extra description):
-   {{"action": "custom", "text": "<extract the refined/corrected description from user's message>"}}
-   Example: "2nd is close but it was roach rush" → {{"action": "custom", "text": "roach rush"}}
+3. If the user is NOT choosing option 1 or 2 as-is (freeform label, correction, refinement, or mixed wording):
+   {{"action": "custom"}}
+   The system will save their chat line verbatim — do NOT paraphrase, normalize grammar, or invent a "clean" version.
 
-4. If providing completely custom description (descriptive text without choosing option 1 or 2):
-   {{"action": "custom", "text": "<extract the strategy description>"}}
-
-5. If declining/skipping (keywords: skip, no, neither, ignore, pass):
+4. If declining/skipping (keywords: skip, no, neither, ignore, pass):
    {{"action": "skip"}}
 
 CRITICAL: Respond with VALID JSON using double quotes, not single quotes.
@@ -141,11 +139,8 @@ Respond ONLY with JSON on one line. No explanation, no markdown."""
             elif action == 'use_ai_summary' and ai_summary:
                 return ('use_ai_summary', ai_summary)
             elif action == 'custom':
-                custom_text = parsed.get('text', '').strip()
-                if not custom_text:
-                    # Fallback: extract anything descriptive from user message
-                    custom_text = user_message.strip()
-                return ('custom', custom_text)
+                # Persist expert typing exactly; ignore any model-provided "text" paraphrase.
+                return ('custom', user_message.strip())
             else:
                 # Default to skip if uncertain or no valid option
                 logger.debug(f"Pattern learning response defaulting to skip: {parsed.get('reason', 'no valid option')}")
