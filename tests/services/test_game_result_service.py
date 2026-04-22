@@ -220,3 +220,22 @@ def test_parse_build_order_from_summary_empty(mock_repo, mock_chat_service, mock
     build_order = service._parse_build_order_from_summary("", "TestPlayer")
     
     assert len(build_order) == 0
+
+
+def test_resolve_players_from_replay_summary_uses_build_owner(mock_repo, mock_chat_service, mock_pattern_learner):
+    service = GameResultService(mock_repo, [mock_chat_service], mock_pattern_learner)
+    replay_info = {
+        "opponent": "WrongFromLegacy",
+        "opponent_race": "Unknown",
+    }
+    summary = """Players: AntoineQ: Zerg, NuKLeO: Terran
+Map: Magannatha LE
+
+AntoineQ's Build Order (first set of steps):
+Time: 0:00, Name: Drone, Supply: 12
+"""
+    opponent, opponent_race, versus = service._resolve_players_from_replay_summary(replay_info, summary)
+
+    assert opponent == "AntoineQ"
+    assert opponent_race == "Zerg"
+    assert versus == "NuKLeO"

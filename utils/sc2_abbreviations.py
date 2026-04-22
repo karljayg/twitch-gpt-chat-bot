@@ -97,17 +97,71 @@ def format_build_order_for_chat(build_order_list, max_items=15, show_workers=2):
     # Abbreviate the build order (filters out workers after limit)
     abbreviated = abbreviate_build_order(build_order_list, show_workers=show_workers)
     
-    # Take first max_items
-    limited = abbreviated[:max_items]
-    
-    # Format as: "supply unit, supply unit, ..."
-    parts = []
-    for step in limited:
+    # Group consecutive identical supply+unit entries to reduce noise.
+    grouped = []
+    prev_supply = None
+    prev_name = None
+    count = 0
+    for step in abbreviated:
         supply = step.get('supply', '')
         name = step.get('name', '')
-        parts.append(f"{supply} {name}")
-    
+        if not name:
+            continue
+        if supply == prev_supply and name == prev_name:
+            count += 1
+        else:
+            if prev_name is not None:
+                grouped.append((prev_supply, prev_name, count))
+            prev_supply = supply
+            prev_name = name
+            count = 1
+    if prev_name is not None:
+        grouped.append((prev_supply, prev_name, count))
+
+    # Take first max_items grouped tokens
+    grouped = grouped[:max_items]
+
+    # Format as: "12 Pool, 11 Drone x2, 13 Ling x6"
+    parts = []
+    for supply, name, cnt in grouped:
+        prefix = f"{supply} " if supply != '' else ""
+        if cnt > 1:
+            parts.append(f"{prefix}{name} x{cnt}")
+        else:
+            parts.append(f"{prefix}{name}")
+
     return ", ".join(parts)
+
+
+def compact_grouped_build_from_steps(build_order_list, max_groups=14, show_workers=2):
+    """
+    Compact opening for Twitch: abbreviate worker/supply clutter, then collapse consecutive duplicates (Drone x4).
+    Expects list of dicts with 'name' keys (same as replay build_order preview).
+    """
+    if not build_order_list:
+        return ""
+    abbreviated = abbreviate_build_order(build_order_list, show_workers=show_workers)
+    names = [
+        step.get("name")
+        for step in abbreviated
+        if step.get("name") and step.get("name") != "-"
+    ]
+
+    grouped_tokens = []
+    prev = None
+    count = 0
+    for u in names:
+        if u == prev:
+            count += 1
+        else:
+            if prev is not None:
+                grouped_tokens.append(f"{prev} x{count}" if count > 1 else prev)
+            prev = u
+            count = 1
+    if prev is not None:
+        grouped_tokens.append(f"{prev} x{count}" if count > 1 else prev)
+
+    return ", ".join(grouped_tokens[:max_groups])
 
 
 def abbreviate_build_order_string(build_text):

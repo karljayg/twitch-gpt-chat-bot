@@ -1,5 +1,6 @@
 import logging
 import asyncio
+import re
 import requests
 from typing import Optional
 from core.interfaces import IChatService
@@ -43,7 +44,10 @@ class TwitchAdapter(IChatService):
                 target_channel = channel
                 if channel == "channel" and hasattr(self.twitch_bot, 'channel'):
                     target_channel = self.twitch_bot.channel
-                    
+
+                # IRC PRIVMSG must not contain CR/LF (Twitch: "Carriage returns not allowed")
+                message = re.sub(r"[\r\n]+", " | ", message or "").strip()
+
                 self.twitch_bot.connection.privmsg(target_channel, message)
                 # Sanitize for logging (remove non-ASCII characters that can't be encoded in console)
                 safe_message = tokensArray.replace_non_ascii(message, replacement='?')

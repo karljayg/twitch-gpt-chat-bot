@@ -14,6 +14,53 @@ from core.game_summarizer import GameSummarizer
 
 logger = logging.getLogger(__name__)
 
+
+def _ai_commentary_duration_guidance(total_seconds: float) -> str:
+    """
+    How the model should qualify game length in the one-liner (facts still from the prompt only).
+    Buckets tuned for ladder-style SC2 — avoids calling ~17m games "just" or unusually fast.
+    """
+    s = max(0.0, float(total_seconds or 0))
+    if s <= 10:
+        return (
+            "Length tone: abandon / instant - if you mention time, say it ended almost immediately "
+            "(not a normal-length game)."
+        )
+    if s < 360:
+        return (
+            "Length tone: very fast (<6 min) - super-early / all-in timing is appropriate; "
+            "quick/blitz/fast wording fits."
+        )
+    if s < 600:
+        return (
+            "Length tone: short game (<10 min); you may call it quick or short."
+        )
+    if s < 900:
+        return (
+            "Length tone: somewhat short (10-15 min) - quicker than average, but not cheese-length."
+        )
+    if s <= 1500:
+        return (
+            "Length tone: normal length (about 15-25 min). "
+            "Do NOT use 'just', 'only', 'mere', or imply the match was unusually short - "
+            "this duration is ordinary for ladder."
+        )
+    if s <= 1800:
+        return (
+            "Length tone: slightly longer than typical (about 25-30 min); "
+            "you may note it ran a while; avoid calling it a sprint."
+        )
+    if s < 2700:
+        return (
+            "Length tone: long game (about 30-45 min); extended play; "
+            "do not describe it as quick."
+        )
+    return (
+        "Length tone: marathon (45+ min) - super long; "
+        "late eco / expansion / grind vibe is OK in tone only (still no invented units or results)."
+    )
+
+
 class GameResultService:
     def __init__(self, replay_repo: IReplayRepository, chat_services: List[IChatService], pattern_learner=None):
         self.replay_repo = replay_repo
@@ -367,20 +414,50 @@ Generate ONE short message only, no explanation."""
                 duration_seconds = duration_info['totalSeconds']
                 duration_str = duration_info['gameDuration']
                 
-                # Create a CONCISE prompt asking for ONE sentence
-                concise_prompt = f"Provide ONE concise sentence (max 20 words) summarizing this StarCraft 2 game:\n\n"
-                concise_prompt += f"Winner: {winning_players_str}\n"
-                concise_prompt += f"Loser: {losing_players_str}\n"
-                concise_prompt += f"Duration: {duration_str}\n"
-                concise_prompt += f"Map: {replay_data.get('map', 'Unknown')}\n\n"
-                concise_prompt += "Your ONE sentence summary:"
-                
-                # Get twitch_bot to send the message
+                # Get twitch_bot early (needed for optional DB note + send path).
                 twitch_bot = None
                 for service in self.chat_services:
                     if hasattr(service, 'twitch_bot'):
                         twitch_bot = service.twitch_bot
                         break
+
+                # Optional expert note (DB player comment) to fold into the single replay line.
+                opponent_note = ""
+                try:
+                    if twitch_bot and hasattr(twitch_bot, "db") and replay_data.get("players"):
+                        streamer_accounts = [n.lower() for n in getattr(config, "SC2_PLAYER_ACCOUNTS", [])]
+                        opp_name = None
+                        opp_race = None
+                        for _k, p in replay_data.get("players", {}).items():
+                            n = str(p.get("name", ""))
+                            if n and n.lower() not in streamer_accounts:
+                                opp_name = n
+                                opp_race = p.get("race", "")
+                                break
+                        if opp_name and opp_race:
+                            rec = twitch_bot.db.check_player_and_race_exists(opp_name, opp_race)
+                            if rec:
+                                opponent_note = (rec.get("Player_Comments") or "").strip()
+                except Exception as e:
+                    logger.debug(f"Could not fetch opponent DB note for replay line: {e}")
+
+                # One casual sentence; facts only from the lines below (no invented story or strategy).
+                concise_prompt = (
+                    "Write ONE casual Twitch-chat sentence (max 22 words).\n"
+                    "Use ONLY these facts — do not infer how the game went or anyone's style.\n\n"
+                )
+                concise_prompt += f"Winner: {winning_players_str}\n"
+                concise_prompt += f"Loser: {losing_players_str}\n"
+                concise_prompt += f"Duration: {duration_str}\n"
+                concise_prompt += f"Map: {replay_data.get('map', 'Unknown')}\n\n"
+                if opponent_note:
+                    concise_prompt += (
+                        f"Expert note on file for this opponent: \"{opponent_note}\"\n"
+                        "If this note fits naturally, weave it in as: \"with what looks like <note> build\".\n"
+                    )
+                    concise_prompt += "Do NOT prefix with 'ML Analysis' or mention databases.\n\n"
+                concise_prompt += _ai_commentary_duration_guidance(duration_seconds)
+                concise_prompt += "\n\nYour sentence:"
                 
                 if twitch_bot:
                     from api.chat_utils import send_prompt_to_openai
@@ -418,7 +495,7 @@ Generate ONE short message only, no explanation."""
                 from core.strategy_summary_service import get_game_summary
                 
                 analyzer = get_ml_analyzer()
-                strategy_summary = get_game_summary(replay_data, analyzer, min_similarity=0.70)
+                strategy_summary = get_game_summary(replay_data, analyzer)
                 
                 if strategy_summary:
                     logger.info(f"Strategy Summary: {strategy_summary}")
@@ -429,7 +506,7 @@ Generate ONE short message only, no explanation."""
                         except Exception as e:
                             logger.debug(f"Error sending strategy summary: {e}")
                 else:
-                    logger.debug("No high-confidence strategy matches for any player")
+                    logger.debug("No opponent strategy summary (missing build order or filtered)")
             except Exception as e:
                 logger.debug(f"Strategy summary error: {e}")
         
@@ -474,7 +551,8 @@ Generate ONE short message only, no explanation."""
                         streamer_played = True
                         break
             
-            if is_1v1 and is_long_enough and streamer_played:
+            run_pattern_learning = is_1v1 and is_long_enough
+            if run_pattern_learning:
                 # Define delayed task to mimic legacy behavior
                 async def delayed_learning_trigger():
                     logger.info(f"Pattern Learning: Waiting {config.PATTERN_LEARNING_DELAY_SECONDS}s before analysis...")
@@ -508,12 +586,14 @@ Generate ONE short message only, no explanation."""
                                 opponent_race = p_data['race']
                                 opponent_p_key = p_key  # Store the player key for reliable matching
                                 logger.debug(f"Identified opponent: {opponent_name} ({opponent_race})")
-                                # Determine result relative to STREAMER
-                                # If opponent won, streamer lost.
-                                if p_data['is_winner']: 
-                                    result = "Defeat" 
-                                else: 
-                                    result = "Victory"
+                                # Determine result relative to streamer when playing, otherwise observer context.
+                                if streamer_played:
+                                    if p_data['is_winner']:
+                                        result = "Defeat"
+                                    else:
+                                        result = "Victory"
+                                else:
+                                    result = "Observed"
                                 break
                         
                         if opponent_name == "Unknown":
@@ -646,22 +726,45 @@ Generate ONE short message only, no explanation."""
                 # Schedule the task
                 asyncio.create_task(delayed_learning_trigger())
             else:
-                logger.info(f"Pattern Learning Skipped: 1v1={is_1v1}, Long={is_long_enough}, Streamer={streamer_played}")
+                logger.info(
+                    f"Pattern Learning Skipped: 1v1={is_1v1}, Long={is_long_enough}"
+                )
 
     async def retry_last_game(self):
         """Retry processing - finds most recent replay and processes it normally"""
         logger.info("Retrying last game processing...")
-        
-        # Find most recent replay file (for retry, just get the latest file regardless of age)
+
+        return await self._retry_from_replay_file(offset=0, enforce_recent_24h=True)
+
+    async def retry_with_reference(self, replay_ref: Optional[int]):
+        """
+        Retry processing by reference:
+        - None: latest replay file
+        - negative (e.g. -3): N games ago by replay-file recency
+        - positive (e.g. 24943): DB ReplayID for pattern-validation flow
+        """
+        if replay_ref is None:
+            ok = await self._retry_from_replay_file(offset=0, enforce_recent_24h=True)
+            return ok, ("Retried latest replay." if ok else "no recent replay found or processing error.")
+
+        if replay_ref < 0:
+            n_back = abs(replay_ref)
+            ok = await self._retry_from_replay_file(offset=n_back, enforce_recent_24h=False)
+            if ok:
+                return True, f"Retried replay from {n_back} game(s) ago."
+            return False, f"could not find replay from {n_back} game(s) ago."
+
+        # Positive ReplayID path: run historical replay pattern-validation flow.
+        ok = await self._retry_by_replay_id(replay_ref)
+        if ok:
+            return True, f"Retried historical replay id {replay_ref}."
+        return False, f"Replay ID {replay_ref} not found or could not be processed."
+
+    async def _retry_from_replay_file(self, offset: int = 0, enforce_recent_24h: bool = True) -> bool:
+        """Retry by replay file recency; offset=0 latest, offset=3 means 3 games ago."""
         loop = asyncio.get_running_loop()
         try:
-            replay_path = await loop.run_in_executor(
-                None,
-                find_latest_file,
-                config.REPLAYS_FOLDER,
-                config.REPLAYS_FILE_EXTENSION,
-                logger
-            )
+            replay_path = await loop.run_in_executor(None, self._find_nth_latest_replay_file, offset)
         except Exception as e:
             logger.error(f"Error finding replay file for retry: {e}")
             return False
@@ -670,16 +773,19 @@ Generate ONE short message only, no explanation."""
             logger.warning("No replay file found for retry.")
             return False
         
-        # Verify replay file is recent (within last 24 hours) to avoid processing very old games
-        try:
-            file_mtime = os.path.getmtime(replay_path)
-            import time
-            age_seconds = time.time() - file_mtime
-            if age_seconds > 86400:  # 24 hours
-                logger.warning(f"Replay file is very old ({age_seconds/86400:.1f} days) - may be from previous session. Retry only works for recent failures.")
-                return False
-        except Exception as e:
-            logger.warning(f"Could not check replay file timestamp: {e}")
+        # Verify replay file is recent (within last 24 hours) for default retry path.
+        if enforce_recent_24h:
+            try:
+                file_mtime = os.path.getmtime(replay_path)
+                import time
+                age_seconds = time.time() - file_mtime
+                if age_seconds > 86400:  # 24 hours
+                    logger.warning(
+                        f"Replay file is very old ({age_seconds/86400:.1f} days) - may be from previous session."
+                    )
+                    return False
+            except Exception as e:
+                logger.warning(f"Could not check replay file timestamp: {e}")
         
         # Parse replay to get GameInfo and replay_data
         try:
@@ -724,11 +830,13 @@ Generate ONE short message only, no explanation."""
         except Exception as e:
             logger.error(f"Error parsing replay for retry: {e}", exc_info=True)
             return False
-        
+
         # Call process_game_end with replay_data - it will skip file finding/parsing and process normally
         # skip_duplicate_check allows it to process the same replay again
         try:
-            logger.info(f"Calling process_game_end with replay_data (skip_duplicate_check=True), replay_data type: {type(replay_data)}, has players: {bool(replay_data and 'players' in replay_data)}")
+            logger.info(
+                f"Calling process_game_end with replay_data (skip_duplicate_check=True), replay_data type: {type(replay_data)}, has players: {bool(replay_data and 'players' in replay_data)}"
+            )
             await self.process_game_end(game_info, replay_data=replay_data, skip_duplicate_check=True)
             logger.info("Retry processing completed successfully")
             return True
@@ -736,6 +844,131 @@ Generate ONE short message only, no explanation."""
             logger.error(f"Error during retry processing: {e}", exc_info=True)
             return False
 
+    async def _retry_by_replay_id(self, replay_id: int) -> bool:
+        """
+        Historical replay-id retry path.
+        Uses DB replay summary to reconstruct opponent build and rerun pattern-validation chat flow.
+        """
+        try:
+            db = getattr(self.replay_repo, "db", None)
+            if db is None or not hasattr(db, "get_replay_by_id"):
+                logger.error("Replay repository does not expose get_replay_by_id")
+                return False
+
+            replay_info = db.get_replay_by_id(replay_id)
+            if not replay_info:
+                logger.warning(f"Replay ID {replay_id} not found")
+                return False
+
+            replay_summary = replay_info.get("replay_summary", "") or ""
+            opponent, opponent_race, versus_name = self._resolve_players_from_replay_summary(replay_info, replay_summary)
+            build_order = self._parse_build_order_from_summary(replay_summary, opponent)
+
+            game_data = {
+                "replay_id": replay_id,
+                "opponent_name": opponent,
+                "opponent_race": opponent_race,
+                "map": replay_info.get("map", "Unknown"),
+                "date": replay_info.get("date", "Unknown"),
+                "result": replay_info.get("result", "Observed"),
+                "duration": replay_info.get("duration", "Unknown"),
+                "build_order": build_order,
+                "versus_name": versus_name,
+                "existing_comment": replay_info.get("existing_comment"),
+            }
+
+            twitch_service = next((s for s in self.chat_services if s.get_platform_name() == "twitch"), None)
+            if not twitch_service or not hasattr(twitch_service, "twitch_bot"):
+                logger.warning("No twitch service/twitch_bot available for replay-id retry")
+                return False
+
+            twitch_bot = twitch_service.twitch_bot
+            if not hasattr(twitch_bot, "_display_pattern_validation"):
+                logger.warning("twitch_bot does not support _display_pattern_validation")
+                return False
+
+            twitch_bot._display_pattern_validation(game_data, logger)
+            return True
+        except Exception as e:
+            logger.error(f"Error during replay-id retry: {e}", exc_info=True)
+            return False
+
+    def _resolve_players_from_replay_summary(self, replay_info: dict, replay_summary: str):
+        """Resolve subject/versus names from replay summary when streamer is not in match."""
+        import re
+
+        players = []
+        race_by_name = {}
+
+        players_line_match = re.search(r"^Players:\s*(.+)$", replay_summary, re.IGNORECASE | re.MULTILINE)
+        if players_line_match:
+            players_line = players_line_match.group(1).strip()
+            for part in players_line.split(","):
+                part = part.strip()
+                if ":" not in part:
+                    continue
+                name, race = part.split(":", 1)
+                name = name.strip()
+                race = race.strip()
+                if name:
+                    players.append(name)
+                    race_by_name[name.lower()] = race
+
+        build_owner = None
+        owner_match = re.search(r"^(.+?)'s Build Order", replay_summary, re.IGNORECASE | re.MULTILINE)
+        if owner_match:
+            build_owner = owner_match.group(1).strip()
+
+        opponent = str(replay_info.get("opponent", "Unknown") or "Unknown")
+        opponent_race = str(replay_info.get("opponent_race", "Unknown") or "Unknown")
+
+        # Prefer build owner if found in players list.
+        if build_owner and (not players or any(p.lower() == build_owner.lower() for p in players)):
+            opponent = build_owner
+            opponent_race = race_by_name.get(build_owner.lower(), opponent_race)
+        elif players:
+            # Fallback to first player listed in summary.
+            opponent = players[0]
+            opponent_race = race_by_name.get(opponent.lower(), opponent_race)
+
+        versus_name = ""
+        if players:
+            for p in players:
+                if p.lower() != opponent.lower():
+                    versus_name = p
+                    break
+
+        return opponent, opponent_race, versus_name
+
+    def _find_nth_latest_replay_file(self, n_back: int) -> Optional[str]:
+        """Find nth latest replay file by modified time. n_back=0 latest, 1 previous, etc."""
+        try:
+            if not os.path.isdir(config.REPLAYS_FOLDER):
+                return None
+            ext = config.REPLAYS_FILE_EXTENSION
+            if not ext.startswith("."):
+                ext = "." + ext
+
+            candidates = []
+            for root, _dirs, files in os.walk(config.REPLAYS_FOLDER):
+                for filename in files:
+                    if filename.endswith(ext):
+                        path = os.path.join(root, filename)
+                        try:
+                            candidates.append((os.path.getmtime(path), path))
+                        except OSError:
+                            continue
+
+            if not candidates:
+                return None
+            candidates.sort(key=lambda x: x[0], reverse=True)
+            idx = max(0, int(n_back))
+            if idx >= len(candidates):
+                return None
+            return candidates[idx][1]
+        except Exception as e:
+            logger.error(f"Error finding nth latest replay file: {e}")
+            return None
     async def test_replay_by_id(self, replay_id: int) -> str:
         """
         Test strategy summary against a historical replay by ID.
@@ -1189,12 +1422,42 @@ Generate ONE short message only, no explanation."""
                 duration_seconds = frames / fps if fps > 0 else 0
                 duration_str = f"{int(duration_seconds // 60)}m {int(duration_seconds % 60)}s"
                 
-                concise_prompt = f"Provide ONE concise sentence (max 20 words) summarizing this StarCraft 2 game:\n\n"
+                # Optional expert note (DB player comment) to fold into the single replay line.
+                opponent_note = ""
+                try:
+                    if twitch_bot and hasattr(twitch_bot, "db") and replay_data.get("players"):
+                        streamer_accounts = [n.lower() for n in getattr(config, "SC2_PLAYER_ACCOUNTS", [])]
+                        opp_name = None
+                        opp_race = None
+                        for _k, p in replay_data.get("players", {}).items():
+                            n = str(p.get("name", ""))
+                            if n and n.lower() not in streamer_accounts:
+                                opp_name = n
+                                opp_race = p.get("race", "")
+                                break
+                        if opp_name and opp_race:
+                            rec = twitch_bot.db.check_player_and_race_exists(opp_name, opp_race)
+                            if rec:
+                                opponent_note = (rec.get("Player_Comments") or "").strip()
+                except Exception as e:
+                    logger.debug(f"Could not fetch opponent DB note for replay line: {e}")
+
+                concise_prompt = (
+                    "Write ONE casual Twitch-chat sentence (max 22 words).\n"
+                    "Use ONLY these facts — do not infer how the game went or anyone's style.\n\n"
+                )
                 concise_prompt += f"Winner: {winning_players}\n"
                 concise_prompt += f"Loser: {losing_players}\n"
                 concise_prompt += f"Duration: {duration_str}\n"
                 concise_prompt += f"Map: {replay_data.get('map', 'Unknown')}\n\n"
-                concise_prompt += "Your ONE sentence summary:"
+                if opponent_note:
+                    concise_prompt += (
+                        f"Expert note on file for this opponent: \"{opponent_note}\"\n"
+                        "If this note fits naturally, weave it in as: \"with what looks like <note> build\".\n"
+                    )
+                    concise_prompt += "Do NOT prefix with 'ML Analysis' or mention databases.\n\n"
+                concise_prompt += _ai_commentary_duration_guidance(duration_seconds)
+                concise_prompt += "\n\nYour sentence:"
                 
                 twitch_bot = None
                 for service in self.chat_services:
@@ -1233,7 +1496,8 @@ Generate ONE short message only, no explanation."""
                         streamer_played = True
                         break
             
-            if is_1v1 and is_long_enough and streamer_played:
+            run_pattern_learning = is_1v1 and is_long_enough
+            if run_pattern_learning:
                 async def delayed_learning_trigger():
                     logger.info(f"Pattern Learning: Waiting {config.PATTERN_LEARNING_DELAY_SECONDS}s before analysis...")
                     await asyncio.sleep(config.PATTERN_LEARNING_DELAY_SECONDS)
@@ -1253,10 +1517,13 @@ Generate ONE short message only, no explanation."""
                                     opponent_name = name
                                     opponent_race = p_data.get('race', 'Unknown')
                                     opponent_p_key = p_key  # Store player key for reliable matching
-                                    if p_data.get('is_winner', False):
-                                        result = "Defeat"
+                                    if streamer_played:
+                                        if p_data.get('is_winner', False):
+                                            result = "Defeat"
+                                        else:
+                                            result = "Victory"
                                     else:
-                                        result = "Victory"
+                                        result = "Observed"
                                     break
                         
                         # Extract opponent build order using player key (more reliable than name matching)

@@ -25,7 +25,7 @@ OWNER = "psi_mathison"
 TRAINING_FILE = f"hypebot/training/twitchchatbot-gpt-ex-{NAME}-1"
 PAGE = "kj_freeedom"
 STREAMER_NICKNAME = "KJ"
-# Max saved-comment lines in "Saved notes vs ..." (newest first); avoids wall of timestamps
+# Max saved-comment lines joined for Twitch / LLM (newest first); avoids wall of timestamps
 TWITCH_SAVED_NOTES_MAX_ITEMS = 3
 SHORT_LAST_GAME_DURATION_SECONDS = 120
 MIN_HEAD_TO_HEAD_GAMES_TO_SHOW_RECORD = 2
@@ -40,12 +40,19 @@ HEADERS = {"Client-ID": CLIENT_ID,
            "Accept": "application/vnd.twitchtv.v5+json"}
 TWITCH_CHAT_BYTE_LIMIT = 450 #512 but to account for overhead
 
+# Discord normal message limit (chars); FSL @-ask truncation on Discord uses this instead of Twitch byte cap
+DISCORD_MESSAGE_CHAR_LIMIT = 2000
+# When ENABLE_FSL_ASK is on: if False, Discord lines that do not pass the FSL keyword/intent gate get no reply
+# (and no generic LLM). Set True only if you want random chat in the bot channel answered by the core LLM.
+DISCORD_GENERIC_LLM_FALLBACK = False
+
 """
 |   Discord Settings
 """
 # Discord Bot settings
 DISCORD_TOKEN = ""  # Your Discord bot token
 DISCORD_CHANNEL_ID = None  # Channel ID (integer) where the bot should operate
+# FSL @-ask (ENABLE_FSL_ASK): in this channel, any message is treated as a question; no @-ping (Twitch still needs @OWNER).
 DISCORD_ENABLED = False  # Set to False to disable Discord bot
 
 # Discord Behavior Settings
@@ -183,7 +190,7 @@ FSL_VERIFY_SSL = False  # Set to False if SSL certificate verification fails
 ENABLE_FSL_DB_COMMANDS = True  # Chat: fsl help | fsl players … | fsl matches … (explicit commands only)
 # @OWNER / @PAGE → router LLM outputs JSON action → Python calls allowlisted db.fsl_* (not general chat)
 ENABLE_FSL_ASK = False  # set True to enable; requires OPENAI_DISABLED=False and working DB_API_* to api-server
-# Gate: empty list [] = no keyword filter. Example: ["fsl", "league", "schedule", "player", "team", "match", "season", "vs", "record", "win"]
+# Gate: non-empty = substring match required (Twitch + Discord). Empty [] = Twitch no filter; Discord uses built-in FSL-ish regex so the bot channel is not reply-all.
 FSL_ASK_TRIGGER_KEYWORDS = []
 # First LLM pass: question + compact schema → prose “which API/domain?” then router JSON.
 # Recommended True: you maintain FSL_API_SCHEMA_GROUNDING + SCHEMA_GROUNDING_PROMPT_TEMPLATE instead of growing CRITICAL/rules; one extra LLM call per question.

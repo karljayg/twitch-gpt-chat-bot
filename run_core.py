@@ -61,10 +61,17 @@ from core.handlers.comment_handler import CommentHandler
 from core.handlers.analyze_handler import AnalyzeHandler
 from core.handlers.history_handler import HistoryHandler
 from core.handlers.fsl_handler import FSLHandler
+from core.handlers.fsl_query_handler import FslQueryHandler
+from core.fsl_natural_language import FslAskAssistant
 from core.handlers.head_to_head_handler import HeadToHeadHandler
 from core.handlers.retry_processing_handler import RetryProcessingHandler
 from core.handlers.replay_test_handler import ReplayTestHandler
 from core.handlers.preview_handler import PreviewHandler
+from core.handlers.accept_ratings_handler import (
+    AcceptRatingsHandler,
+    EndRatingsHandler,
+    RatingsHelpHandler,
+)
 from core.opponent_analysis_service import OpponentAnalysisService
 
 # Import Legacy Bots & Utils
@@ -203,6 +210,18 @@ async def main():
     command_service.register_handler("history", history_handler)
     command_service.register_handler("player comment", comment_handler)
     command_service.register_handler("fsl_review", fsl_handler)
+    if getattr(config, "ENABLE_FSL_DB_COMMANDS", True):
+        command_service.register_handler("fsl", FslQueryHandler(player_repo))
+    if getattr(config, "ENABLE_FSL_CHAT_VOTING", False):
+        command_service.register_handler(
+            "accept ratings", AcceptRatingsHandler(twitch_bot_legacy)
+        )
+        command_service.register_handler(
+            "end ratings", EndRatingsHandler(twitch_bot_legacy)
+        )
+        command_service.register_handler(
+            "!ratings", RatingsHelpHandler(twitch_bot_legacy)
+        )
     command_service.register_handler("head to head", head_to_head_handler)
     
     if analysis_service:
@@ -211,6 +230,10 @@ async def main():
     
     # Inject CommandService into Core
     bot_core.command_service = command_service
+
+    # Optional: @mention → LLM router → FSL HTTP API (requires OPENAI + DB_MODE=api + api-server FSL)
+    if getattr(config, "ENABLE_FSL_ASK", False):
+        bot_core.fsl_ask_assistant = FslAskAssistant(llm, twitch_bot_legacy.db)
     
     # 5. Game Result Service
     # Filter out Discord from game result announcements per user requirement (Twitch only for game stats)

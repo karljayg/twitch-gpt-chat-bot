@@ -51,14 +51,13 @@ class DiscordAdapter(IChatService):
             
         if message.channel.id != self.discord_bot.channel_id:
             return
-        
-        # Create and push event
-        # We use message.channel.id as the channel identifier
+
+        # Dedicated FSL channel: no @-mention required (unlike Twitch public chat)
         self.on_message(
             author=message.author.name,
             content=message.content,
-            channel=str(message.channel.id), # Use ID for consistency
-            platform=self.platform # Explicitly pass platform
+            channel=str(message.channel.id),  # Use ID for consistency
+            platform=self.platform,
         )
 
     def get_platform_name(self) -> str:
@@ -101,6 +100,6 @@ class DiscordAdapter(IChatService):
             platform=platform,
             author=author,
             content=content,
-            channel=channel
+            channel=channel,
         )
         self.bot_core.add_event(event)

@@ -1,5 +1,5 @@
 """
-@-mention → LLM chooses an FSL api-server tool → execute allowlisted db.fsl_* → optional LLM formatting.
+@-mention on Twitch (`@owner`) or any message in the Discord bot channel → LLM chooses an FSL api-server tool → allowlisted db.fsl_* → optional LLM formatting.
 
 Not a general chat bot: questions outside FSL league data should return action \"none\".
 """
@@ -17,6 +17,16 @@ from core.events import MessageEvent
 from core.interfaces import ILanguageModel
 
 logger = logging.getLogger(__name__)
+
+# When FSL_ASK_TRIGGER_KEYWORDS is empty, Discord still needs a gate (dedicated channel != reply to "lol").
+_DISCORD_FSL_INTENT_RE = re.compile(
+    r"(?i)\b("
+    r"fsl|psistorm|psi\s*storm|season|code\s*[sab]|solo|team\s+league|standings|placement|"
+    r"champion|champs?\b|schedule|matches?\b|matchup|players?|team|week|division|stats|record|"
+    r"h2h|head\s*to\s*head|leaderboard|maps?\s+wins?|series|vs\.?|versus|against|won|winner|lost|"
+    r"game|bo\d|maps?\b|roster|members?"
+    r")\b"
+)
 
 
 def _extract_json_object(raw: str) -> Optional[Dict[str, Any]]:
@@ -41,15 +51,16 @@ def _solo_h2h_plan_from_question(question: str) -> Optional[Dict[str, Any]]:
         return None
     patterns = (
         # "when was the last game between SirMalagant and CrankyToaster"
-        r"(?i)when\s+was\s+(?:the\s+)?(?:last|first)\s+(?:game|match|series)\s+between\s+(.+?)\s+and\s+(.+?)(?:\?|\.|!)?\s*$",
-        r"(?i)(?:last|first|most\s+recent)\s+(?:game|match|series)\s+between\s+(.+?)\s+and\s+(.+?)(?:\?|\.|!)?\s*$",
-        r"(?i)(?:game|match|series)\s+between\s+(.+?)\s+and\s+(.+?)(?:\?|\.|!)?\s*$",
+        r"(?i)when\s+was\s+(?:the\s+)?(?:last|first)\s+(?:game|match|series)\s+between\s+(?:players?\s+)?(.+?)\s+and\s+(?:players?\s+)?(.+?)(?:\?|\.|!)?\s*$",
+        r"(?i)(?:last|first|most\s+recent)\s+(?:game|match|series)\s+between\s+(?:players?\s+)?(.+?)\s+and\s+(?:players?\s+)?(.+?)(?:\?|\.|!)?\s*$",
+        r"(?i)(?:game|match|series)\s+between\s+(?:players?\s+)?(.+?)\s+and\s+(?:players?\s+)?(.+?)(?:\?|\.|!)?\s*$",
     )
     for pat in patterns:
         m = re.search(pat, q)
         if not m:
             continue
-        a, b = m.group(1).strip().strip('"').strip("'"), m.group(2).strip().strip('"').strip("'")
+        a = _normalize_h2h_player_name_fragment(m.group(1))
+        b = _normalize_h2h_player_name_fragment(m.group(2))
         if not a or not b or len(a) > 120 or len(b) > 120:
             continue
         return {
@@ -61,6 +72,80 @@ def _solo_h2h_plan_from_question(question: str) -> Optional[Dict[str, Any]]:
                 "limit": 150,
             },
             "reason": "solo H2H pattern",
+        }
+    return None
+
+
+def _normalize_h2h_player_name_fragment(s: str) -> str:
+    x = s.strip().strip('"').strip("'")
+    x = x.rstrip("?!.").strip()
+    # Regex may leave "players X" when viewers say "between players X and Y"
+    x = re.sub(r"(?i)^players?\s+", "", x).strip()
+    return x
+
+
+def _solo_h2h_aggregate_plan_from_question(question: str) -> Optional[Dict[str, Any]]:
+    """
+    Career / record between two solo players → matches_h2h (aggregates), not matches list.
+    """
+    q = question.strip()
+    if len(q) < 5:
+        return None
+    patterns = (
+        # Optional "players" after between: "record between players NukLeo and DarkMenace"
+        r"(?i)(?:what\s+(?:is|was)\s+)?(?:the\s+)?(?:overall\s+|career\s+|series\s+)?record\s+between\s+(?:players?\s+)?(.+?)\s+and\s+(?:players?\s+)?(.+?)(?:\?|\.|!)?\s*$",
+        r"(?i)(?:what\s+(?:is|was)\s+)?(?:the\s+)?(?:overall\s+|career\s+|series\s+)?record\s+(?:between\s+)?(?:players?\s+)?(.+?)\s+vs\.?\s+(?:players?\s+)?(.+?)(?:\?|\.|!)?\s*$",
+        r"(?i)\b(?:h2h|head\s*to\s*head)\s+between\s+(?:players?\s+)?(.+?)\s+and\s+(?:players?\s+)?(.+?)(?:\?|\.|!)?\s*$",
+        r"(?i)(?:career|overall)\s+(?:record|series)\s+between\s+(?:players?\s+)?(.+?)\s+and\s+(?:players?\s+)?(.+?)(?:\?|\.|!)?\s*$",
+        # Whole message is a duel ping: "NukLeo vs DarkMenace ?" (same API as record; 0 series is valid)
+        r"(?i)^(.{2,45}?)\s+vs\.?\s+(.{2,45}?)(?:\?|\.|!)?\s*$",
+    )
+    for pat in patterns:
+        m = re.search(pat, q)
+        if not m:
+            continue
+        a = _normalize_h2h_player_name_fragment(m.group(1))
+        b = _normalize_h2h_player_name_fragment(m.group(2))
+        if not a or not b or len(a) > 120 or len(b) > 120:
+            continue
+        return {
+            "action": "matches_h2h",
+            "params": {"player_name": a, "opponent_name": b, "season": None},
+            "reason": "solo H2H aggregate pattern",
+        }
+    return None
+
+
+def _normalize_team_roster_query_fragment(raw: str) -> str:
+    s = raw.strip().strip("?").strip(".").strip("!")
+    s = re.sub(r"(?i)^(?:the\s+)?(?:team\s+)", "", s).strip()
+    return s
+
+
+def _team_roster_plan_from_question(question: str) -> Optional[Dict[str, Any]]:
+    """
+    'players for Special Tactics' / roster → team_roster (not players_search).
+    """
+    q = question.strip()
+    if len(q) < 6:
+        return None
+    patterns = (
+        r"(?i)(?:who\s+are\s+)?(?:the\s+)?(?:players|members|roster)\s+(?:for|on)\s+(.+)$",
+        r"(?i)(?:players|members)\s+(?:for|on)\s+(.+)$",
+        r"(?i)who\s+(?:plays|played)\s+(?:for|on)\s+(.+)$",
+        r"(?i)(?:list|show)\s+(?:the\s+)?(?:roster|members)\s+(?:for|of)\s+(.+)$",
+    )
+    for pat in patterns:
+        m = re.search(pat, q)
+        if not m:
+            continue
+        name = _normalize_team_roster_query_fragment(m.group(1))
+        if len(name) < 2 or len(name) > 120:
+            continue
+        return {
+            "action": "team_roster",
+            "params": {"name": name},
+            "reason": "team roster phrase",
         }
     return None
 
@@ -142,7 +227,7 @@ FSL_DATA_MODEL_AND_SCENARIOS = (
 • "**Which team won season N** / **team league champion** / **who won team league** / **season N champion** (team **organization**) → **`team_league_season`** with **`season`** = N — **not** raw **`schedule`** dump (that’s for calendars). **Not** **`leaderboard_*`** (solo careers).
 • "**Code S / Code A / Code B** / **solo division** / **placement** / **who came 2nd** / **who won [season] code X** / **winner of code X season N** as a **player** in a division + season → **`solo_division_season`** with **`season`** + **`division`** (e.g. `"Code S"` or `"S"`). **Never** **`team_league_season`** for **player** / **Code S** wording — that action is **team league only**.
 • "**List teams** / **teams in FSL** / **all teams** → **`teams_search`** with **empty `q`** (lists teams).
-• "**Players on team X** / **in team X** / **roster** / **members of [team]** → **`team_roster`** with **`name`** = team phrase — **not** `players_search` (that matches **player Real_Name** substrings only).
+• "**Players on team X** / **players for [team]** (= members / roster) / **in team X** / **members of [team]** → **`team_roster`** with **`name`** = team phrase — **not** `players_search` (that matches **player Real_Name** substrings only).
 • "Team … / org / **TeamLeague_Championship_Record** string" → `team_detail`; **roster / team members / who plays for** → `team_roster`; browse names → `teams_search`
 • "**When was / last game / head-to-head between PLAYER_A and PLAYER_B** (two solo names) → **`matches`** with **`player_name`** + **`opponent_name`** — **`fsl_matches`** + **`Players`**. **Not** **`schedule`** (teams).
 • "When does **team** X play / **team league** schedule / week N / season S **team** games" → `schedule`
@@ -216,7 +301,7 @@ QUESTION:
 _ROUTER_CRITICAL = """
 CRITICAL routing (misrouting changes numbers — never mix these up):
 - **Champion/champ/title field names:** **`Players.Championship_Record`** = solo official titles (Code S player questions). **`Teams.TeamLeague_Championship_Record`** = **team org** story (team league champion). **`Players.TeamLeague_Championship_Record`** = player’s **team-league** text — do not confuse with solo **`Championship_Record`**.
-- **Two solo player names** / **between X and Y** / **when was the … game between …** / **last match between …** → **`matches`** with **`player_name`** + **`opponent_name`** (**`fsl_matches`**). **Never** **`schedule`** — **`schedule`** is **team-vs-team** rows, **not** two **`Players`** from **`fsl_matches`**.
+- **Overall / career record between two solo players** / **record between A and B** / **H2H between** → **`matches_h2h`** (aggregates). **Last game / list of series** between two names → **`matches`** with **`player_name`** + **`opponent_name`**. **Never** **`schedule`** — **`schedule`** is **team-vs-team** rows, **not** two **`Players`** from **`fsl_matches`**.
 - **Team league champion** / **which team won season N** / **team org** sense → **`team_league_season`** with **`season`**. **Never** dump **`schedule`** alone for “champion” — use the **summary** action.
 - **Who won / winner / who is the winner** when the question also says **Code S / Code A / Code B** (solo division letter) → **`solo_division_season`**, **not** **`team_league_season`**. Viewers mean the **solo division** title/standings, not team organizations.
 - **Code S / Code A / Code B** (any casing: code s, CODE S) / **solo division** / **player placement** / **2nd place player** in a division + season → **`solo_division_season`** (`season`, `division`). **Colloquial "champ" = champion** (same intent). **Never** **`team_league_season`** — that is **team league schedule standings**, not **`fsl_matches.t_code`** solo divisions.
@@ -745,7 +830,10 @@ def _fmt_h2h_summary(data: Dict[str, Any]) -> str:
         f"FSL head-to-head summary ({scope}; solo BoX series in fsl_matches):",
     ]
     if n == 0:
-        lines.append(f"No series between {aq!r} and {bq!r} (try alternate spelling).")
+        lines.append(
+            f"No head-to-head in fsl_matches for {aq!r} vs {bq!r} (0 series). "
+            f"If names look right, they likely never played a stored solo-league meeting - not always a typo."
+        )
         return "\n".join(lines)
     lines.append(f"Series record: {aq} {wa}-{wb} {bq} ({n} series).")
     lines.append(f"Maps won (summed over those series): {aq} {ma}, {bq} {mb}.")
@@ -878,7 +966,7 @@ def _fmt_player_detail(db: Any, player_row: Dict[str, Any], stats_payload: Dict[
 
 
 class FslAskAssistant:
-    """Handles @-mention natural language → router LLM → FSL HTTP API."""
+    """Handles Twitch @-mention or Discord dedicated-channel messages → router LLM → FSL HTTP API."""
 
     def __init__(self, llm: ILanguageModel, db: Any):
         self._llm = llm
@@ -891,7 +979,11 @@ class FslAskAssistant:
             return False
         return hasattr(self._db, "fsl_players_search") and callable(self._db.fsl_players_search)
 
-    def _mentions_bot(self, text: str) -> bool:
+    def _mentions_bot(self, event: MessageEvent) -> bool:
+        # Discord: single configured bot channel — treat every message as to the bot (no @ ping).
+        if event.platform == "discord":
+            return True
+        text = event.content
         low = text.lower()
         owner = getattr(config, "OWNER", "").lower()
         page = getattr(config, "PAGE", "").lower()
@@ -904,8 +996,10 @@ class FslAskAssistant:
                 return True
         return False
 
-    def _strip_to_question(self, text: str) -> str:
-        t = text
+    def _strip_to_question(self, event: MessageEvent) -> str:
+        t = event.content
+        # Discord renders mentions as <@snowflake> or <@!snowflake>
+        t = re.sub(r"<@!?\d+>", "", t)
         owner = getattr(config, "OWNER", "")
         page = getattr(config, "PAGE", "")
         for nick in (owner, page):
@@ -915,12 +1009,19 @@ class FslAskAssistant:
             t = re.sub(r"^\s*" + filler + r"\b\s*", "", t, flags=re.I)
         return t.strip()
 
-    def _keyword_gate_ok(self, question: str) -> bool:
-        keys = getattr(config, "FSL_ASK_TRIGGER_KEYWORDS", None)
-        if not keys:
-            return True
-        ql = question.lower()
-        return any(k.lower() in ql for k in keys)
+    def _out_limit(self, platform: str) -> int:
+        if platform == "discord":
+            return int(getattr(config, "DISCORD_MESSAGE_CHAR_LIMIT", 2000) or 2000)
+        return int(getattr(config, "TWITCH_CHAT_BYTE_LIMIT", 450) or 450)
+
+    def _fsl_keyword_gate_ok(self, question: str, platform: str) -> bool:
+        keys = getattr(config, "FSL_ASK_TRIGGER_KEYWORDS", None) or []
+        if keys:
+            ql = question.lower()
+            return any(str(k).lower() in ql for k in keys)
+        if platform == "discord":
+            return bool(_DISCORD_FSL_INTENT_RE.search(question))
+        return True
 
     async def _exec_action(self, action: str, params: Dict[str, Any]) -> Tuple[str, bool]:
         db = self._db
@@ -1181,25 +1282,28 @@ class FslAskAssistant:
         If this message should get an FSL NL reply, send it and return True.
         Return False to let nothing else in BotCore handle this message (caller should still skip legacy).
         """
-        if event.platform != "twitch":
+        if event.platform not in ("twitch", "discord"):
             return False
         if not self.enabled():
             return False
-        if not self._mentions_bot(event.content):
+        if not self._mentions_bot(event):
             return False
 
-        question = self._strip_to_question(event.content)
+        lim = self._out_limit(event.platform)
+        question = self._strip_to_question(event)
         if len(question) < 2:
             await chat_send(
                 event.channel,
                 tokensArray.truncate_to_byte_limit(
                     "Ask an FSL question after the mention, or type `fsl help` for commands.",
-                    config.TWITCH_CHAT_BYTE_LIMIT,
+                    lim,
                 ),
             )
             return True
 
-        if not self._keyword_gate_ok(question):
+        if not self._fsl_keyword_gate_ok(question, event.platform):
+            if event.platform == "discord":
+                return False
             await chat_send(
                 event.channel,
                 tokensArray.truncate_to_byte_limit(
@@ -1208,7 +1312,7 @@ class FslAskAssistant:
                         "FSL_ASK_OFF_TOPIC_REPLY",
                         "Add an FSL keyword (league, schedule, player, team, match) or use `fsl help`.",
                     ),
-                    config.TWITCH_CHAT_BYTE_LIMIT,
+                    lim,
                 ),
             )
             return True
@@ -1217,9 +1321,17 @@ class FslAskAssistant:
         use_grounding = getattr(config, "FSL_ASK_SCHEMA_GROUNDING", False)
         plan = None
         if not use_grounding:
+            plan = _solo_h2h_aggregate_plan_from_question(question)
+            if plan:
+                logger.debug("FSL NL: H2H aggregate pattern → matches_h2h")
+        if not plan and not use_grounding:
             plan = _solo_h2h_plan_from_question(question)
             if plan:
                 logger.debug("FSL NL: solo H2H pattern override → matches")
+        if not plan and not use_grounding:
+            plan = _team_roster_plan_from_question(question)
+            if plan:
+                logger.debug("FSL NL: team roster phrase → team_roster")
         if not plan:
             plan = _solo_division_season_plan_from_question(question)
             if plan:
@@ -1254,7 +1366,7 @@ class FslAskAssistant:
                 event.channel,
                 tokensArray.truncate_to_byte_limit(
                     "Could not parse FSL plan; try a `fsl …` command from fsl help.",
-                    config.TWITCH_CHAT_BYTE_LIMIT,
+                    lim,
                 ),
             )
             return True
@@ -1270,7 +1382,7 @@ class FslAskAssistant:
             )
             await chat_send(
                 event.channel,
-                tokensArray.truncate_to_byte_limit(msg, config.TWITCH_CHAT_BYTE_LIMIT),
+                tokensArray.truncate_to_byte_limit(msg, lim),
             )
             return True
 
@@ -1278,14 +1390,14 @@ class FslAskAssistant:
         if not ok and facts:
             await chat_send(
                 event.channel,
-                tokensArray.truncate_to_byte_limit(facts, config.TWITCH_CHAT_BYTE_LIMIT),
+                tokensArray.truncate_to_byte_limit(facts, lim),
             )
             return True
 
         final_text = await self._format_answer(question, facts, action=action)
         await chat_send(
             event.channel,
-            tokensArray.truncate_to_byte_limit(final_text, config.TWITCH_CHAT_BYTE_LIMIT),
+            tokensArray.truncate_to_byte_limit(final_text, lim),
         )
         return True
 

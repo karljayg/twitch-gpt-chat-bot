@@ -179,6 +179,13 @@ api-server/
 └── README.md              # This file
 ```
 
+## API Documentation
+
+For external developers integrating with this API:
+
+- **[Quick Start Guide](../documentation/API_QUICK_START.md)** - Get started in 5 minutes
+- **[Full API Specification](../documentation/API_SPECIFICATION.md)** - Complete endpoint reference with examples
+
 ## Next Steps
 
 1. Test API locally
@@ -188,4 +195,5 @@ api-server/
    - Set `DB_API_KEY = "your-api-key"`
 3. Deploy to production server
 4. Update bot config with production URL
+5. Share API documentation with external developers
 

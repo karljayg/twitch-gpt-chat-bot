@@ -192,6 +192,9 @@ class SC2PatternLearner:
     def _process_new_comment(self, game_data, comment):
         """Process new comment and update learning system"""
         try:
+            if not isinstance(game_data, dict):
+                self.logger.error("_process_new_comment: game_data must be a dict")
+                return
             # Extract keywords from comment
             keywords = self._extract_keywords(comment)
             
@@ -212,8 +215,10 @@ class SC2PatternLearner:
             for kw in list(self.comment_keywords.keys()):
                 self.comment_keywords[kw] = [
                     c for c in self.comment_keywords[kw]
-                    if not (c.get('game_data', {}).get('opponent_name') == opponent 
-                            and c.get('game_data', {}).get('date') == game_date)
+                    if not (
+                        (c.get('game_data') or {}).get('opponent_name') == opponent
+                        and (c.get('game_data') or {}).get('date') == game_date
+                    )
                 ]
             
             # Save to database FIRST (this should always happen)
@@ -406,7 +411,12 @@ class SC2PatternLearner:
         """Create a single pattern entry for a comment and reference it by all keywords"""
         try:
             # Get build order data from game
-            build_data = comment_data['game_data'].get('build_order', [])
+            gd = comment_data.get('game_data')
+            if not isinstance(gd, dict):
+                self.logger.warning("comment_data.game_data missing or invalid; skipping pattern signature")
+                return None
+            build_data = gd.get('build_order') or []
+            build_data = [s for s in build_data if isinstance(s, dict)]
             
             if build_data:
                 # Create pattern signature
@@ -490,7 +500,9 @@ class SC2PatternLearner:
             order = 1
             
             for i, step in enumerate(build_data):
-                if isinstance(step, dict) and 'name' in step:
+                if not isinstance(step, dict):
+                    continue
+                if 'name' in step:
                     unit_name = step['name']
                     
                     if unit_name == current_unit:
@@ -537,8 +549,17 @@ class SC2PatternLearner:
     def _save_comment_to_db(self, game_data, comment, comment_data=None):
         """Save comment to database for persistence"""
         try:
+            replay_id = None
+            if isinstance(game_data, dict):
+                replay_id = game_data.get('replay_id')
             # Save comment to the REPLAYS.Player_Comments table
-            if hasattr(self.db, 'update_player_comments_in_last_replay'):
+            if replay_id and hasattr(self.db, 'update_player_comments_by_replay_id'):
+                success = self.db.update_player_comments_by_replay_id(int(replay_id), comment)
+                if success:
+                    self.logger.info(f"Comment saved to replay {replay_id}: {comment[:100]}...")
+                else:
+                    self.logger.warning(f"Failed to save comment to replay {replay_id}: {comment[:100]}...")
+            elif hasattr(self.db, 'update_player_comments_in_last_replay'):
                 success = self.db.update_player_comments_in_last_replay(comment)
                 if success:
                     self.logger.info(f"Comment saved to database: {comment[:100]}...")

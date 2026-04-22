@@ -49,7 +49,8 @@ class Database {
             JOIN Players p2 ON r.Player2_Id = p2.Id
             WHERE ((p1.SC2_UserId = ? AND r.Player1_Race = ?)
                 OR (p2.SC2_UserId = ? AND r.Player2_Race = ?))
-            ORDER BY r.Date_Played DESC
+            ORDER BY (r.Player_Comments IS NOT NULL AND r.Player_Comments != '') DESC,
+                     r.Date_Played DESC
             LIMIT 1
         ";
         
@@ -98,7 +99,7 @@ class Database {
             WHERE ((p1.SC2_UserId = ? AND r.Player1_Race = ?)
                 OR (p2.SC2_UserId = ? AND r.Player2_Race = ?))
                 AND r.Player_Comments IS NOT NULL
-                AND r.GameDuration > '00:02:00'
+                AND TRIM(r.Player_Comments) <> ''
             ORDER BY r.Date_Played DESC
         ";
         

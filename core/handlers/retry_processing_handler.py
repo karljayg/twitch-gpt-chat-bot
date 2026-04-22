@@ -12,20 +12,32 @@ class RetryProcessingHandler(ICommandHandler):
     async def handle(self, context: CommandContext, args: str):
         # Only allow broadcaster to retry
         if context.author.lower() != config.PAGE.lower():
-            logger.info(f"Retry command rejected - not from broadcaster (from: {context.author})")
+            logger.info("Retry command rejected - not from broadcaster (from: %s)", context.author)
             return
         
         try:
-            success = await self.game_result_service.retry_last_game()
+            parsed_ref = None
+            args = (args or "").strip()
+            if args:
+                try:
+                    parsed_ref = int(args)
+                except ValueError:
+                    await context.chat_service.send_message(
+                        context.channel,
+                        "Usage: please retry [ReplayID|-N]. Examples: 'please retry', 'please retry 24943', 'please retry -3'",
+                    )
+                    return
+
+            success, detail = await self.game_result_service.retry_with_reference(parsed_ref)
             if not success:
                 await context.chat_service.send_message(
                     context.channel,
-                    "Retry failed - no recent replay found or processing error. Check logs for details."
+                    f"Retry failed - {detail}"
                 )
-        except Exception as e:
-            logger.error(f"Error during retry processing: {e}", exc_info=True)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error("Error during retry processing: %s", e, exc_info=True)
             await context.chat_service.send_message(
                 context.channel, 
-                f"Retry failed: {e}. You can try again with 'please retry'"
+                f"Retry failed: {e}. You can try again with 'please retry', 'please retry <ReplayID>', or 'please retry -3'"
             )
 

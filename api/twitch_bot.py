@@ -932,6 +932,23 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 if dec == "consume":
                     return
 
+            # BotCore async FSL @-mention NL — skip duplicate legacy open sesame / dice paths
+            if getattr(config, "ENABLE_FSL_ASK", False):
+                low = msg.strip().lower()
+                owner_l = getattr(config, "OWNER", "").lower()
+                page_l = getattr(config, "PAGE", "").lower()
+                mentions = owner_l and f"@{owner_l}" in low
+                mentions = mentions or (page_l and f"@{page_l}" in low)
+                if mentions:
+                    try:
+                        from core.fsl_natural_language import FslAskAssistant
+
+                        if FslAskAssistant(object(), getattr(self, "db", None)).enabled():
+                            logger.debug("Skipping legacy pubmsg for FSL @-ask (BotCore handles)")
+                            return
+                    except Exception as e:
+                        logger.debug("FSL @-ask skip check failed: %s", e)
+
             # Check if this is a command that should be handled ONLY by BotCore
             # This prevents double-processing for migrated commands
             msg_lower = msg.strip().lower()

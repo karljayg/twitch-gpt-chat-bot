@@ -22,6 +22,7 @@ class BotCore:
         self.bot_name = bot_name
         self.command_service = command_service
         self.audio_service = audio_service
+        self.fsl_ask_assistant = None  # optional FslAskAssistant set from run_core
         self.event_queue = queue.Queue()
         self.running = False
         
@@ -82,14 +83,38 @@ class BotCore:
             except Exception as e:
                 logger.error(f"Error in CommandService: {e}")
 
+        # 1b. @-mention FSL natural language (api-server /api/v1/fsl) — Twitch + Discord
+        if (
+            self.fsl_ask_assistant
+            and isinstance(event, MessageEvent)
+            and event.platform in ("twitch", "discord")
+        ):
+            async def _fsl_send(ch: str, msg: str) -> None:
+                svc = self.chat_services.get(event.platform)
+                if svc:
+                    await svc.send_message(ch, msg)
+
+            try:
+                if await self.fsl_ask_assistant.try_handle(event, _fsl_send):
+                    logger.info("Message handled by FslAskAssistant")
+                    return
+            except Exception as e:
+                logger.error(f"Error in FslAskAssistant: {e}")
+
         # 2. Legacy Handling Fallback (Twitch)
         if event.platform == "twitch":
             # Legacy TwitchBot already processed this via on_pubmsg
             # No need to duplicate processing for general chat
             logger.debug(f"Twitch message from {event.author}: {event.content} (handled by legacy)")
             return
+
+        # 2b. Discord + FSL enabled: no generic LLM spam by default (non-FSL lines stay silent)
+        if event.platform == "discord":
+            fsl_on = self.fsl_ask_assistant and self.fsl_ask_assistant.enabled()
+            if fsl_on and not getattr(config, "DISCORD_GENERIC_LLM_FALLBACK", False):
+                return
         
-        # 3. For other platforms (Discord), use LLM to generate response (always respond)
+        # 3. For other platforms (Discord with DISCORD_GENERIC_LLM_FALLBACK), use LLM
         context = []
         if self.current_game_status == "InGame":
             context.append("Game is currently active.")

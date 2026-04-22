@@ -18,6 +18,16 @@ $db_config = [
     'charset'  => 'utf8mb4'              // Character set
 ];
 
+// Optional: psistorm database for read-only FSL endpoints under /api/v1/fsl/*
+// Omit this variable or leave 'database' empty to disable FSL routes (503).
+$psistorm_db_config = [
+    'host'     => 'localhost',
+    'user'     => 'your_psistorm_mysql_user',
+    'password' => 'your_psistorm_mysql_password',
+    'database' => 'psistorm',
+    'charset'  => 'utf8mb4',
+];
+
 // API Security - Generate a secure random key
 // Example: openssl rand -base64 32
 $api_key = 'CHANGE-THIS-TO-A-SECURE-RANDOM-KEY';

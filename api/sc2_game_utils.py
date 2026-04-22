@@ -571,6 +571,12 @@ def handle_SC2_game_results(self, previous_game, current_game, contextHistory, l
         if ((current_game.get_status() not in ["MATCH_STARTED", "REPLAY_STARTED"] and self.total_seconds >= config.ABANDONED_GAME_THRESHOLD)
                 or (current_game.isReplay and config.USE_CONFIG_TEST_REPLAY_FILE)):
             logger.debug("analyzing, replay summary to AI: ")
+            pre_blurb = getattr(self, "_pregame_matchup_blurb", None)
+            if pre_blurb and str(pre_blurb).strip():
+                replay_summary = (
+                    f"Pre-game matchup context: {str(pre_blurb).strip()}\n\n{replay_summary}"
+                )
+                self._pregame_matchup_blurb = None
             processMessageForOpenAI(self, replay_summary, "replay_analysis", logger, contextHistory)
             replay_summary = ""
         else:

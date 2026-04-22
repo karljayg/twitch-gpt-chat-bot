@@ -5,7 +5,26 @@ Uses pattern matching results + OpenAI for natural language variation
 from typing import List, Dict, Optional
 import logging
 
+from settings import config
+
 logger = logging.getLogger(__name__)
+
+
+def _is_streamer_player(name: str) -> bool:
+    """True if this replay player is the streamer — we only summarize the opponent."""
+    if not name or not str(name).strip():
+        return False
+    n = str(name).strip().lower()
+    nick = getattr(config, "STREAMER_NICKNAME", None)
+    if nick and n == str(nick).strip().lower():
+        return True
+    for a in getattr(config, "SC2_PLAYER_ACCOUNTS", []) or []:
+        if n == str(a).strip().lower():
+            return True
+    for a in getattr(config, "SC2_BARCODE_ACCOUNTS", []) or []:
+        if n == str(a).strip().lower():
+            return True
+    return False
 
 
 def get_strategy_for_player(player_name: str, build_order: List[Dict], 
@@ -26,6 +45,38 @@ def get_strategy_for_player(player_name: str, build_order: List[Dict],
     """
     strategy, _ = _get_strategy_with_score(player_name, build_order, pattern_matcher, opponent_race, min_similarity)
     return strategy
+
+
+def _get_top_pattern_match(player_name: str, build_order: List[Dict],
+                           pattern_matcher, player_race: str) -> tuple:
+    """
+    Best pattern match for this build, without a minimum similarity gate.
+    Used for post-game lines so we can show unit lists for everyone and only
+    attach Pattern: labels when similarity is high enough (see config).
+    """
+    if not build_order or not pattern_matcher:
+        return None, 0.0
+
+    if not player_race or player_race == 'Unknown':
+        logger.warning(f"Cannot match patterns for {player_name} - unknown race")
+        return None, 0.0
+
+    try:
+        matches = pattern_matcher.match_build_against_all_patterns(
+            build_order, player_race, logger
+        )
+        if matches:
+            top = matches[0]
+            sim = float(top.get('similarity', 0))
+            comment = top.get('comment')
+            logger.info(
+                f"[REPLAY] Top match for {player_name}: '{comment}' at {sim:.2f}"
+            )
+            return comment, sim
+        return None, 0.0
+    except Exception as e:
+        logger.warning(f"Error matching patterns for {player_name}: {e}")
+        return None, 0.0
 
 
 def _get_strategy_with_score(player_name: str, build_order: List[Dict], 
@@ -66,7 +117,7 @@ def _get_strategy_with_score(player_name: str, build_order: List[Dict],
             if top_match['similarity'] >= min_similarity:
                 return top_match['comment'], top_match['similarity']
         
-        return None, 0
+        return None, 0.0
         
     except Exception as e:
         logger.warning(f"Error matching patterns for {player_name}: {e}")
@@ -75,13 +126,13 @@ def _get_strategy_with_score(player_name: str, build_order: List[Dict],
 
 def generate_strategy_summary(player_strategies: Dict[str, tuple]) -> str:
     """
-    Generate a concise summary of player strategies using OpenAI.
+    Combine per-player deterministic lines (units + optional pattern label).
     
     Uses the reusable summarize_strategy_with_units function which combines
     pattern context with real units for accurate, non-hallucinated summaries.
     
     Args:
-        player_strategies: Dict of {player_name: (strategy_name, is_winner, key_units)}
+        player_strategies: Dict of {player_name: (strategy_name, is_winner, key_units, similarity)}
         
     Returns:
         Concise summary string combining all players
@@ -94,8 +145,10 @@ def generate_strategy_summary(player_strategies: Dict[str, tuple]) -> str:
     # Generate summary for each player using the reusable function
     player_summaries = []
     for player, data in player_strategies.items():
-        # Handle both old format (strategy, is_winner) and new format (strategy, is_winner, key_units)
-        if len(data) == 3:
+        similarity = None
+        if len(data) >= 4:
+            strategy, is_winner, key_units, similarity = data[:4]
+        elif len(data) == 3:
             strategy, is_winner, key_units = data
         else:
             strategy, is_winner = data
@@ -107,10 +160,15 @@ def generate_strategy_summary(player_strategies: Dict[str, tuple]) -> str:
             pattern_name=strategy,
             real_units=key_units,
             is_winner=is_winner,
+            similarity=similarity,
             logger=logger
         )
-        player_summaries.append(summary)
-    
+        if summary:
+            player_summaries.append(summary)
+
+    if not player_summaries:
+        return ""
+
     # Combine player summaries
     if len(player_summaries) == 1:
         return player_summaries[0]
@@ -120,30 +178,7 @@ def generate_strategy_summary(player_strategies: Dict[str, tuple]) -> str:
         return " | ".join(player_summaries)
 
 
-def _fallback_summary(player_strategies: Dict[str, tuple]) -> str:
-    """Fallback when OpenAI is unavailable
-    
-    Args:
-        player_strategies: Dict of {player_name: (strategy, is_winner, key_units)}
-    """
-    parts = []
-    for player, data in player_strategies.items():
-        # Handle both old format (strategy, is_winner) and new format (strategy, is_winner, key_units)
-        if len(data) == 3:
-            strategy, is_winner, key_units = data
-            # Use actual units instead of pattern name
-            units_str = ", ".join(key_units[:4]) if key_units else strategy[:30]
-        else:
-            strategy, is_winner = data
-            units_str = strategy[:30]
-        
-        result = "(W)" if is_winner else "(L)"
-        parts.append(f"{player} {result}: {units_str}")
-    return " | ".join(parts)
-
-
 def summarize_game_strategies(players_data: List[Dict], pattern_matcher,
-                              min_similarity: float = 0.70,
                               max_players: int = 2) -> str:
     """
     Main entry point - summarize strategies for all players in a game.
@@ -154,11 +189,10 @@ def summarize_game_strategies(players_data: List[Dict], pattern_matcher,
             - 'build_order': list of build steps
             - 'race': player's race
         pattern_matcher: MLOpponentAnalyzer instance
-        min_similarity: Minimum match threshold (default 70%)
         max_players: Maximum number of players to include in summary (default 2 for team games)
     
     Returns:
-        Concise strategy summary string, or empty string if no high matches
+        Concise strategy summary string, or empty string if no players have build orders
     
     Example:
         players = [
@@ -175,6 +209,10 @@ def summarize_game_strategies(players_data: List[Dict], pattern_matcher,
         build_order = player.get('build_order', [])
         race = player.get('race', 'Unknown')
         is_winner = player.get('is_winner', False)
+
+        if _is_streamer_player(name):
+            logger.debug(f"Skipping strategy line for streamer account: {name}")
+            continue
         
         logger.info(f"Strategy matching for {name} ({race}): {len(build_order)} build steps")
         
@@ -195,40 +233,42 @@ def summarize_game_strategies(players_data: List[Dict], pattern_matcher,
                 key_units.append(unit)
                 seen.add(unit_lower)
         
-        # Get strategy with similarity score
-        strategy, similarity = _get_strategy_with_score(
-            name, build_order, pattern_matcher, race, min_similarity
+        strategy, similarity = _get_top_pattern_match(
+            name, build_order, pattern_matcher, race
         )
-        
         if strategy:
             logger.info(f"Strategy match for {name} ({race}): '{strategy}' at {similarity:.2f}")
-            player_matches.append((name, strategy, similarity, is_winner, key_units[:10]))
+        else:
+            logger.debug(f"No pattern label for {name} ({race}); still including unit summary")
+
+        label = strategy if strategy else ""
+        player_matches.append((name, label, similarity, is_winner, key_units[:10]))
     
     if not player_matches:
-        logger.debug("No players with high-confidence strategy matches")
+        logger.debug("No players with build orders for strategy summary")
         return ""
     
     # Sort by similarity (highest first) and take top N
     player_matches.sort(key=lambda x: x[2], reverse=True)
     top_matches = player_matches[:max_players]
     
-    # Convert to dict for generate_strategy_summary: {name: (strategy, is_winner, key_units)}
-    player_strategies = {name: (strategy, is_winner, key_units) for name, strategy, _, is_winner, key_units in top_matches}
+    # Convert to dict for generate_strategy_summary: {name: (strategy, is_winner, key_units, similarity)}
+    player_strategies = {
+        name: (strategy, is_winner, key_units, similarity)
+        for name, strategy, similarity, is_winner, key_units in top_matches
+    }
     
     return generate_strategy_summary(player_strategies)
 
 
 # Convenience function for quick integration
-def get_game_summary(replay_data: Dict, pattern_matcher, 
-                     min_similarity: float = 0.70) -> str:
+def get_game_summary(replay_data: Dict, pattern_matcher) -> str:
     """
     Convenience wrapper that extracts player data from replay format.
     
     Args:
         replay_data: Dict with 'players' key containing player info
         pattern_matcher: MLOpponentAnalyzer instance
-        min_similarity: Minimum match threshold
-    
     Returns:
         Strategy summary string including win/loss info
     """
@@ -249,5 +289,5 @@ def get_game_summary(replay_data: Dict, pattern_matcher,
             'is_winner': player_info.get('is_winner', False)
         })
     
-    return summarize_game_strategies(players_data, pattern_matcher, min_similarity)
+    return summarize_game_strategies(players_data, pattern_matcher)
 

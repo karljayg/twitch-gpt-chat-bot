@@ -7,8 +7,9 @@ import json
 import os
 import re
 from collections import Counter
-from api.chat_utils import processMessageForOpenAI
+from typing import Optional
 import settings.config as config
+from utils.sc2_abbreviations import compact_grouped_build_from_steps
 
 
 class MLOpponentAnalyzer:
@@ -151,29 +152,36 @@ class MLOpponentAnalyzer:
                 logger.error(f"Error matching build against all patterns: {e}")
             return []
     
-    def analyze_opponent_for_chat(self, opponent_name, opponent_race, logger, db=None):
+    def analyze_opponent_for_chat(self, opponent_name, opponent_race, logger, db=None, opponent_record=None,
+                                   prefer_learning_data: bool = True):
         """
         Analyze opponent and generate chat message if enough data exists
         Enhanced: Falls back to database replay analysis with learned pattern matching
         Returns None if opponent is unknown or insufficient data
+        
+        Args:
+            opponent_record: Optional pre-fetched opponent data to avoid duplicate DB queries
+            prefer_learning_data: If False (e.g. post-game), skip comments.json aggregate recap —
+                use DB/pattern match only so we don't repeat pre-game saved-notes spam.
         """
         try:
-            # Load learning data
-            learning_data = self.load_learning_data()
-            
-            # Find games against this opponent in learning data (commented games)
-            opponent_games = [
-                comment for comment in learning_data.get('comments', [])
-                if comment.get('game_data', {}).get('opponent_name') == opponent_name
-            ]
-            
-            # If we have learning data (commented games), use that
-            if opponent_games and len(opponent_games) >= 2:
-                return self._analyze_from_learning_data(opponent_games, opponent_name, logger)
+            # Load learning data (pattern-learning file). Skip recap when post-game ML only needs patterns.
+            if prefer_learning_data:
+                learning_data = self.load_learning_data()
+                
+                # Find games against this opponent in learning data (commented games)
+                opponent_games = [
+                    comment for comment in learning_data.get('comments', [])
+                    if comment.get('game_data', {}).get('opponent_name') == opponent_name
+                ]
+                
+                # If we have learning data (commented games), use that (game-start context)
+                if opponent_games and len(opponent_games) >= 2:
+                    return self._analyze_from_learning_data(opponent_games, opponent_name, logger)
             
             # Fallback: Use database replay data with pattern matching
             if db is not None:
-                return self._analyze_from_database_with_patterns(opponent_name, opponent_race, db, logger)
+                return self._analyze_from_database_with_patterns(opponent_name, opponent_race, db, logger, opponent_record)
             
             # Skip if no data source available
             if logger:
@@ -225,11 +233,21 @@ class MLOpponentAnalyzer:
                 logger.error(f"Error analyzing learning data: {e}")
             return None
 
-    def _analyze_from_database_with_patterns(self, opponent_name, opponent_race, db, logger):
-        """Analyze opponent using database replays and learned pattern matching"""
+    def _analyze_from_database_with_patterns(self, opponent_name, opponent_race, db, logger, opponent_record=None):
+        """Analyze opponent using database replays and learned pattern matching
+        
+        Args:
+            opponent_record: Optional pre-fetched opponent data to avoid duplicate DB queries
+        """
         try:
-            # Get opponent's replay data from database (filtered by race)
-            opponent_replay = db.check_player_and_race_exists(opponent_name, opponent_race)
+            # Use provided opponent_record if available, otherwise query database
+            if opponent_record is not None:
+                opponent_replay = opponent_record
+                if logger:
+                    logger.debug(f"ML Analysis: Using cached player data for {opponent_name} ({opponent_race})")
+            else:
+                # Get opponent's replay data from database (filtered by race)
+                opponent_replay = db.check_player_and_race_exists(opponent_name, opponent_race)
             
             if not opponent_replay:
                 if logger:
@@ -269,6 +287,7 @@ class MLOpponentAnalyzer:
             summary = self._generate_concise_summary(opponent_name, opponent_race, matched_patterns, build_order)
             
             # Prepare analysis data
+            pc_text = (opponent_replay.get('Player_Comments') or '').strip()
             analysis_data = {
                 'opponent_name': opponent_name,
                 'opponent_race': opponent_race,
@@ -277,7 +296,8 @@ class MLOpponentAnalyzer:
                 'win_rate': 0.0,  # Unknown from single replay
                 'matched_patterns': matched_patterns,
                 'summary': summary,
-                'build_order_preview': build_order[:10]  # First 10 steps for preview
+                'build_order_preview': build_order[:10],  # First 10 steps for preview
+                'player_comments_text': pc_text,
             }
             
             if logger:
@@ -397,59 +417,12 @@ class MLOpponentAnalyzer:
                         logger.debug(f"Skipping pattern (race mismatch): '{comment[:30]}' is {pattern_race}, need {opponent_race_lower}")
                     continue
                 
-                # Extract strategic items from pattern signature
-                pattern_strategic_items = self._extract_strategic_items_from_signature(pattern_signature, opponent_race)
-                
-                if not pattern_strategic_items:
-                    continue
-                
-                # FAIR COMPARISON: Limit new build to match pattern's actual step count
-                # If pattern only has 60 steps, only compare first 60 steps of new game
-                pattern_early_game = pattern_signature.get('early_game', [])
-                pattern_step_count = min(len(pattern_early_game), 120)  # Cap at 120
-                
-                # Re-extract strategic items from new build using pattern's scope
-                limited_build = build_order[:pattern_step_count]
-                new_build_strategic_items_scoped = self._extract_strategic_items_from_build(limited_build, opponent_race)
-                
-                # Count expansions from EARLY GAME ONLY using pattern's scope
-                expansion_names = {'hatchery', 'nexus', 'commandcenter'}
-                early_build = limited_build  # Use pattern-scoped build
-                new_expansions = sum(1 for step in early_build 
-                                   if step.get('name', '').lower() in expansion_names)
-                pattern_early_game_limited = pattern_early_game[:pattern_step_count]
-                pattern_expansions = sum(1 for step in pattern_early_game_limited 
-                                        if step.get('unit', '').lower() in expansion_names)
-                
-                # Get timing of FIRST EXPANSION (2nd base) for timing penalty
-                def get_first_expansion_timing(build_steps, name_field='name'):
-                    """Get timing of 2nd base (first expansion after main)"""
-                    exp_count = 0
-                    for step in build_steps:
-                        name = step.get(name_field, '').lower()
-                        if name in expansion_names:
-                            exp_count += 1
-                            if exp_count == 2:  # 2nd base = first expansion
-                                raw_time = step.get('time', 0)
-                                if isinstance(raw_time, str) and ':' in raw_time:
-                                    parts = raw_time.split(':')
-                                    return int(parts[0]) * 60 + int(parts[1])
-                                return raw_time if isinstance(raw_time, (int, float)) else 0
-                    return 999  # No expansion found = very late (1 base all-in)
-                
-                new_first_exp_time = get_first_expansion_timing(early_build, 'name')
-                pattern_first_exp_time = get_first_expansion_timing(pattern_early_game_limited, 'unit')
-                
-                # Compare builds directly (build-to-build comparison)
-                similarity_score = self._compare_build_signatures(
-                    new_build_strategic_items_scoped,
-                    pattern_strategic_items,
-                    opponent_race,
-                    logger,
-                    new_expansions=new_expansions,
-                    pattern_expansions=pattern_expansions,
-                    new_first_exp_time=new_first_exp_time,
-                    pattern_first_exp_time=pattern_first_exp_time
+                # Stage matching: early opener gets most weight; mid-game refines.
+                similarity_score = self._match_pattern_in_stages(
+                    build_order=build_order,
+                    pattern_signature=pattern_signature,
+                    opponent_race=opponent_race,
+                    logger=logger,
                 )
                 
                 # Configurable minimum threshold
@@ -482,6 +455,120 @@ class MLOpponentAnalyzer:
                 import traceback
                 logger.error(f"Traceback: {traceback.format_exc()}")
             return []
+
+    def _match_pattern_in_stages(self, build_order, pattern_signature, opponent_race, logger) -> float:
+        """
+        Compare using two windows so late-game tails don't overpower openers.
+        Early stage is weighted higher than mid stage.
+        """
+        pattern_early_game = pattern_signature.get('early_game', []) or []
+        if not pattern_early_game:
+            return 0.0
+
+        early_cfg = {"max_steps": 30, "max_time": 240, "max_supply": 50}
+        mid_cfg = {"max_steps": 70, "max_time": 420, "max_supply": 90}
+
+        early_new = self._slice_build_window(build_order, **early_cfg)
+        early_pat = self._slice_signature_window(pattern_early_game, **early_cfg)
+        mid_new = self._slice_build_window(build_order, **mid_cfg)
+        mid_pat = self._slice_signature_window(pattern_early_game, **mid_cfg)
+
+        early_score = self._score_window(early_new, early_pat, opponent_race, logger)
+        mid_score = self._score_window(mid_new, mid_pat, opponent_race, logger)
+
+        # Weighted blend: opener matters most.
+        if early_score == 0 and mid_score == 0:
+            return 0.0
+        return (early_score * 0.72) + (mid_score * 0.28)
+
+    def _slice_build_window(self, build_steps, max_steps, max_time, max_supply):
+        out = []
+        for step in (build_steps or [])[:max_steps]:
+            if not isinstance(step, dict):
+                continue
+            t = self._to_seconds(step.get("time", 0))
+            s = step.get("supply", 0)
+            try:
+                s = int(s)
+            except Exception:
+                s = 0
+            if t > max_time or (s > 0 and s > max_supply):
+                break
+            out.append(step)
+        return out
+
+    def _slice_signature_window(self, sig_early_game, max_steps, max_time, max_supply):
+        out = []
+        for step in (sig_early_game or [])[:max_steps]:
+            if not isinstance(step, dict):
+                continue
+            t = self._to_seconds(step.get("time", 0))
+            s = step.get("supply", 0)
+            try:
+                s = int(s)
+            except Exception:
+                s = 0
+            if t > max_time or (s > 0 and s > max_supply):
+                break
+            out.append(step)
+        return out
+
+    def _to_seconds(self, raw_time):
+        if isinstance(raw_time, (int, float)):
+            return float(raw_time)
+        if isinstance(raw_time, str) and ":" in raw_time:
+            try:
+                m, s = raw_time.split(":", 1)
+                return int(m) * 60 + int(s)
+            except Exception:
+                return 0.0
+        return 0.0
+
+    def _score_window(self, new_build_window, pattern_window, opponent_race, logger) -> float:
+        if not new_build_window or not pattern_window:
+            return 0.0
+
+        pattern_sig = {"early_game": pattern_window}
+        pattern_strategic_items = self._extract_strategic_items_from_signature(
+            pattern_sig, opponent_race
+        )
+        new_build_strategic_items = self._extract_strategic_items_from_build(
+            new_build_window, opponent_race
+        )
+        if not pattern_strategic_items or not new_build_strategic_items:
+            return 0.0
+
+        expansion_names = {"hatchery", "nexus", "commandcenter"}
+        new_expansions = sum(
+            1 for step in new_build_window if step.get("name", "").lower() in expansion_names
+        )
+        pattern_expansions = sum(
+            1 for step in pattern_window if step.get("unit", "").lower() in expansion_names
+        )
+
+        new_first_exp_time = self._first_expansion_time(new_build_window, "name", expansion_names)
+        pattern_first_exp_time = self._first_expansion_time(pattern_window, "unit", expansion_names)
+
+        return self._compare_build_signatures(
+            new_build_strategic_items,
+            pattern_strategic_items,
+            opponent_race,
+            logger,
+            new_expansions=new_expansions,
+            pattern_expansions=pattern_expansions,
+            new_first_exp_time=new_first_exp_time,
+            pattern_first_exp_time=pattern_first_exp_time,
+        )
+
+    def _first_expansion_time(self, build_steps, name_field, expansion_names):
+        exp_count = 0
+        for step in build_steps:
+            name = step.get(name_field, "").lower()
+            if name in expansion_names:
+                exp_count += 1
+                if exp_count == 2:
+                    return self._to_seconds(step.get("time", 0))
+        return 999
 
     def _generate_concise_summary(self, opponent_name, opponent_race, matched_patterns, build_order):
         """Generate a concise, readable summary for chat"""
@@ -1088,66 +1175,112 @@ class MLOpponentAnalyzer:
         
         return best_races[0]
 
-    def generate_ml_analysis_message(self, analysis_data, twitch_bot, logger, contextHistory):
+    def _format_ml_chat_message(self, data: dict) -> Optional[str]:
         """
-        Generate ML analysis message via OpenAI and send to chat
+        Deterministic Twitch lines: casual wording, same facts only (no new claims).
+        Pattern labels only if similarity >= STRATEGY_PATTERN_LABEL_MIN_SIMILARITY (default 85%).
+        Returns None when there is nothing worth sending (caller skips chat).
         """
+        name = data.get('opponent_name', 'Unknown')
+        race_raw = (data.get('opponent_race') or '').strip()
+        who = f"{name} ({race_raw})" if race_raw else name
+        label_min = float(getattr(config, 'STRATEGY_PATTERN_LABEL_MIN_SIMILARITY', 0.85))
+
+        pc = (data.get('player_comments_text') or getattr(self, '_current_opponent_comment', '') or '').strip()
+        if pc and len(pc) > 200:
+            pc = pc[:197] + "..."
+
+        analysis_type = data.get('analysis_type', '')
+        parts: list = []
+
+        if analysis_type == 'learning_data':
+            tg = data.get('total_games')
+            wr = data.get('win_rate')
+            if tg is not None:
+                parts.append(
+                    f"On {who}, the saved notes cover {tg} games; win rate in that sample is {wr:.0%}."
+                )
+            if data.get('top_strategies'):
+                kw = [f"{s} x{n}" for s, n in data['top_strategies'][:6]]
+                parts.append("Keyword counts in those notes: " + ", ".join(kw) + ".")
+            qc = []
+            for c in (data.get('recent_comments') or [])[-3:]:
+                c = (c or '').strip()
+                if c:
+                    q = c if len(c) <= 160 else c[:157] + "..."
+                    qc.append(f'"{q}"')
+            if qc:
+                parts.append("Verbatim comments saved earlier: " + " ".join(qc))
+            if pc:
+                parts.append(f'Latest note text on file: "{pc}"')
+
+        elif analysis_type == 'pattern_matching':
+            preview = data.get('build_order_preview') or []
+            opening = (
+                compact_grouped_build_from_steps(preview, max_groups=14, show_workers=2)
+                if preview
+                else ""
+            )
+            shown = []
+            for p in (data.get('matched_patterns') or []):
+                sim = float(p.get("similarity", 0))
+                if sim < label_min:
+                    continue
+                lab = (p.get("comment") or "").strip()[:110]
+                if lab:
+                    shown.append(f'"{lab}" ({sim * 100:.0f}%)')
+                if len(shown) >= 2:
+                    break
+            # Repeat DB extract only when we also print qualifying labels — otherwise it's duplicate noise vs replay.
+            if opening and shown:
+                parts.append(f"Their opening from the saved build extract is {opening}.")
+            if shown:
+                parts.append(
+                    f"Closest saved labels at {label_min:.0%} match or better: "
+                    + " | ".join(shown)
+                    + "."
+                )
+            if pc:
+                parts.append(f'DB comment on file: "{pc}"')
+
+        else:
+            if pc:
+                parts.append(f'Note on file: "{pc}"')
+
+        body = " ".join(parts).strip()
+        if not body:
+            return None
+        return f"ML Analysis: {body}"[:480]
+
+    def generate_ml_analysis_message(
+        self,
+        analysis_data,
+        twitch_bot,
+        logger,
+        contextHistory,
+        *,
+        prefix: str = "",
+    ) -> bool:
+        """Send ML analysis as deterministic facts (no OpenAI). Returns True if a message was sent."""
         try:
-            # Build prompt for OpenAI based on analysis type
-            data = analysis_data
-            analysis_type = data.get('analysis_type', 'learning_data')
-            
-            opponent_race = data.get('opponent_race', 'Unknown')
-            
-            msg = "Generate a concise ML analysis for Twitch chat based on opponent data. "
-            msg += "Keep it under 200 characters. Describe ONLY what the opponent does - their builds, strategies, and patterns. "
-            msg += "CRITICAL: Be factual and analytical. Do NOT add mood, personality, or conversational elements. "
-            msg += "Do NOT give advice, ask questions, request insights, or ask for recommendations. "
-            msg += "Do NOT say things like 'should we play together' or any casual conversation. "
-            msg += "Just state the analysis factually in a professional tone. "
-            msg += f"IMPORTANT: The opponent plays {opponent_race}. Ignore any matchup-specific patterns that don't match (e.g. ignore TvZ patterns in a TvT game). "
-            msg += "Format: 'ML Analysis: [your analysis]'\n\n"
-            msg += f"Opponent: {data['opponent_name']} ({opponent_race})\n"
-            
-            if analysis_type == 'learning_data':
-                # Analysis based on commented games
-                msg += f"Historical record: {data['total_games']} games, {data['win_rate']:.0%} win rate\n"
-                
-                if data.get('top_strategies'):
-                    msg += "Common strategies: "
-                    strategies = [strategy for strategy, count in data['top_strategies'][:3]]
-                    msg += ", ".join(strategies) + "\n"
-                
-                if data.get('recent_comments'):
-                    msg += "Recent game notes:\n"
-                    for comment in data['recent_comments']:
-                        msg += f"- {comment[:100]}\n"
-            
-            elif analysis_type == 'pattern_matching':
-                # Analysis based on pattern matching from similar opponents
-                msg += "Pattern matched from similar opponents (not exact opponent history):\n"
-                
-                if data.get('matched_patterns'):
-                    msg += "This opponent's build resembles strategies from other players:\n"
-                    for pattern in data['matched_patterns'][:2]:
-                        similarity = pattern['similarity'] * 100
-                        msg += f"- {pattern['comment']} ({similarity:.0f}% match)\n"
-                        if pattern.get('keywords'):
-                            keywords = ", ".join(pattern['keywords'][:3])
-                            msg += f"  Keywords: {keywords}\n"
-                
-                if data.get('build_order_preview'):
-                    build_preview = [step['name'] for step in data['build_order_preview'][:5]]
-                    msg += f"Their opening: {' -> '.join(build_preview)}\n"
-            
-            # Send to OpenAI for natural language generation
+            from api.chat_utils import msgToChannel
+            text = self._format_ml_chat_message(analysis_data)
+            if not text:
+                if logger:
+                    logger.debug(
+                        "ML Analysis: skip chat (formatted message empty after filters)"
+                    )
+                return False
+            if prefix:
+                text = prefix + text
             if logger:
-                logger.debug(f"Sending ML analysis prompt to OpenAI for opponent: {data['opponent_name']}")
-            processMessageForOpenAI(twitch_bot, msg, "ml_analysis", logger, contextHistory)
-            
+                logger.debug(f"ML analysis (deterministic) for opponent: {analysis_data.get('opponent_name')}")
+            msgToChannel(twitch_bot, text, logger)
+            return True
         except Exception as e:
             if logger:
                 logger.error(f"Error generating ML analysis message: {e}")
+            return False
 
 
 def get_ml_analyzer():
@@ -1155,9 +1288,14 @@ def get_ml_analyzer():
     return MLOpponentAnalyzer()
 
 
-def analyze_opponent_for_game_start(opponent_name, opponent_race, current_map, twitch_bot, logger, contextHistory):
+def analyze_opponent_for_game_start(opponent_name, opponent_race, current_map, twitch_bot, logger, contextHistory,
+                                     opponent_record=None, post_game: bool = False):
     """
-    Analyze opponent at game start and send ML analysis to chat
+    Send ML analysis to chat (game-start or post-game hook from pattern validation).
+    
+    Args:
+        opponent_record: Optional pre-fetched opponent data to avoid duplicate DB queries
+        post_game: If True, skip comments.json aggregate recap (saved-notes style); use DB pattern match only.
     """
     try:
         analyzer = get_ml_analyzer()
@@ -1165,25 +1303,24 @@ def analyze_opponent_for_game_start(opponent_name, opponent_race, current_map, t
         # Analyze opponent (enhanced with database fallback)
         db_instance = getattr(twitch_bot, 'db', None)
         analysis_data = analyzer.analyze_opponent_for_chat(
-            opponent_name, opponent_race, logger, db_instance
+            opponent_name,
+            opponent_race,
+            logger,
+            db_instance,
+            opponent_record,
+            prefer_learning_data=not post_game,
         )
         
         if analysis_data:
-            # Generate and send ML analysis message
-            analyzer.generate_ml_analysis_message(analysis_data, twitch_bot, logger, contextHistory)
-            return True
+            return analyzer.generate_ml_analysis_message(
+                analysis_data, twitch_bot, logger, contextHistory
+            )
         else:
-            # No analysis data - send message indicating no strong matches
-            from api.chat_utils import processMessageForOpenAI
-            no_match_msg = ("Generate a concise message for Twitch chat. "
-                           + "Say that there are no strong matches on the pattern analysis for this opponent. "
-                           + "Keep it under 100 characters. "
-                           + "Format: 'ML Analysis: [your message]' "
-                           + "Be factual and analytical, not conversational. "
-                           + f"Opponent: {opponent_name} ({opponent_race})\n\n"
-                           + "Your message:")
-            processMessageForOpenAI(twitch_bot, no_match_msg, "ml_analysis", logger, contextHistory)
-            return True
+            if logger:
+                logger.debug(
+                    f"ML Analysis: skip chat (nothing to summarize for {opponent_name})"
+                )
+            return False
             
     except Exception as e:
         if logger:

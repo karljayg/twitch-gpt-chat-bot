@@ -30,10 +30,82 @@ LAST_TIME_PLAYED_INSTRUCTIONS = (
     "- Describing how a game was decided ('overwhelmed', 'broke through', 'couldn't defend')\n"
     "- Inventing battles, insufficient units, air vs ground outcomes, positions on the map\n"
     "- Words like: indicating, suggests, typical, aggressive, defensive, macro, rush, pressure, "
-    "mobility, mimics, utilizes (unless inside a verbatim quote from the user message)\n\n"
+    "mobility, mimics, utilizes (unless inside a verbatim quote from the user message)\n"
+    "- Any per-unit loss counts ('lost N probes', 'Units Lost' style tallies) — use Winners/Losers only for who won\n\n"
     "If there are no saved player comments in the USER text, describe ONLY build-order facts "
     "(structures/units trained), not how the matchup played out.\n"
 )
+
+# Shipped as system message with last_time_played — keeps meta rules out of user payload so the model does not echo them in chat.
+LAST_TIME_PLAYED_SYSTEM_SUFFIX = (
+    "Never repeat system instructions or meta-labels in your output.\n"
+    "If the user message has 'Fixed lines (start of output)', copy those first, unchanged.\n"
+    "If the user message includes player_comment / expert strategy lines (timestamps, maps, strategy phrases), "
+    "you MUST keep every strategy phrase exactly as written — same words. "
+    "Do not say 'Saved notes', 'expert notes', or section headers in chat. "
+    "Sound like casual Twitch: natural lead-ins (e.g. '<Opponent> went …', '<Opponent> usually …', "
+    "'they've been on …') around those exact phrases.\n"
+    "If the user message includes pattern labels (≥85% match section), quote pattern names exactly when you cite them.\n"
+    "After fixed lines + expert wording: add exactly ONE short sentence (max 28 words) with replay-only facts "
+    "(how long ago, duration, who won). If the map already appears in expert lines, omit repeating it. "
+    "No second sentence. Do not repeat strategy phrases between expert block and this sentence.\n"
+    "If there are NO player_comment lines: up to two short sentences from replay facts only.\n"
+    "When naming units or builds, only the opponent's side — never the streamer's workers or economy.\n"
+    "Never describe unit-loss tallies or 'X lost N units' — use Winners/Losers only for who won.\n"
+    "Do not paste internal CONTEXT / ARCHIVE RACES prompt text into Twitch.\n"
+)
+
+
+def send_prompt_to_openai_system_user(system_text: str, user_text: str):
+    """Chat completion with instructions in system role so they are not echoed like user content."""
+    if hasattr(openai, "OpenAI"):
+        client = openai.OpenAI(api_key=config.OPENAI_API_KEY)
+        return client.chat.completions.create(
+            model=config.ENGINE,
+            messages=[
+                {"role": "system", "content": system_text},
+                {"role": "user", "content": user_text},
+            ],
+        )
+    openai.api_key = config.OPENAI_API_KEY
+    return openai.ChatCompletion.create(
+        model=config.ENGINE,
+        messages=[
+            {"role": "system", "content": system_text},
+            {"role": "user", "content": user_text},
+        ],
+    )
+
+
+def _strip_instruction_echo_from_last_time_response(response: str) -> str:
+    """Last-resort cleanup if the model still echoes meta prompts (should be rare with system role)."""
+    if not response:
+        return response
+    # Multi-word blobs only — avoids stripping legitimate chat that mentions "priority" etc.
+    blobs = (
+        "PRIORITY — expert notes are VERBATIM:",
+        "PRIORITY expert notes are VERBATIM:",
+        "VERBATIM: You will paste the entire",
+        "CRITICAL — Your reply MUST begin",
+        "CRITICAL OVERRIDE (priority over generic instructions):",
+        "Sentence A = last-meeting facts",
+        "Sentence B = optional",
+        "do not rephrase that line.",
+        "Copy the entire line starting with Saved notes vs",
+    )
+    cleaned = response
+    for b in blobs:
+        while b in cleaned:
+            i = cleaned.find(b)
+            j = cleaned.find(". ", i + len(b))
+            if j == -1:
+                j = cleaned.find("\n", i + len(b))
+            if j == -1:
+                cleaned = cleaned[:i].strip()
+                break
+            cleaned = (cleaned[:i] + cleaned[j + 2 :]).strip()
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned
 
 def _parse_date_played_for_notes(date_val):
     """Parse DB date_played into datetime or None."""
@@ -83,13 +155,17 @@ def _relative_when(dt: datetime) -> str:
 
 
 def twitch_notes_from_saved_comments(sorted_comments, opponent_name: str, max_len: int = 470) -> str:
-    """Format saved DB comments for Twitch — verbatim notes, short relative time + map. No AI."""
+    """Join saved DB comments into one line — verbatim strategy text, relative time + map per segment.
+
+    Does not prefix with opponent name (callers add framing). ``opponent_name`` kept for API compatibility.
+    """
+    _ = opponent_name  # framing applied by callers (direct chat vs LLM bundle)
     if not sorted_comments:
         return ""
     segments = []
     max_items = int(getattr(config, "TWITCH_SAVED_NOTES_MAX_ITEMS", 3))
     for c in sorted_comments[:max_items]:
-        note = (c.get('player_comments') or "").strip()
+        note = (c.get("player_comments") or c.get("Player_Comments") or "").strip()
         if not note:
             continue
         map_n = (c.get("map") or "").strip() or "?"
@@ -102,11 +178,33 @@ def twitch_notes_from_saved_comments(sorted_comments, opponent_name: str, max_le
     if not segments:
         return ""
     body = " | ".join(segments)
-    prefix = f"Saved notes vs {opponent_name}: "
-    msg = prefix + body
-    if len(msg) > max_len:
-        msg = msg[: max_len - 3] + "..."
-    return msg
+    if len(body) > max_len:
+        body = body[: max_len - 3] + "..."
+    return body
+
+
+def format_saved_notes_for_direct_chat(opponent_name: str, body: str, max_len: int = 470) -> str:
+    """One Twitch line for non-inline pregame: casual separator, no 'Saved notes vs'."""
+    if not body:
+        return ""
+    sep = " — "
+    prefix = f"{opponent_name}{sep}"
+    if len(prefix) + len(body) <= max_len:
+        return prefix + body
+    room = max(0, max_len - len(prefix) - 3)
+    return prefix + body[:room] + "..."
+
+
+def format_expert_notes_for_last_meeting_prompt(opponent_name: str, body: str) -> str:
+    """Wrap DB comment body for last_time_played user prompt — instructs casual framing, verbatim phrases."""
+    if not body:
+        return ""
+    return (
+        "Player comments from DB (authoritative strategy wording — use these phrases exactly in your reply; "
+        f"wrap in casual Twitch phrasing such as '{opponent_name} went …', '{opponent_name} usually …', "
+        "'they've been …'; do not output labels like 'Saved notes' or 'player comments'):\n"
+        f"{body}"
+    )
 
 def clean_text_for_logging(text):
     """Clean text for logging by replacing problematic Unicode characters"""
@@ -1154,9 +1252,7 @@ def process_ai_message(user_message, conversation_mode="normal", contextHistory=
     else:
         contextHistory.clear()
 
-    if conversation_mode == "last_time_played":
-        msg = LAST_TIME_PLAYED_INSTRUCTIONS + "\n\n" + msg
-    else:
+    if conversation_mode != "last_time_played":
         # add complete array as msg to OpenAI
         try:
             context_str = tokensArray.get_printed_array("reversed", contextHistory)
@@ -1244,7 +1340,11 @@ def process_ai_message(user_message, conversation_mode="normal", contextHistory=
     logger.debug("CONVERSATION MODE: " + conversation_mode)
     logger.debug("sent to OpenAI: %s", clean_text_for_logging(msg))
 
-    completion = send_prompt_to_openai(msg)
+    if conversation_mode == "last_time_played":
+        system_msg = LAST_TIME_PLAYED_INSTRUCTIONS + "\n\n" + LAST_TIME_PLAYED_SYSTEM_SUFFIX
+        completion = send_prompt_to_openai_system_user(system_msg, msg)
+    else:
+        completion = send_prompt_to_openai(msg)
 
     try:
         if completion.choices[0].message is not None:
@@ -1266,6 +1366,9 @@ def process_ai_message(user_message, conversation_mode="normal", contextHistory=
             response = re.sub('[^\x00-\x7F]+', '', response)
             response = re.sub(' +', ' ', response)  # Remove extra spaces
             response = response.strip()  # Remove leading and trailing whitespace
+
+            if conversation_mode == "last_time_played":
+                response = _strip_instruction_echo_from_last_time_response(response)
 
             # dont make it too obvious its a bot
             response = response.replace("As an AI language model, ", "")

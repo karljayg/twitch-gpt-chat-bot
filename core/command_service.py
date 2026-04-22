@@ -57,7 +57,9 @@ class CommandService:
                             logger.error(f"Error handling Y/N response in comment handler: {e}")
                             return True  # Still return True to prevent fallthrough
             
-        msg_lower = message.lower()
+        # Strip so Twitch leading spaces / odd padding still match (!wiki, accept ratings, etc.)
+        text = message.strip()
+        msg_lower = text.lower()
         logger.debug(f"Checking command for: '{msg_lower}' (registered: {list(self.handlers.keys())})")
         
         # Sort handlers by length (descending) to match longest prefix first
@@ -79,17 +81,17 @@ class CommandService:
             # 3. Starts with keyword followed by space (standard command)
             elif msg_lower.startswith(keyword + " "):
                 is_match = True
-                args = message[len(keyword):].strip()
+                args = text[len(keyword):].strip()
             # 4. Starts with prefix followed by space
             elif msg_lower.startswith("!" + keyword + " "):
                 is_match = True
-                args = message[len(keyword)+1:].strip()
+                args = text[len("!") + len(keyword):].strip()
             # 5. Contains keyword for special natural language commands (like "player comment")
             #    BUT be careful not to over-match common words.
             #    "head to head" is safe to search anywhere.
             elif keyword in ["head to head", "player comment"] and keyword in msg_lower:
                 is_match = True
-                args = message # Pass full message for substring commands to parse internally
+                args = text  # stripped; handler may need full line — rarely differs
                 
             if is_match:
                 logger.info(f"Command match: '{keyword}' from {author}")

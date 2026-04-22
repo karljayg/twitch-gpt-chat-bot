@@ -1042,7 +1042,7 @@ class Database:
                 ((p1.SC2_UserId = %s AND r.Player1_Race = %s) OR
                 (p2.SC2_UserId = %s AND r.Player2_Race = %s))
                 AND r.Player_Comments IS NOT NULL
-                AND r.GameDuration > '00:02:00'
+                AND TRIM(r.Player_Comments) <> ''
             ORDER BY 
                 r.Date_Played DESC;
             """

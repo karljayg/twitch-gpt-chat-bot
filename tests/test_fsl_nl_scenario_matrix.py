@@ -17,7 +17,12 @@ from typing import Any, Dict, List
 
 import pytest
 
-from core.fsl_natural_language import FslAskAssistant, _solo_h2h_plan_from_question
+from core.fsl_natural_language import (
+    FslAskAssistant,
+    _solo_h2h_aggregate_plan_from_question,
+    _solo_h2h_plan_from_question,
+    _team_roster_plan_from_question,
+)
 
 
 class MockLLM:
@@ -575,3 +580,59 @@ def test_solo_h2h_pattern_override(question: str, expect_a: str, expect_b: str) 
 def test_solo_h2h_pattern_not_team_schedule_topic() -> None:
     """Team-only phrasing without 'game/match between' should not match the strict patterns."""
     assert _solo_h2h_plan_from_question("which team won season 10") is None
+
+
+def test_h2h_aggregate_record_between_matches_h2h() -> None:
+    p = _solo_h2h_aggregate_plan_from_question(
+        "what is the record between NukLeo and DarkMenace ?"
+    )
+    assert p is not None
+    assert p["action"] == "matches_h2h"
+    assert p["params"]["player_name"] == "NukLeo"
+    assert p["params"]["opponent_name"] == "DarkMenace"
+    assert _solo_h2h_plan_from_question(
+        "what is the record between NukLeo and DarkMenace ?"
+    ) is None
+
+
+def test_h2h_aggregate_between_players_keyword() -> None:
+    """Viewers often say 'between players X and Y' — must not capture 'players' as the name."""
+    p = _solo_h2h_aggregate_plan_from_question(
+        "what is the record between players NukLeo and DarkMenace ?"
+    )
+    assert p is not None
+    assert p["action"] == "matches_h2h"
+    assert p["params"]["player_name"] == "NukLeo"
+    assert p["params"]["opponent_name"] == "DarkMenace"
+
+
+def test_h2h_aggregate_short_duel_ping_name_vs_name() -> None:
+    """Twitch-style 'Name vs Name ?' without 'record' — route to matches_h2h like record queries."""
+    p = _solo_h2h_aggregate_plan_from_question("NukLeo vs DarkMenace ?")
+    assert p is not None
+    assert p["action"] == "matches_h2h"
+    assert p["params"]["player_name"] == "NukLeo"
+    assert p["params"]["opponent_name"] == "DarkMenace"
+
+
+def test_h2h_aggregate_record_vs_form() -> None:
+    p = _solo_h2h_aggregate_plan_from_question(
+        "what is the record littlereaper vs cyan ?"
+    )
+    assert p is not None
+    assert p["action"] == "matches_h2h"
+    assert p["params"]["player_name"].lower() == "littlereaper"
+    assert p["params"]["opponent_name"].lower() == "cyan"
+
+
+def test_team_roster_players_for_team_name() -> None:
+    p = _team_roster_plan_from_question("who are the players for Special Tactics?")
+    assert p is not None
+    assert p["action"] == "team_roster"
+    assert p["params"]["name"] == "Special Tactics"
+
+
+def test_team_roster_strips_optional_team_prefix() -> None:
+    p = _team_roster_plan_from_question("players for team Special Tactics")
+    assert p is not None
+    assert "Special Tactics" in (p["params"]["name"] or "")
