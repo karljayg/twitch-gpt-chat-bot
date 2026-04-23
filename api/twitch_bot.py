@@ -1496,6 +1496,8 @@ Just the JSON object."""
             opponent_race = game_data.get('opponent_race', 'Unknown')
             versus_name = game_data.get('versus_name', config.STREAMER_NICKNAME)
             suppress_followup_prompt = bool(game_data.get('suppress_followup_prompt', False))
+            force_followup_prompt = bool(game_data.get('force_followup_prompt', False))
+            suppress_pattern_validation_line = bool(game_data.get('suppress_pattern_validation_line', False))
             existing_replay_comment = (game_data.get('existing_comment') or '').strip()
             result = game_data.get('result', 'Unknown')
             duration = game_data.get('duration', 'Unknown')
@@ -1504,6 +1506,17 @@ Just the JSON object."""
             # Get ML analyzer and check for patterns
             analyzer = get_ml_analyzer()
             db_instance = getattr(self, 'db', None)
+
+            def _ensure_followup_prompt(msg2: str, build_summary, ai_summary) -> str:
+                if msg2:
+                    return msg2
+                if not force_followup_prompt:
+                    return msg2
+                if suppress_followup_prompt:
+                    return msg2
+                if build_summary or ai_summary:
+                    return pick_pattern_learning_followup_prompt()
+                return "Your one-line take on their build?"
             
             # Check if this is a known opponent (do this ONCE and reuse)
             opponent_record = None
@@ -1542,8 +1555,27 @@ Just the JSON object."""
             # If this replay already has a human comment, keep chat concise and skip rebuild/prompt spam.
             if existing_replay_comment and hasattr(self, 'connection') and hasattr(self.connection, 'privmsg'):
                 concise = compose_strategy_line(opponent_name, existing_replay_comment, versus_name)
-                self.connection.privmsg(self.channel, concise.strip())
-                logger.debug(f"Sent existing-comment concise line: {concise}")
+                concise_msg = concise.strip()
+                if force_followup_prompt and not suppress_followup_prompt:
+                    follow = pick_pattern_learning_followup_prompt()
+                    concise_msg = compose_build_followup_line(opponent_name, concise_msg, follow, versus_name)
+                # Keep prompt-mode active so immediate replies (e.g. "i dunno", "skip", custom text)
+                # are interpreted consistently across retry modes.
+                import time
+                self.pattern_learning_context = {
+                    'opponent_name': opponent_name,
+                    'pattern_match': existing_replay_comment,
+                    'pattern_similarity': 100.0,
+                    'ai_summary': None,
+                    'build_summary': ', '.join(build_summary[:15]) if build_summary else '',
+                    'game_data': game_data,
+                    'timestamp': time.time(),
+                    'discrepancy_detected': False,
+                }
+                self.suggested_pattern_comment = existing_replay_comment
+                self.suggested_ai_summary = None
+                self.connection.privmsg(self.channel, concise_msg)
+                logger.debug(f"Sent existing-comment concise line: {concise_msg}")
                 return
             
             # Display validation report in stdout
@@ -1741,7 +1773,11 @@ Just the JSON object."""
                             print("To accept, type in Twitch:  player comment yes")
                         
                         # Send build line, then prompt (below 85%: no pattern label and no AI — build + ask only)
-                        if hasattr(self, 'connection') and hasattr(self.connection, 'privmsg'):
+                        if (
+                            hasattr(self, 'connection')
+                            and hasattr(self.connection, 'privmsg')
+                            and not suppress_pattern_validation_line
+                        ):
                             try:
                                 import time
                                 build_preview = f"{opponent_name}'s build: {', '.join(build_summary[:BUILD_PREVIEW_ITEMS])}. " if build_summary else ""
@@ -1751,7 +1787,7 @@ Just the JSON object."""
                                     msg1 = build_preview.rstrip()
                                 if msg1:
                                     logger.debug(f"Prepared pattern line for Twitch: {msg1}")
-                                if similarity >= label_min_pct:
+                                if similarity >= label_min_pct and not force_followup_prompt:
                                     msg2 = ""
                                 elif suppress_followup_prompt:
                                     msg2 = ""
@@ -1761,6 +1797,7 @@ Just the JSON object."""
                                     msg2 = f"Build seems to include {ai_summary}."
                                 else:
                                     msg2 = pick_pattern_learning_followup_prompt()
+                                msg2 = _ensure_followup_prompt(msg2, build_summary, ai_summary)
                                 combined = msg1 if not msg2 else compose_build_followup_line(opponent_name, msg1, msg2, versus_name)
                                 self.connection.privmsg(self.channel, combined)
                                 logger.debug(f"Sent pattern learning combined line: {combined}")
@@ -1796,7 +1833,11 @@ Just the JSON object."""
                             print("To add custom, type in Twitch:  player comment <your text>")
                         
                         # Same rule: below label threshold — build only, then ask (no noisy AI/pattern guess)
-                        if hasattr(self, 'connection') and hasattr(self.connection, 'privmsg'):
+                        if (
+                            hasattr(self, 'connection')
+                            and hasattr(self.connection, 'privmsg')
+                            and not suppress_pattern_validation_line
+                        ):
                             try:
                                 import time
                                 build_preview = f"{opponent_name}'s build: {', '.join(build_summary[:BUILD_PREVIEW_ITEMS])}. " if build_summary else ""
@@ -1806,7 +1847,7 @@ Just the JSON object."""
                                     msg1 = build_preview.rstrip()
                                 if msg1:
                                     logger.debug(f"Prepared low-confidence line for Twitch: {msg1}")
-                                if similarity >= label_min_pct:
+                                if similarity >= label_min_pct and not force_followup_prompt:
                                     msg2 = ""
                                 elif suppress_followup_prompt:
                                     msg2 = ""
@@ -1816,6 +1857,7 @@ Just the JSON object."""
                                     msg2 = f"Build seems to include {ai_summary}."
                                 else:
                                     msg2 = pick_pattern_learning_followup_prompt()
+                                msg2 = _ensure_followup_prompt(msg2, build_summary, ai_summary)
                                 combined = msg1 if not msg2 else compose_build_followup_line(opponent_name, msg1, msg2, versus_name)
                                 self.connection.privmsg(self.channel, combined)
                                 logger.debug(f"Sent pattern learning combined line: {combined}")
@@ -1853,12 +1895,17 @@ Just the JSON object."""
                         print("  player comment <your description>")
                     
                     # No pattern hit suggestion bar: supply build + ask only (no AI paraphrase — avoids fake "predictions")
-                    if hasattr(self, 'connection') and hasattr(self.connection, 'privmsg'):
+                    if (
+                        hasattr(self, 'connection')
+                        and hasattr(self.connection, 'privmsg')
+                        and not suppress_pattern_validation_line
+                    ):
                         try:
                             import time
                             build_preview = f"{opponent_name}'s build: {', '.join(build_summary[:BUILD_PREVIEW_ITEMS])}. " if build_summary else ""
                             msg1 = build_preview.rstrip()
                             msg2 = "" if suppress_followup_prompt else pick_pattern_learning_followup_prompt()
+                            msg2 = _ensure_followup_prompt(msg2, build_summary, ai_summary)
                             combined = msg1 if not msg2 else compose_build_followup_line(opponent_name, msg1, msg2, versus_name)
                             self.connection.privmsg(self.channel, combined)
                             logger.debug(f"Sent no-pattern combined line: {combined}")

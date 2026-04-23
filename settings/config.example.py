@@ -131,6 +131,8 @@ PREGAME_GLHF_PHRASE = "GLHFGG"
 LAST_TIME_TWITCH_REPLY_MAX_CHARS = 380
 # Lower = stabler factual replies for last-meeting opponent lines (None = API default / global TEMPERATURE)
 LAST_TIME_PLAYED_TEMPERATURE = 0.35
+# Retry replay one-liner max words before appending inline build-label question.
+RETRY_REPLAY_COMMENTARY_MAX_WORDS = 28
 # games less than this seconds will be considered abandoned for better commentary
 ABANDONED_GAME_THRESHOLD = 15
 # TODO: make this more intuitive and less confusing, as test modes are different from running replays period

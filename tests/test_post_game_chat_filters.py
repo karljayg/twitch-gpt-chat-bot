@@ -2,7 +2,7 @@
 import unittest
 
 from api.ml_opponent_analyzer import MLOpponentAnalyzer
-from api.chat_utils import summarize_strategy_with_units
+from api.chat_utils import summarize_strategy_with_units, sanitize_retry_replay_commentary
 
 
 class TestSummarizeStrategyWithUnits(unittest.TestCase):
@@ -67,6 +67,32 @@ class TestFormatMlChatMessage(unittest.TestCase):
         self.assertIsNotNone(text)
         self.assertIn("Closest saved labels", text)
         self.assertIn("saved build extract", text)
+
+
+class TestRetryReplayCommentarySanitizer(unittest.TestCase):
+    def test_keeps_one_sentence(self):
+        s = (
+            "KJ took it in under 6, with what looks like cannon to proxy gateway robo immortal build on Celestial Enclave LE. "
+            "Extra sentence that should be dropped."
+        )
+        out = sanitize_retry_replay_commentary(s, max_words=50)
+        self.assertNotIn("Extra sentence", out)
+        self.assertTrue(out.endswith("."))
+
+    def test_trims_word_count(self):
+        s = " ".join(["word"] * 40)
+        out = sanitize_retry_replay_commentary(s, max_words=10)
+        self.assertLessEqual(len(out.split()), 11)  # 10 + possible ellipsis token
+
+    def test_avoids_dangling_to_after_trim(self):
+        s = (
+            "Ggs KJ, Jötunn took the win on White Rabbit LE in about 22 minutes "
+            "with what looks like a 3 hatch ling bane to muta."
+        )
+        out = sanitize_retry_replay_commentary(s, max_words=16)
+        self.assertFalse(out.lower().endswith(" to."))
+        self.assertFalse(out.lower().endswith(" into."))
+        self.assertTrue(out.endswith("."))
 
 
 if __name__ == "__main__":

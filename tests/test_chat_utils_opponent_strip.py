@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 from api.chat_utils import (
     _apply_last_time_style_variation,
     _collapse_duplicate_played_name,
+    _dedupe_repeated_sentences,
+    _drop_second_map_mention,
     _fold_map_time_recap_into_last_time_sentence,
     _fuse_last_time_with_strategy_sentence,
     _normalize_last_time_grammar,
@@ -153,6 +155,23 @@ class TestLastTimeRecapDedupe(unittest.TestCase):
         out = _vary_record_sentence_wording(s)
         self.assertIn("17-16", out)
         self.assertIn("Link", out)
+
+    def test_dedupe_repeated_sentences(self):
+        s = (
+            "KJ sits at 10-17 vs TerranYOUup, who went cyclone rush about three weeks ago. "
+            "KJ sits at 10-17 vs TerranYOUup, who went cyclone rush about three weeks ago. "
+            "The last time a win for KJ was 14m 0s."
+        )
+        out = _dedupe_repeated_sentences(s)
+        self.assertEqual(out.count("KJ sits at 10-17 vs TerranYOUup"), 1)
+
+    def test_drop_second_map_mention(self):
+        s = (
+            "KJ is 17-16 vs Link, who went pool bane (~12h ago, White Rabbit LE), "
+            "which was a win for KJ in 8m 31s on White Rabbit LE."
+        )
+        out = _drop_second_map_mention(s)
+        self.assertEqual(out.lower().count("white rabbit le"), 1)
 
     def test_apply_style_variation_keeps_core_facts(self):
         s = "The last time was a win for KJ in 8m 31s on White Rabbit LE about 12 hours ago."

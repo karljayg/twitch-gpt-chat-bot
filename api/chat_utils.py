@@ -374,6 +374,46 @@ def _strip_duplicate_strategy_and_map_tail(response: str) -> str:
     return " ".join(kept).strip()
 
 
+def _dedupe_repeated_sentences(response: str) -> str:
+    """Drop exact repeated sentences while preserving first occurrence."""
+    if not response:
+        return response
+    parts = [p.strip() for p in re.split(r"(?<=[.!?])\s+", response.strip()) if p.strip()]
+    if len(parts) <= 1:
+        return response
+    seen = set()
+    kept = []
+    for sent in parts:
+        key = re.sub(r"\s+", " ", sent).strip().lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        kept.append(sent)
+    return " ".join(kept).strip()
+
+
+def _drop_second_map_mention(response: str) -> str:
+    """If map already appears in strategy segment, drop duplicate 'on <map>' in later last-time sentence."""
+    if not response:
+        return response
+    out = response
+    m_map = re.search(r"\(~[^)]*?,\s*([^)]+)\)", out)
+    if not m_map:
+        return out
+    map_name = re.sub(r"\s+", " ", m_map.group(1).strip())
+    if not map_name:
+        return out
+    # If map appears at least twice, remove a later ' on <map>' phrase once.
+    if out.lower().count(map_name.lower()) >= 2:
+        out = re.sub(
+            r"(?i)\s+on\s+" + re.escape(map_name) + r"\b",
+            "",
+            out,
+            count=1,
+        )
+    return re.sub(r"\s+", " ", out).strip()
+
+
 def _reorder_last_time_segments(response: str) -> str:
     """Deterministically rotate segment order (record/strategy/last-time)."""
     if not response:
@@ -787,6 +827,28 @@ def process_pubmsg(self, event, logger, contextHistory):
                     return replay
             except Exception as e:
                 logger.warning(f"Could not load replay by id from pattern context: {e}")
+        retry_ref = game_data.get("retry_ref") if isinstance(game_data, dict) else None
+        if retry_ref is not None and int(retry_ref) < 0 and hasattr(self.db, "get_replay_by_recency_offset"):
+            try:
+                replay = self.db.get_replay_by_recency_offset(abs(int(retry_ref)))
+                if isinstance(replay, dict):
+                    return replay
+            except Exception as e:
+                logger.warning(f"Could not load replay by retry ref from pattern context: {e}")
+        # Guarded fallback for plain `please retry` (latest replay path):
+        # allow latest only when it still matches context opponent/map, to avoid cross-game overwrite.
+        if retry_ref is None and hasattr(self.db, "get_latest_replay"):
+            try:
+                latest = self.db.get_latest_replay()
+                if isinstance(latest, dict):
+                    ctx_opp = str((game_data or {}).get("opponent_name", "")).strip().lower()
+                    ctx_map = str((game_data or {}).get("map", "")).strip().lower()
+                    lat_opp = str(latest.get("opponent", "")).strip().lower()
+                    lat_map = str(latest.get("map", "")).strip().lower()
+                    if (not ctx_opp or ctx_opp == lat_opp) and (not ctx_map or ctx_map == lat_map):
+                        return latest
+            except Exception as e:
+                logger.warning(f"Could not load guarded latest replay from pattern context: {e}")
         return None
 
     def _save_comment_for_replay(comment_text, replay):
@@ -1002,8 +1064,17 @@ def process_pubmsg(self, event, logger, contextHistory):
                 map_name = game_data.get('map', 'Unknown')
                 game_date = game_data.get('date', 'Unknown')
                 
-                # Check if comment already exists - ask for confirmation before overwriting
-                latest_replay = _replay_from_context() or self.db.get_latest_replay()
+                # Check if comment already exists - ask for confirmation before overwriting.
+                # IMPORTANT: for NLP retry flow we must stay pinned to context replay (no latest fallback).
+                latest_replay = _replay_from_context()
+                if not latest_replay:
+                    msgToChannel(
+                        self,
+                        "Could not tie this reply to a specific replay. Use: player comment -N <your notes>.",
+                        logger,
+                    )
+                    self.pattern_learning_context = None
+                    return
                 if latest_replay:
                     existing_comment = latest_replay.get('existing_comment')
                     if existing_comment and str(existing_comment).strip():
@@ -1589,6 +1660,33 @@ def summarize_strategy_with_units(player_name: str, pattern_name: str,
     # Omit raw comma-separated builds when no qualifying label — redundant with replay / ML noise.
     return ""
 
+
+def sanitize_retry_replay_commentary(text: str, max_words: int = 0) -> str:
+    """Compact retry replay commentary to one concise casual line with light variation."""
+    if not text:
+        return ""
+    out = re.sub(r"\s+", " ", str(text)).strip()
+    # Keep one sentence only for retry summary UX.
+    parts = [p.strip() for p in re.split(r"(?<=[.!?])\s+", out) if p.strip()]
+    out = parts[0] if parts else out
+    out = out.rstrip(".!?")
+    # Light deterministic variation on common phrase.
+    if "with what looks like" in out.lower():
+        opts = ("with what looks like", "with what looked like", "off what looked like")
+        seed = int(hashlib.md5(out.encode("utf-8")).hexdigest()[:8], 16) % len(opts)
+        out = re.sub(r"(?i)\bwith what looks like\b", opts[seed], out, count=1)
+    # Word-boundary trim for concise one-liner.
+    if max_words <= 0:
+        max_words = int(getattr(config, "RETRY_REPLAY_COMMENTARY_MAX_WORDS", 28))
+    words = out.split()
+    if max_words > 0 and len(words) > max_words:
+        out = " ".join(words[:max_words]).rstrip(",;:") + "..."
+    # Avoid dangling clause endings from truncation ("to.", "into.", "and.", etc.).
+    out = re.sub(r"(?i)\b(to|into|and|or|with|off|from)\s*\.\.\.$", "...", out)
+    out = re.sub(r"(?i)\b(to|into|and|or|with|off|from)\s*$", "", out).strip()
+    out = out.rstrip(",;:")
+    return out + "."
+
 def process_ai_message(user_message, conversation_mode="normal", contextHistory=None, platform="twitch", logger=None):
     """
     Platform-agnostic AI message processing.
@@ -1773,6 +1871,8 @@ def process_ai_message(user_message, conversation_mode="normal", contextHistory=
                 response = _normalize_last_time_grammar(response)
                 response = _apply_last_time_style_variation(response)
                 response = _strip_duplicate_strategy_and_map_tail(response)
+                response = _dedupe_repeated_sentences(response)
+                response = _drop_second_map_mention(response)
                 response = _reorder_last_time_segments(response)
                 response = _vary_record_sentence_wording(response)
 

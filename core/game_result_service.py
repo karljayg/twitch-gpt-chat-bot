@@ -61,14 +61,133 @@ def _ai_commentary_duration_guidance(total_seconds: float) -> str:
     )
 
 
+def _compose_retry_commentary_line(ai_commentary: str) -> tuple[str, bool]:
+    """Append retry follow-up prompt inline when commentary is available."""
+    base = (ai_commentary or "").strip()
+    if not base:
+        return "", False
+    base = base.rstrip(".!?").strip()
+    if not base:
+        return "", False
+    return f"{base}. Your one-line take on their build?", True
+
+
+def _retry_prompt_flags(followup_in_commentary: bool) -> dict:
+    """Flags for retry pattern-validation chat behavior."""
+    return {
+        "suppress_followup_prompt": bool(followup_in_commentary),
+        "force_followup_prompt": not bool(followup_in_commentary),
+        # If we already asked inline on the first line, do not emit extra pattern/build lines.
+        "suppress_pattern_validation_line": bool(followup_in_commentary),
+    }
+
+
 class GameResultService:
     def __init__(self, replay_repo: IReplayRepository, chat_services: List[IChatService], pattern_learner=None):
         self.replay_repo = replay_repo
         self.chat_services = chat_services
         self.pattern_learner = pattern_learner
         self.last_processed_replay = None
+
+    def _get_twitch_bot(self):
+        twitch_service = next((s for s in self.chat_services if s.get_platform_name() == 'twitch'), None)
+        if twitch_service and hasattr(twitch_service, 'twitch_bot'):
+            return twitch_service.twitch_bot
+        return None
+
+    def _seed_retry_pattern_context(self, twitch_bot, game_data: dict, opponent_name: str):
+        build_names = [
+            str(step.get("name", "")).strip()
+            for step in (game_data.get("build_order") or [])
+            if isinstance(step, dict) and step.get("name")
+        ]
+        twitch_bot.pattern_learning_context = {
+            "opponent_name": opponent_name,
+            "pattern_match": None,
+            "pattern_similarity": 0,
+            "ai_summary": None,
+            "build_summary": ", ".join(build_names[:15]),
+            "game_data": game_data,
+            "timestamp": time.time(),
+            "discrepancy_detected": False,
+        }
+        twitch_bot.suggested_pattern_comment = None
+        twitch_bot.suggested_ai_summary = None
+
+    def _dispatch_retry_pattern_validation(
+        self,
+        game_data: dict,
+        logger,
+        *,
+        opponent_name: str,
+        opponent_race: str,
+        run_match_compare: bool = False,
+    ):
+        """Shared retry dispatch for pattern validation across retry entry paths."""
+        twitch_bot = self._get_twitch_bot()
+        if not twitch_bot:
+            logger.warning("No twitch service/twitch_bot available for retry pattern validation")
+            return
+        if not hasattr(twitch_bot, "_display_pattern_validation"):
+            logger.warning("twitch_bot does not support _display_pattern_validation")
+            return
+
+        if game_data.get("suppress_pattern_validation_line", False):
+            self._seed_retry_pattern_context(twitch_bot, game_data, opponent_name)
+            logger.info(
+                "Retry fast-path: skipped pattern matching compute; seeded lightweight context for %s",
+                opponent_name,
+            )
+            return
+
+        if run_match_compare:
+            try:
+                from api.ml_opponent_analyzer import get_ml_analyzer
+                analyzer = get_ml_analyzer()
+                build_order = game_data.get('build_order', [])
+                if build_order:
+                    logger.info("=" * 50)
+                    logger.info("PATTERN MATCHING COMPARISON")
+                    comments_matches = analyzer.match_build_against_all_patterns(
+                        build_order, opponent_race, logger
+                    )
+                    logger.info(f"Pattern Learning (comments.json - {len(build_order)} steps):")
+                    if comments_matches:
+                        for i, match in enumerate(comments_matches[:5]):
+                            similarity = match.get('similarity', 0) * 100
+                            comment = match.get('comment', 'Unknown')
+                            logger.info(f"  {i+1}. {similarity:.0f}% - '{comment}'")
+                    else:
+                        logger.info("  No matches found")
+
+                    patterns_data = analyzer.load_patterns_data()
+                    patterns_matches = analyzer._match_build_against_patterns(
+                        build_order, patterns_data, opponent_race, logger
+                    )
+                    logger.info("ML Analysis (patterns.json - DB text extraction):")
+                    if patterns_matches:
+                        for i, match in enumerate(patterns_matches[:5]):
+                            similarity = match.get('similarity', 0) * 100
+                            comment = match.get('comment', 'Unknown')
+                            logger.info(f"  {i+1}. {similarity:.0f}% - '{comment}'")
+                    else:
+                        logger.info("  No matches found")
+                    logger.info("=" * 50)
+            except Exception as e:
+                logger.error(f"Pattern matching comparison error: {e}")
+
+        logger.info(f"Pattern Learning: analyzing vs {opponent_name} ({opponent_race})")
+        twitch_bot._display_pattern_validation(game_data, logger)
         
-    async def process_game_end(self, game_info: GameInfo, replay_data: Optional[dict] = None, skip_duplicate_check: bool = False):
+    async def process_game_end(
+        self,
+        game_info: GameInfo,
+        replay_data: Optional[dict] = None,
+        skip_duplicate_check: bool = False,
+        *,
+        is_retry: bool = False,
+        retry_ref: Optional[int] = None,
+    ):
         logger.debug(f"process_game_end called: replay_data={'provided' if replay_data else 'None'}, skip_duplicate_check={skip_duplicate_check}")
         """
         Orchestrates the end-of-game processing:
@@ -400,6 +519,7 @@ Generate ONE short message only, no explanation."""
         
         # 5. Generate AI Commentary (concise one-sentence summary) - Skip if game too short or not 1v1
         is_1v1_game = game_info.total_players == 2
+        retry_followup_in_commentary = False
         if not is_too_short and not config.OPENAI_DISABLED and replay_data and is_1v1_game:
             try:
                 logger.debug("Generating AI replay analysis commentary...")
@@ -460,7 +580,7 @@ Generate ONE short message only, no explanation."""
                 concise_prompt += "\n\nYour sentence:"
                 
                 if twitch_bot:
-                    from api.chat_utils import send_prompt_to_openai
+                    from api.chat_utils import send_prompt_to_openai, sanitize_retry_replay_commentary
                     
                     # Call OpenAI directly for concise response
                     completion = await loop.run_in_executor(
@@ -471,6 +591,50 @@ Generate ONE short message only, no explanation."""
                     
                     if completion and completion.choices and completion.choices[0].message:
                         ai_commentary = completion.choices[0].message.content.strip()
+                        if is_retry:
+                            ai_commentary = sanitize_retry_replay_commentary(ai_commentary)
+                            ai_commentary, retry_followup_in_commentary = _compose_retry_commentary_line(ai_commentary)
+                            # Prime pattern-learning context immediately so fast human replies
+                            # (e.g., "i dunno", custom one-liner) are interpreted in prompt mode.
+                            try:
+                                streamer_accounts = [n.lower() for n in getattr(config, "SC2_PLAYER_ACCOUNTS", [])]
+                                opp_name = "Unknown"
+                                opp_race = "Unknown"
+                                opp_build = []
+                                result_rel = "Observed"
+                                for _k, p in (replay_data.get("players", {}) or {}).items():
+                                    n = str(p.get("name", ""))
+                                    if n and n.lower() not in streamer_accounts:
+                                        opp_name = n
+                                        opp_race = p.get("race", "Unknown")
+                                        opp_build = p.get("buildOrder", []) or []
+                                        if p.get("is_winner") is True:
+                                            result_rel = "Defeat"
+                                        elif p.get("is_winner") is False:
+                                            result_rel = "Victory"
+                                        break
+                                retry_flags = _retry_prompt_flags(retry_followup_in_commentary)
+                                game_data_now = {
+                                    "retry_ref": retry_ref,
+                                    "opponent_name": opp_name,
+                                    "opponent_race": opp_race,
+                                    "map": replay_data.get("map", "Unknown"),
+                                    "date": replay_data.get("unix_timestamp", int(time.time())),
+                                    "result": result_rel,
+                                    "duration": duration_seconds,
+                                    "build_order": opp_build,
+                                    "suppress_followup_prompt": retry_flags.get("suppress_followup_prompt", False),
+                                    "force_followup_prompt": retry_flags.get("force_followup_prompt", False),
+                                    "suppress_pattern_validation_line": retry_flags.get("suppress_pattern_validation_line", False),
+                                }
+                                self._seed_retry_pattern_context(twitch_bot, game_data_now, opp_name)
+                                logger.debug(
+                                    "Primed retry pattern context immediately for %s (inline followup=%s)",
+                                    opp_name,
+                                    retry_followup_in_commentary,
+                                )
+                            except Exception as e:
+                                logger.debug("Could not prime immediate retry pattern context: %s", e)
                         
                         # Send the ONE sentence to Twitch
                         for service in self.chat_services:
@@ -488,8 +652,9 @@ Generate ONE short message only, no explanation."""
                 logger.error(f"Error generating AI commentary: {e}")
         
         # 6a. Strategy Summary for ALL game types (1v1, 2v2, 3v3, etc.)
+        # Skip on retry to avoid duplicate "pattern-like" extra line; retry already runs validation prompt flow below.
         # Loops through each player and checks for pattern matches
-        if not is_too_short and replay_data and 'players' in replay_data:
+        if not is_retry and not is_too_short and replay_data and 'players' in replay_data:
             try:
                 from api.ml_opponent_analyzer import get_ml_analyzer
                 from core.strategy_summary_service import get_game_summary
@@ -599,14 +764,20 @@ Generate ONE short message only, no explanation."""
                         if opponent_name == "Unknown":
                             logger.warning(f"Could not identify opponent - all players may be in SC2_PLAYER_ACCOUNTS: {all_players}")
                                 
+                        retry_flags = _retry_prompt_flags(retry_followup_in_commentary) if is_retry else {}
                         game_data = {
+                            'retry_ref': retry_ref,
                             'opponent_name': opponent_name,
                             'opponent_race': opponent_race,
                             'map': replay_data['map'],
                             'date': replay_data['unix_timestamp'],
                             'result': result,
                             'duration': game_duration_seconds,
-                            'build_order': [] # Extracted below
+                            'build_order': [], # Extracted below
+                            # Retry UX: inline follow-up on summary when available; fallback to separate ask line.
+                            'suppress_followup_prompt': retry_flags.get("suppress_followup_prompt", False),
+                            'force_followup_prompt': retry_flags.get("force_followup_prompt", False),
+                            'suppress_pattern_validation_line': retry_flags.get("suppress_pattern_validation_line", False),
                         }
                         
                         # Extract opponent build order using player key (more reliable than name matching)
@@ -633,92 +804,13 @@ Generate ONE short message only, no explanation."""
                                     game_data['build_order'] = build_order
                                     break
                         
-                        # === PATTERN MATCHING COMPARISON ===
-                        # Run both pattern matching methods and display top 3 from each
-                        try:
-                            from api.ml_opponent_analyzer import get_ml_analyzer
-                            analyzer = get_ml_analyzer()
-                            
-                            build_order = game_data.get('build_order', [])
-                            if build_order:
-                                logger.info("=" * 50)
-                                logger.info("PATTERN MATCHING COMPARISON")
-                                
-                                # 1. Pattern Learning (comments.json)
-                                comments_matches = analyzer.match_build_against_all_patterns(
-                                    build_order, opponent_race, logger
-                                )
-                                if comments_matches:
-                                    best = comments_matches[0]
-                                    logger.info(f"Best match: '{best.get('comment', 'Unknown')}' at {best.get('similarity', 0):.2f} similarity")
-                                logger.info(f"Pattern Learning (comments.json - {len(build_order)} steps):")
-                                if comments_matches:
-                                    for i, match in enumerate(comments_matches[:5]):
-                                        similarity = match.get('similarity', 0) * 100
-                                        comment = match.get('comment', 'Unknown')
-                                        logger.info(f"  {i+1}. {similarity:.0f}% - '{comment}'")
-                                else:
-                                    logger.info("  No matches found")
-                                
-                                # 2. ML Analysis (patterns.json)
-                                patterns_data = analyzer.load_patterns_data()
-                                patterns_matches = analyzer._match_build_against_patterns(
-                                    build_order, patterns_data, opponent_race, logger
-                                )
-                                if patterns_matches:
-                                    best = patterns_matches[0]
-                                    logger.info(f"Best match: '{best.get('comment', 'Unknown')}' at {best.get('similarity', 0):.2f} similarity")
-                                logger.info(f"ML Analysis (patterns.json - DB text extraction):")
-                                if patterns_matches:
-                                    for i, match in enumerate(patterns_matches[:5]):
-                                        similarity = match.get('similarity', 0) * 100
-                                        comment = match.get('comment', 'Unknown')
-                                        logger.info(f"  {i+1}. {similarity:.0f}% - '{comment}'")
-                                else:
-                                    logger.info("  No matches found")
-                                
-                                logger.info("=" * 50)
-                                    
-                        except Exception as e:
-                            logger.error(f"Pattern matching comparison error: {e}")
-                        
-                        # Trigger Display (Validation)
-                        # We need to call the legacy display method or reimplement it
-                        # Since pattern_learner is likely the TwitchBot instance (legacy), we can call it?
-                        # Or pattern_learner is the SC2PatternLearner instance?
-                        # In run_core.py: pattern_learner=getattr(twitch_bot_legacy, 'pattern_learner', None)
-                        # So it's the SC2PatternLearner instance.
-                        
-                        # The legacy code called `self._display_pattern_validation(game_data, logger)` on TwitchBot
-                        # which then used `get_ml_analyzer`.
-                        
-                        # We will try to use the pattern learner directly if possible, or ask BotCore to display
-                        logger.info(f"Pattern Learning: analyzing vs {opponent_name} ({opponent_race})")
-                        
-                        # Use the TwitchBot legacy instance to display if available (for now, to ensure compatibility)
-                        # We can access it via chat_services if we must, or just logging for now
-                        twitch_service = next((s for s in self.chat_services if s.get_platform_name() == 'twitch'), None)
-                        if twitch_service and hasattr(twitch_service, 'twitch_bot'):
-                             # This is the Legacy TwitchBot instance
-                             # It has the complex logic for display and context setting
-                             twitch_bot = twitch_service.twitch_bot
-                             if hasattr(twitch_bot, '_display_pattern_validation'):
-                                 # We need to inject last_replay_data if it's missing, as _prepare_game_data relies on it
-                                 # or passes it via game_data.
-                                 # The legacy method uses `game_data` passed to it, but also checks `self.last_replay_data`
-                                 # for some fallbacks. Ideally `game_data` has everything.
-                                 
-                                 # Invoke the legacy method to handle the complex UI/Chat interaction
-                                 twitch_bot._display_pattern_validation(game_data, logger)
-                                 logger.info("Invoked legacy pattern validation display.")
-                             else:
-                                 logger.warning("TwitchBot does not have _display_pattern_validation method.")
-                                 
-                                 # Fallback to simple prompt if method missing
-                                 prompt_msg = f"Game vs {opponent_name} ({opponent_race}) analyzed. Result: {result}. Type 'player comment <text>' to save notes."
-                                 await twitch_service.send_message("channel", prompt_msg)
-                        else:
-                             logger.warning("Could not find TwitchBot instance for pattern validation.")
+                        self._dispatch_retry_pattern_validation(
+                            game_data,
+                            logger,
+                            opponent_name=opponent_name,
+                            opponent_race=opponent_race,
+                            run_match_compare=True,
+                        )
 
                     except Exception as e:
                         logger.error(f"Pattern Learning Error: {e}")
@@ -837,7 +929,13 @@ Generate ONE short message only, no explanation."""
             logger.info(
                 f"Calling process_game_end with replay_data (skip_duplicate_check=True), replay_data type: {type(replay_data)}, has players: {bool(replay_data and 'players' in replay_data)}"
             )
-            await self.process_game_end(game_info, replay_data=replay_data, skip_duplicate_check=True)
+            await self.process_game_end(
+                game_info,
+                replay_data=replay_data,
+                skip_duplicate_check=True,
+                is_retry=True,
+                retry_ref=(-offset if offset > 0 else None),
+            )
             logger.info("Retry processing completed successfully")
             return True
         except Exception as e:
@@ -875,19 +973,20 @@ Generate ONE short message only, no explanation."""
                 "build_order": build_order,
                 "versus_name": versus_name,
                 "existing_comment": replay_info.get("existing_comment"),
+                # Align ReplayID retry UX with -N/default retry:
+                # always ask for one-line human label after showing inferred build/pattern.
+                "suppress_followup_prompt": False,
+                "force_followup_prompt": True,
+                "suppress_pattern_validation_line": False,
             }
 
-            twitch_service = next((s for s in self.chat_services if s.get_platform_name() == "twitch"), None)
-            if not twitch_service or not hasattr(twitch_service, "twitch_bot"):
-                logger.warning("No twitch service/twitch_bot available for replay-id retry")
-                return False
-
-            twitch_bot = twitch_service.twitch_bot
-            if not hasattr(twitch_bot, "_display_pattern_validation"):
-                logger.warning("twitch_bot does not support _display_pattern_validation")
-                return False
-
-            twitch_bot._display_pattern_validation(game_data, logger)
+            self._dispatch_retry_pattern_validation(
+                game_data,
+                logger,
+                opponent_name=opponent,
+                opponent_race=opponent_race,
+                run_match_compare=True,
+            )
             return True
         except Exception as e:
             logger.error(f"Error during replay-id retry: {e}", exc_info=True)
@@ -1466,11 +1565,13 @@ Generate ONE short message only, no explanation."""
                         break
                 
                 if twitch_bot:
-                    from api.chat_utils import send_prompt_to_openai
+                    from api.chat_utils import send_prompt_to_openai, sanitize_retry_replay_commentary
                     completion = await loop.run_in_executor(None, send_prompt_to_openai, concise_prompt)
                     
                     if completion and completion.choices and completion.choices[0].message:
                         ai_commentary = completion.choices[0].message.content.strip()
+                        if is_retry:
+                            ai_commentary = sanitize_retry_replay_commentary(ai_commentary)
                         for service in self.chat_services:
                             try:
                                 await service.send_message("channel", ai_commentary)
