@@ -520,6 +520,7 @@ Generate ONE short message only, no explanation."""
         # 5. Generate AI Commentary (concise one-sentence summary) - Skip if game too short or not 1v1
         is_1v1_game = game_info.total_players == 2
         retry_followup_in_commentary = False
+        sent_1v1_ai_replay_line = False
         if not is_too_short and not config.OPENAI_DISABLED and replay_data and is_1v1_game:
             try:
                 logger.debug("Generating AI replay analysis commentary...")
@@ -640,6 +641,7 @@ Generate ONE short message only, no explanation."""
                         for service in self.chat_services:
                             try:
                                 await service.send_message("channel", ai_commentary)
+                                sent_1v1_ai_replay_line = True
                                 safe_commentary = tokensArray.replace_non_ascii(ai_commentary[:100], replacement='?')
                                 logger.info(f"Sent AI commentary: {safe_commentary}")
                             except Exception as e:
@@ -654,7 +656,13 @@ Generate ONE short message only, no explanation."""
         # 6a. Strategy Summary for ALL game types (1v1, 2v2, 3v3, etc.)
         # Skip on retry to avoid duplicate "pattern-like" extra line; retry already runs validation prompt flow below.
         # Loops through each player and checks for pattern matches
-        if not is_retry and not is_too_short and replay_data and 'players' in replay_data:
+        if (
+            not is_retry
+            and not is_too_short
+            and replay_data
+            and "players" in replay_data
+            and not (is_1v1_game and sent_1v1_ai_replay_line)
+        ):
             try:
                 from api.ml_opponent_analyzer import get_ml_analyzer
                 from core.strategy_summary_service import get_game_summary
@@ -1407,6 +1415,7 @@ Generate ONE short message only, no explanation."""
     
     async def _process_with_replay_data_UNUSED(self, game_info: GameInfo, replay_data: dict):
         """Process game end with already-parsed replay data (skips replay file parsing)"""
+        is_retry = False
         game_duration_seconds = game_info.displayTime
         is_too_short = game_duration_seconds < 60
         

@@ -251,6 +251,7 @@ def game_started(self, current_game, contextHistory, logger):
                                     first_few_build_steps=first_few_build_steps,
                                     opponent_lookup_hints=_opp_lookup_tuple,
                                     random_race_intel=random_race_intel,
+                                    inline_saved_notes_in_last_meeting=True,
                                 )
                             else:
                                 # Resolve canonical ladder id (DB SC2_UserId) before records / build / comments.
@@ -344,6 +345,7 @@ def game_started(self, current_game, contextHistory, logger):
                                     player_comments=player_comments,
                                     first_few_build_steps=first_few_build_steps,
                                     opponent_lookup_hints=_opp_lookup_tuple,
+                                    inline_saved_notes_in_last_meeting=True,
                                 )
                             current_map = getattr(current_game, "map", "Unknown")
                             set_pregame_matchup_blurb(
@@ -389,6 +391,25 @@ def game_started(self, current_game, contextHistory, logger):
                                 logger.debug(f"Learning-data history check skipped: {ex}")
 
                             has_db_records = bool(raw_records_o)
+                            min_h2h = int(getattr(config, "MIN_HEAD_TO_HEAD_GAMES_TO_SHOW_RECORD", 2))
+                            h2h_total = (
+                                (record_vs_o[0] + record_vs_o[1])
+                                if record_vs_o is not None
+                                else None
+                            )
+                            logger.info(
+                                "[pregame] no DB row for opponent name+race "
+                                "(check_player_and_race_exists returned None): "
+                                "opponent=%s race=%s has_db_records=%s has_learning_history=%s "
+                                "record_vs_o=%s h2h_total=%s min_h2h=%s",
+                                player_name,
+                                player_current_race,
+                                has_db_records,
+                                has_learning_history,
+                                record_vs_o,
+                                h2h_total,
+                                min_h2h,
+                            )
                             if has_learning_history or has_db_records:
                                 set_pregame_matchup_blurb(
                                     self,
@@ -406,7 +427,6 @@ def game_started(self, current_game, contextHistory, logger):
                                         f"{glhf_phrase} vs {player_name} ({player_current_race}).",
                                         logger,
                                     )
-                                min_h2h = int(getattr(config, "MIN_HEAD_TO_HEAD_GAMES_TO_SHOW_RECORD", 2))
                                 if (
                                     record_vs_o is not None
                                     and (record_vs_o[0] + record_vs_o[1]) >= min_h2h
@@ -416,6 +436,24 @@ def game_started(self, current_game, contextHistory, logger):
                                         self,
                                         f"{config.STREAMER_NICKNAME}'s record vs {player_name}: {yw}-{yl}.",
                                         logger,
+                                    )
+                                    logger.info(
+                                        "[pregame] sent head-to-head record line vs %s (%s-%s)",
+                                        player_name,
+                                        yw,
+                                        yl,
+                                    )
+                                elif record_vs_o is None:
+                                    logger.info(
+                                        "[pregame] skipped head-to-head line (no record_vs_o) vs %s",
+                                        player_name,
+                                    )
+                                else:
+                                    logger.info(
+                                        "[pregame] skipped head-to-head line (games=%s < min_h2h=%s) vs %s",
+                                        (record_vs_o[0] + record_vs_o[1]),
+                                        min_h2h,
+                                        player_name,
                                     )
                             else:
                                 set_pregame_matchup_blurb(
@@ -430,6 +468,11 @@ def game_started(self, current_game, contextHistory, logger):
                                 msg = "Restate this without missing any details: \n "
                                 msg += f"I think this is the first time {config.STREAMER_NICKNAME} is playing {player_name}, at least the {player_current_race} of {player_name}"
                                 logger.debug(msg)
+                                logger.info(
+                                    "[pregame] unknown opponent path: calling OpenAI in_game "
+                                    "(first-time ladder line) vs %s",
+                                    player_name,
+                                )
                                 processMessageForOpenAI(self, msg, "in_game", logger, contextHistory)
                         break  # avoid processingMessageForOpenAI again below
         

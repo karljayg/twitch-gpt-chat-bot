@@ -285,6 +285,8 @@ SC2_STRATEGIC_ITEMS = {
 |   Logging Settings
 """
 LOG_FILE = "logs/bot.log"  # log file location
+LOG_AI_PROMPTS_INFO = False
+LOG_AI_PROMPTS_MAX_CHARS = 12000
 
 """
 |   Mood / Perspective Settings

@@ -41,8 +41,9 @@ class PreGameBrief:
     first_few_build_steps: Optional[List[str]]
     # SC2 / DB spellings for head-to-head lookup (e.g. ladder name + alias); empty → display name only
     opponent_lookup_hints: Tuple[str, ...] = field(default_factory=tuple)
-    # Rare: fold saved notes into one LLM user message (tests / special callers). Preview/review uses False:
-    # expert Player_Comments: direct chat uses name — body; bundled preview wraps body for LLM (casual framing).
+    # When True: expert Player_Comments are folded into the last_time_played LLM user message (one chat line).
+    # When False: saved notes may be sent to chat first, then the LLM line (legacy split).
+    # Game start and please review/preview both use True so facts are gathered before one GenAI summary.
     inline_saved_notes_in_last_meeting: bool = False
     # Ladder Random: separate DB rows per Terran/Zerg/Protoss (replay race is never "Random")
     random_race_intel: Tuple[

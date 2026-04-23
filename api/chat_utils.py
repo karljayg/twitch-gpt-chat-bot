@@ -67,6 +67,12 @@ LAST_TIME_PLAYED_SYSTEM_SUFFIX = (
 
 def send_prompt_to_openai_system_user(system_text: str, user_text: str):
     """Chat completion with instructions in system role so they are not echoed like user content."""
+    import logging
+
+    log = logging.getLogger(__name__)
+    _log_ai_extra(log, "OpenAI system (last_time_played)", system_text)
+    _log_ai_extra(log, "OpenAI user (last_time_played)", user_text)
+
     kwargs = {}
     lt_temp = getattr(config, "LAST_TIME_PLAYED_TEMPERATURE", None)
     if lt_temp is not None:
@@ -651,6 +657,33 @@ def clean_text_for_logging(text):
     except:
         # Fallback: remove non-ASCII characters
         return ''.join(char if ord(char) < 128 else '?' for char in text)
+
+
+def _ai_prompt_log_max_chars():
+    try:
+        n = int(getattr(config, "LOG_AI_PROMPTS_MAX_CHARS", 12000))
+    except (TypeError, ValueError):
+        n = 12000
+    return max(500, n)
+
+
+def _truncate_for_log(text: str, max_chars: int) -> str:
+    if text is None:
+        return ""
+    if max_chars <= 0 or len(text) <= max_chars:
+        return text
+    return text[:max_chars] + f"\n... [truncated, {len(text)} chars total]"
+
+
+def _log_ai_extra(logger, label: str, text: str):
+    """Duplicate selected AI diagnostics at INFO when LOG_AI_PROMPTS_INFO is enabled."""
+    if not getattr(config, "LOG_AI_PROMPTS_INFO", False):
+        return
+    if not logger:
+        return
+    safe = clean_text_for_logging(_truncate_for_log(text or "", _ai_prompt_log_max_chars()))
+    logger.info("[ai] %s: %s", label, safe)
+
 
 # Conditional audio imports
 try:
@@ -1603,6 +1636,11 @@ def send_prompt_to_openai(msg):
     :param msg: The message to send to OpenAI as a prompt.
     :return: The response from OpenAI.
     """
+    import logging
+
+    log = logging.getLogger(__name__)
+    _log_ai_extra(log, "OpenAI user-only prompt", msg)
+
     # Check which API version is available by testing if OpenAI class exists
     if hasattr(openai, 'OpenAI'):
         # New API (openai >= 1.0.0)
@@ -1708,6 +1746,7 @@ def process_ai_message(user_message, conversation_mode="normal", contextHistory=
         "----------------------------------------NEW MESSAGE FOR OPENAI-----------------------------------------")
     logger.debug(
         'msg omitted in log, to see it, look in: "sent to OpenAI"')
+    _log_ai_extra(logger, f"incoming user_message ({conversation_mode})", user_message)
 
     # remove quotes (last_time_played carries verbatim expert phrases — stripping breaks wording)
     if conversation_mode != "last_time_played":
@@ -1832,6 +1871,8 @@ def process_ai_message(user_message, conversation_mode="normal", contextHistory=
 
     logger.debug("CONVERSATION MODE: " + conversation_mode)
     logger.debug("sent to OpenAI: %s", clean_text_for_logging(msg))
+    if conversation_mode != "last_time_played":
+        _log_ai_extra(logger, f"final prompt to OpenAI ({conversation_mode})", msg)
 
     if conversation_mode == "last_time_played":
         system_msg = LAST_TIME_PLAYED_INSTRUCTIONS + "\n\n" + LAST_TIME_PLAYED_SYSTEM_SUFFIX
@@ -1844,6 +1885,7 @@ def process_ai_message(user_message, conversation_mode="normal", contextHistory=
             logger.debug(
                 "completion.choices[0].message.content: " + completion.choices[0].message.content)
             response = completion.choices[0].message.content
+            _log_ai_extra(logger, f"OpenAI raw reply ({conversation_mode})", response)
 
             # add emote
             if random.choice([True, False]):

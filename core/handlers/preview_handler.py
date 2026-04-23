@@ -162,7 +162,7 @@ class PreviewHandler(ICommandHandler):
 
                 # Run in executor since it's synchronous
                 # Preview/review: bundle expert notes + pattern + build + last-meeting in ONE GenAI user message.
-                # Saved line must be copied verbatim (see pregame_intel); live game start still uses inline=False.
+                # Saved line must be copied verbatim (see pregame_intel); game start uses the same bundling.
                 success = await loop.run_in_executor(
                     None,
                     lambda: self.opponent_analysis_service.analyze_opponent(
