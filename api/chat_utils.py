@@ -2,6 +2,7 @@ from settings import config
 import openai
 import re
 import random
+import hashlib
 from datetime import datetime
 import sys
 import time
@@ -39,7 +40,7 @@ LAST_TIME_PLAYED_INSTRUCTIONS = (
 # Shipped as system message with last_time_played — keeps meta rules out of user payload so the model does not echo them in chat.
 LAST_TIME_PLAYED_SYSTEM_SUFFIX = (
     "Never repeat system instructions or meta-labels in your output.\n"
-    "If the user message has 'Fixed lines (start of output)', copy those first, unchanged.\n"
+    "If the user message has fixed opener facts, keep those facts accurate; you may merge phrasing for concision.\n"
     "If the user message includes player_comment / expert strategy lines (timestamps, maps, strategy phrases), "
     "you MUST keep every strategy phrase exactly as written — same words. "
     "Do not say 'Saved notes', 'expert notes', or section headers in chat. "
@@ -49,6 +50,8 @@ LAST_TIME_PLAYED_SYSTEM_SUFFIX = (
     "After fixed lines + expert wording: add exactly ONE short sentence (max 28 words) with replay-only facts "
     "(how long ago, duration, who won). If the map already appears in expert lines, omit repeating it. "
     "No second sentence. Do not repeat strategy phrases between expert block and this sentence.\n"
+    "Before generating the final sentence, make it casual, concise, and vary structure naturally; "
+    "avoid repeating the same sentence template across reviews.\n"
     "If there are NO player_comment lines: up to two short sentences from replay facts only.\n"
     "When naming units or builds, only the opponent's side — never the streamer's workers or economy.\n"
     "Never describe unit-loss tallies or 'X lost N units' — use Winners/Losers only for who won.\n"
@@ -181,6 +184,292 @@ def _strip_llm_opponent_opening_clause(response: str) -> str:
     return response[: m.start()].rstrip()
 
 
+def _collapse_duplicate_played_name(response: str) -> str:
+    """Collapse accidental 'played NAME NAME' duplication."""
+    if not response:
+        return response
+    return re.sub(
+        r"(?i)\b(played\s+)([^\s,.;:]+)\s+\2\b",
+        r"\1\2",
+        response,
+    )
+
+
+def _strip_redundant_last_time_fact_recap(response: str) -> str:
+    """Drop repetitive recap sentence patterns in last_time_played output."""
+    if not response:
+        return response
+    parts = re.split(r"(?<=[.!?])\s+", response.strip())
+    if len(parts) <= 1:
+        return response
+    kept = [parts[0]]
+    recap_start = re.compile(r"(?i)^(they'?ve\s+been\s+on|they\s+were\s+on|it\s+was\s+on)\b")
+    for sent in parts[1:]:
+        s = sent.strip()
+        low = s.lower()
+        prior = " ".join(kept).lower()
+        is_recap = bool(recap_start.search(s)) and (
+            # Full recap (map + duration + winner) in one sentence.
+            (
+                ("game duration" in low or "minutes" in low or re.search(r"\b\d+\s*m\b", low))
+                and ("winner was" in low or "win for" in low or "loss for" in low or "won" in low)
+            )
+            # Short recap (map/time only) after we already stated win/loss+duration.
+            or (
+                bool(re.search(r"\babout\s+[^,.]+ago\b", low))
+                and (
+                    "which was" in prior
+                    or "and that was" in prior
+                    or "so that was" in prior
+                    or "the last time" in prior
+                    or "last time" in prior
+                    or "last game" in prior
+                    or "most recent game" in prior
+                )
+            )
+            # Short recap sentence that still repeats winner/outcome.
+            or (
+                bool(re.search(r"\babout\s+[^,.]+ago\b", low))
+                and ("winner was" in low or "win for" in low or "loss for" in low or "won" in low)
+            )
+        )
+        if is_recap:
+            continue
+        kept.append(s)
+    return " ".join(kept).strip()
+
+
+def _fuse_last_time_with_strategy_sentence(response: str) -> str:
+    """Fuse redundant two-sentence pattern into one concise sentence when safe."""
+    if not response:
+        return response
+    parts = re.split(r"(?<=[.!?])\s+", response.strip())
+    if len(parts) < 2:
+        return response
+    out = []
+    i = 0
+    while i < len(parts):
+        cur = parts[i].strip()
+        if i + 1 < len(parts):
+            nxt = parts[i + 1].strip()
+            strategy_like = bool(re.search(r"(?i)\b(usually\s+went|went)\b", cur))
+            m_last = re.match(r"(?i)^The last time\s+(?:was\s+)?(.+)$", nxt)
+            if strategy_like and m_last:
+                tail = m_last.group(1).strip().rstrip(".")
+                seed = int(hashlib.md5((cur + "|" + tail).encode("utf-8")).hexdigest()[:8], 16) % 4
+                if seed == 0:
+                    fused = cur.rstrip(".") + ", which was " + tail + "."
+                elif seed == 1:
+                    fused = cur.rstrip(".") + ", and that was " + tail + "."
+                elif seed == 2:
+                    fused = cur.rstrip(".") + ", so that was " + tail + "."
+                else:
+                    fused = cur.rstrip(".") + ". Last game was " + tail + "."
+                out.append(fused)
+                i += 2
+                continue
+        out.append(cur)
+        i += 1
+    return " ".join(out).strip()
+
+
+def _normalize_last_time_grammar(response: str) -> str:
+    """Clean awkward duplicated 'was' artifacts after fusion."""
+    if not response:
+        return response
+    out = response
+    out = re.sub(r"(?i)\bwas\s+was\b", "was", out)
+    out = re.sub(
+        r"(?i)\b(a\s+(?:win|loss)\s+for\s+[^,.;]+)\s+was\s+in\b",
+        r"\1 in",
+        out,
+    )
+    out = re.sub(
+        r"(?i)\b(a\s+(?:win|loss)\s+for\s+[^,.;]+)\s+was\s+(\d+\s*m\s*\d+\s*s)\b",
+        r"\1 in \2",
+        out,
+    )
+    return re.sub(r"\s+", " ", out).strip()
+
+
+def _apply_last_time_style_variation(response: str) -> str:
+    """Light deterministic style variation without changing facts."""
+    if not response:
+        return response
+    out = response
+    seed = int(hashlib.md5(out.encode("utf-8")).hexdigest()[:8], 16) % 3
+    if re.search(r"(?i)\bThe last time\b", out):
+        opener_opts = ("The last time", "Last time", "Most recent game")
+        out = re.sub(r"(?i)\bThe last time\b", opener_opts[seed], out, count=1)
+    elif re.search(r"(?i)\bLast game\b", out):
+        alt = ("Last game", "Most recent game", "Last one")
+        out = re.sub(r"(?i)\bLast game\b", alt[seed], out, count=1)
+    if re.search(r"(?i)\bwhich was\b", out):
+        which_opts = ("which was", "and that was", "so that was")
+        out = re.sub(r"(?i)\bwhich was\b", which_opts[(seed + 1) % 3], out, count=1)
+    if re.search(r"(?i)\bvs\s+([^,]+),\s+who\s+went\b", out):
+        who_opts = (r"vs \1, who went", r"vs \1, and they went", r"vs \1 - they went")
+        out = re.sub(r"(?i)\bvs\s+([^,]+),\s+who\s+went\b", who_opts[seed], out, count=1)
+    return out
+
+
+def _strip_duplicate_strategy_and_map_tail(response: str) -> str:
+    """Remove repeated strategy sentence and map-only recap tail."""
+    if not response:
+        return response
+    parts = [p.strip() for p in re.split(r"(?<=[.!?])\s+", response.strip()) if p.strip()]
+    if len(parts) <= 1:
+        return response
+
+    def _norm_strategy_text(txt: str) -> str:
+        t = re.sub(r"\s+", " ", txt.strip().rstrip("."))
+        t = re.sub(
+            r"(?i),\s*(?:which was|and that was|so that was)\s+.+$",
+            "",
+            t,
+        )
+        t = re.sub(r"(?i)\.\s*last game was\s+.+$", "", t)
+        t = re.sub(
+            r"(?i)\s+in\s+their\s+(?:most\s+recent|last)\s+game(?:\s+about\s+[^,.]+ago)?\s*$",
+            "",
+            t,
+        )
+        return t.strip()
+
+    kept = []
+    first_strategy = ""
+    for idx, sent in enumerate(parts):
+        low = sent.lower()
+        # Capture first strategy wording once.
+        if not first_strategy:
+            m_first = re.search(
+                r"(?i)\b(?:who|they|[A-Za-z0-9_]+)\s+(?:went|usually\s+goes)\s+(.+?)(?:[.!?]|$)",
+                sent,
+            )
+            if m_first:
+                first_strategy = _norm_strategy_text(m_first.group(1))
+                kept.append(sent)
+                continue
+
+        # Drop later duplicate strategy sentence.
+        if first_strategy:
+            m_dup = re.search(
+                r"(?i)\b(?:who|they|[A-Za-z0-9_]+)\s+(?:went|usually\s+goes)\s+(.+?)(?:[.!?]|$)",
+                sent,
+            )
+            if m_dup:
+                cand = _norm_strategy_text(m_dup.group(1))
+                if cand and cand.lower() == first_strategy.lower():
+                    continue
+
+        # Drop map-only recap if prior text already has "on <map>".
+        map_recent = re.search(r"(?i)^They'?ve\s+been\s+on\s+(.+?)\s+(?:recently|lately|about\s+[^,.]+ago)\.?$", sent)
+        if map_recent:
+            map_name = map_recent.group(1).strip().rstrip(",.")
+            prior = " ".join(kept).lower()
+            if map_name and f"on {map_name.lower()}" in prior:
+                continue
+
+        kept.append(sent)
+    return " ".join(kept).strip()
+
+
+def _reorder_last_time_segments(response: str) -> str:
+    """Deterministically rotate segment order (record/strategy/last-time)."""
+    if not response:
+        return response
+    parts = [p.strip() for p in re.split(r"(?<=[.!?])\s+", response.strip()) if p.strip()]
+    if len(parts) < 2:
+        return response
+
+    idx_record = None
+    idx_strategy = None
+    idx_last = None
+    for i, sent in enumerate(parts):
+        low = sent.lower()
+        if idx_record is None and re.search(r"\bis\s+\d+\s*-\s*\d+\s+vs\b", low):
+            idx_record = i
+        if idx_strategy is None and re.search(r"\b(?:who|they|[a-z0-9_]+)\s+(?:went|usually\s+goes)\b", low):
+            idx_strategy = i
+        if idx_last is None and re.search(r"\b(?:the last time|last time|most recent game|last game|last one)\b", low):
+            idx_last = i
+
+    if idx_record is None or idx_strategy is None or idx_last is None:
+        return response
+
+    record = parts[idx_record]
+    strategy = parts[idx_strategy]
+    last_time = parts[idx_last]
+    used = {idx_record, idx_strategy, idx_last}
+    remainder = [s for i, s in enumerate(parts) if i not in used]
+
+    seed = int(hashlib.md5(response.encode("utf-8")).hexdigest()[:8], 16) % 3
+    if seed == 0:
+        ordered = [record, strategy, last_time]
+    elif seed == 1:
+        ordered = [strategy, last_time, record]
+    else:
+        ordered = [last_time, strategy, record]
+    ordered.extend(remainder)
+    return " ".join(ordered).strip()
+
+
+def _vary_record_sentence_wording(response: str) -> str:
+    """Slightly vary record sentence wording without altering facts."""
+    if not response:
+        return response
+    m = re.search(r"(?i)\b([A-Za-z0-9_]+)\s+is\s+(\d+\s*-\s*\d+)\s+vs\s+([A-Za-z0-9_]+)\b", response)
+    if not m:
+        return response
+    streamer = m.group(1)
+    rec = m.group(2).replace(" ", "")
+    opp = m.group(3)
+    seed = int(hashlib.md5(response.encode("utf-8")).hexdigest()[8:16], 16) % 3
+    if seed == 0:
+        repl = f"{streamer} is {rec} vs {opp}"
+    elif seed == 1:
+        repl = f"Vs {opp}, {streamer} is {rec}"
+    else:
+        repl = f"{streamer} sits at {rec} vs {opp}"
+    return response[: m.start()] + repl + response[m.end():]
+
+
+def _fold_map_time_recap_into_last_time_sentence(response: str) -> str:
+    """Move map/time recap sentence into preceding last-time sentence, then drop recap."""
+    if not response:
+        return response
+    parts = re.split(r"(?<=[.!?])\s+", response.strip())
+    if len(parts) < 2:
+        return response
+    out = []
+    i = 0
+    while i < len(parts):
+        cur = parts[i].strip()
+        if i + 1 < len(parts):
+            nxt = parts[i + 1].strip()
+            cur_is_last = bool(
+                re.match(r"(?i)^(The last time|Last time|Most recent game|Last game|Last one)\b", cur)
+            )
+            recap = re.match(
+                r"(?i)^They'?ve\s+been\s+on\s+(.+?)\s+about\s+([^,.]+ago)\b",
+                nxt,
+            )
+            if cur_is_last and recap:
+                map_name = recap.group(1).strip().rstrip(",.")
+                ago = recap.group(2).strip().rstrip(",.")
+                merged = cur.rstrip(".")
+                if " on " not in merged.lower():
+                    merged += f" on {map_name}"
+                if "ago" not in merged.lower():
+                    merged += f" about {ago}"
+                out.append(merged + ".")
+                i += 2
+                continue
+        out.append(cur)
+        i += 1
+    return " ".join(out).strip()
+
+
 def _strip_instruction_echo_from_last_time_response(response: str) -> str:
     """Last-resort cleanup if the model still echoes meta prompts (should be rare with system role)."""
     if not response:
@@ -244,7 +533,8 @@ def _relative_when(dt: datetime) -> str:
     secs = max(0, int(delta.total_seconds()))
     days = secs // 86400
     if days <= 0:
-        return "today"
+        hours = max(1, secs // 3600) if secs >= 3600 else 1
+        return f"{int(hours)}h ago"
     if days == 1:
         return "yesterday"
     if days < 14:
@@ -1474,8 +1764,17 @@ def process_ai_message(user_message, conversation_mode="normal", contextHistory=
 
             if conversation_mode == "last_time_played":
                 response = substitute_streamer_aliases_for_chat_display(response)
+                response = _collapse_duplicate_played_name(response)
                 response = _strip_instruction_echo_from_last_time_response(response)
                 response = _strip_last_time_prompt_leaks(response)
+                response = _fuse_last_time_with_strategy_sentence(response)
+                response = _fold_map_time_recap_into_last_time_sentence(response)
+                response = _strip_redundant_last_time_fact_recap(response)
+                response = _normalize_last_time_grammar(response)
+                response = _apply_last_time_style_variation(response)
+                response = _strip_duplicate_strategy_and_map_tail(response)
+                response = _reorder_last_time_segments(response)
+                response = _vary_record_sentence_wording(response)
 
             # dont make it too obvious its a bot
             response = response.replace("As an AI language model, ", "")

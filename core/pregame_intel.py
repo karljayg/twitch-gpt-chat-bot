@@ -310,16 +310,16 @@ def deterministic_opponent_opening_suffix(brief: PreGameBrief) -> str:
     return ""
 
 
-def _extract_map_display_from_summary(summary: str) -> str:
+def _extract_map_display_from_summary(summary: str, fallback_map: str = "") -> str:
     if not summary:
-        return "the map named in the excerpt below"
+        return str(fallback_map or "").strip()
     m_map = re.search(
         r"(?i)\bMap:\s*([^\n]+?)(?:\s*(?:Region:|Timestamp:|Winners:)|\n|\Z)",
         summary,
     )
     if m_map:
         return m_map.group(1).strip()
-    return "the map named in the excerpt below"
+    return str(fallback_map or "").strip()
 
 
 def _extract_duration_display_from_summary(summary: str) -> str:
@@ -376,6 +376,7 @@ def compose_last_meeting_user_message(
     brief: PreGameBrief,
     *,
     bundled_saved_notes: bool = False,
+    saved_notes_text: str = "",
 ) -> str:
     """OpenAI user message for last meeting line (last_time_played mode).
 
@@ -447,23 +448,33 @@ def compose_last_meeting_user_message(
         )
     sn = config.STREAMER_NICKNAME
     if brief.today_streamer_race == "Random":
-        msg += (
-            f"Even though {sn} is Random, the last time they played the {brief.today_opponent_race} player "
-        )
+        msg += f"Even though {sn} is Random, the last time "
     elif random_opp:
-        msg += (
-            f"The last time {sn} played {brief.opponent_display_name} (who was {archive_opp_race} in that archive) "
-        )
+        msg += f"The last time (vs {brief.opponent_display_name}, archive race {archive_opp_race}) "
     else:
-        msg += (
-            f"The last time {sn} played the {brief.today_opponent_race} player "
-        )
-    map_disp = _extract_map_display_from_summary(replay_snip)
+        msg += "The last time "
+    map_disp = _extract_map_display_from_summary(
+        replay_snip, fallback_map=str(brief.db_result.get("Map", "") or "")
+    )
     dur_disp = _extract_duration_display_from_summary(replay_snip)
     outcome_disp = _streamer_outcome_display_phrase(replay_snip)
+    notes_blob = str(saved_notes_text or "")
+    notes_has_time = bool(notes_blob and re.search(r"\bago\b|~\d+\s*[hmwd]\b", notes_blob, re.I))
+    notes_has_map = bool(map_disp and notes_blob and map_disp.lower() in notes_blob.lower())
+    include_time = not (bundled_saved_notes and notes_has_time)
+    include_map = bool(map_disp) and not (bundled_saved_notes and notes_has_map)
+    detail_parts: List[str] = []
+    if include_map:
+        detail_parts.append(f"on {map_disp}")
+    if include_time:
+        detail_parts.append(f"about {brief.how_long_ago}")
+    detail_clause = " ".join(detail_parts).strip()
+    if detail_clause:
+        last_meeting_fact_clause = f"was {detail_clause}, {outcome_disp} in {dur_disp}."
+    else:
+        last_meeting_fact_clause = f"{outcome_disp} in {dur_disp}."
     msg += (
-        f"{brief.opponent_display_name} was {brief.how_long_ago} on map {map_disp}, "
-        f"{outcome_disp} in {dur_disp}. "
+        f"{last_meeting_fact_clause} "
         f"(These values are filled from the archive — use them in chat as plain words, never brace placeholders.)\n"
     )
     if inline:
@@ -472,8 +483,14 @@ def compose_last_meeting_user_message(
                 "After fixed lines and your casual expert-strategy wording (verbatim DB phrases): add exactly ONE sentence "
                 "(max 28 words). Facts only: roughly how long ago, game duration, who won. "
                 "If expert lines already include the map name, omit the map here (say it once total). "
-                "Do not add a second sentence. "
+                "If expert lines already include relative time, omit it here (say it once total). "
+                "If winner/duration/map/time are already covered by fixed lines + expert lines, do not add another fact sentence. "
+                "Add at most ONE short sentence only when a core fact is still missing. "
                 "Do not repeat unit names, build shorthand, or strategy wording already stated in expert lines.\n"
+                "Do not repeat the opponent name back-to-back; use 'they' after first mention.\n"
+                "One-shot style example:\n"
+                "'KJ is 1-0 vs Chiewy, who went cannon to proxy gateway robo immortal. "
+                "The last time was a win for KJ in 5m 50s on Celestial Enclave LE about 10 hours ago.'\n"
                 f"Do not describe {sn}'s build or '{sn} trained'.\n"
                 "Avoid 'Players:', timestamps, comma-chained archive dumps from the excerpt.\n"
                 "Do not repeat the head-to-head opener lines. Write plain sentences — do not mention meta rules about naming.\n"
@@ -852,6 +869,7 @@ def run_known_opponent_pregame(
     lm = compose_last_meeting_user_message(
         brief,
         bundled_saved_notes=bool(deferred_notes_text),
+        saved_notes_text=deferred_notes_text,
     )
     if deferred_notes_text:
         lm = f"{deferred_notes_text}\n\n" + lm
@@ -890,9 +908,22 @@ def run_known_opponent_pregame(
 
     had_matchup_openers = bool(opener_lines)
     if opener_lines:
+        profile_key = (
+            f"{brief.opponent_display_name}|{brief.how_long_ago}|"
+            f"{brief.db_result.get('Map', '')}|{brief.db_result.get('Date_Played', '')}"
+        )
+        profile_idx = sum(ord(ch) for ch in profile_key) % 3
+        order_profiles = (
+            "record/tidbit first, then strategy, then last-time facts",
+            "strategy first, then last-time facts, then record/tidbit",
+            "last-time facts first, then strategy, then record/tidbit",
+        )
         lm = (
-            "Fixed lines (start of output) — copy these first, each on its own line, unchanged:\n"
-            + "\n".join(opener_lines)
+            "Required opener facts (include each exactly once; order can vary): keep these facts exact, "
+            "but you may merge them into concise casual wording with natural connectors "
+            "(e.g., 'who', 'which was') when it reduces redundancy.\n"
+            f"Order profile for this message: {order_profiles[profile_idx]}.\n"
+            + "\n".join(f"- {ln}" for ln in opener_lines)
             + "\n\n"
         ) + lm
 

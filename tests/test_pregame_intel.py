@@ -191,6 +191,130 @@ class TestComposeLastMeeting(unittest.TestCase):
         self.assertIn("Echo LE", msg)
         self.assertIn("win for", msg.lower())
         self.assertNotIn("wingingIt", msg)
+        self.assertNotIn("played the Zerg player Bob", msg)
+
+    def test_uses_db_map_when_summary_map_missing(self):
+        summ = (
+            "Players: X vs Y Winners: Streamer Losers: Bob\n"
+            "Game Duration: 5m 50s\n"
+        )
+        brief = PreGameBrief(
+            opponent_display_name="Bob",
+            opponent_race="Protoss",
+            streamer_current_race="Terran",
+            streamer_race_compare="Terran",
+            today_streamer_race="Terran",
+            today_opponent_race="Protoss",
+            db_result=_minimal_db_row(Replay_Summary=summ, Map="Celestial Enclave LE"),
+            how_long_ago="10 hours ago",
+            record_vs=(1, 0),
+            player_comments=[],
+            first_few_build_steps=None,
+        )
+        msg = compose_last_meeting_user_message(brief)
+        self.assertIn("on Celestial Enclave LE", msg)
+        self.assertNotIn("on map", msg)
+
+    def test_never_emits_map_placeholder_fallback(self):
+        summ = "Winners: Streamer Losers: Bob\nGame Duration: 5m 50s\n"
+        brief = PreGameBrief(
+            opponent_display_name="Bob",
+            opponent_race="Protoss",
+            streamer_current_race="Terran",
+            streamer_race_compare="Terran",
+            today_streamer_race="Terran",
+            today_opponent_race="Protoss",
+            db_result=_minimal_db_row(Replay_Summary=summ, Map=""),
+            how_long_ago="10 hours ago",
+            record_vs=(1, 0),
+            player_comments=[],
+            first_few_build_steps=None,
+        )
+        msg = compose_last_meeting_user_message(brief)
+        self.assertNotIn("the map named in the excerpt below", msg)
+
+    def test_bundled_notes_omit_duplicate_time_and_map(self):
+        summ = "Winners: Streamer Losers: Bob\nGame Duration: 5m 50s\n"
+        brief = PreGameBrief(
+            opponent_display_name="Chiewy",
+            opponent_race="Protoss",
+            streamer_current_race="Terran",
+            streamer_race_compare="Terran",
+            today_streamer_race="Terran",
+            today_opponent_race="Protoss",
+            db_result=_minimal_db_row(Replay_Summary=summ, Map="Celestial Enclave LE"),
+            how_long_ago="10 hours ago",
+            record_vs=(1, 0),
+            player_comments=[],
+            first_few_build_steps=None,
+            inline_saved_notes_in_last_meeting=True,
+        )
+        msg = compose_last_meeting_user_message(
+            brief,
+            bundled_saved_notes=True,
+            saved_notes_text="Chiewy went cannon (~10h ago, Celestial Enclave LE)",
+        )
+        fixed_line = msg.split("(These values are filled from the archive", 1)[0]
+        self.assertIn("The last time", msg)
+        self.assertNotIn("Chiewy Chiewy", msg)
+        self.assertNotIn("about 10 hours ago", fixed_line)
+        self.assertNotIn("on Celestial Enclave LE", fixed_line)
+        self.assertIn("in 5m 50s", msg)
+        self.assertNotIn("was,", msg)
+
+    def test_bundled_notes_instructions_include_one_shot_and_at_most_one_sentence(self):
+        summ = "Winners: Streamer Losers: Bob\nGame Duration: 5m 50s\n"
+        brief = PreGameBrief(
+            opponent_display_name="Chiewy",
+            opponent_race="Protoss",
+            streamer_current_race="Terran",
+            streamer_race_compare="Terran",
+            today_streamer_race="Terran",
+            today_opponent_race="Protoss",
+            db_result=_minimal_db_row(Replay_Summary=summ, Map="Celestial Enclave LE"),
+            how_long_ago="10 hours ago",
+            record_vs=(1, 0),
+            player_comments=[],
+            first_few_build_steps=None,
+            inline_saved_notes_in_last_meeting=True,
+        )
+        msg = compose_last_meeting_user_message(
+            brief,
+            bundled_saved_notes=True,
+            saved_notes_text="Chiewy went cannon (~10h ago, Celestial Enclave LE)",
+        )
+        self.assertIn("Add at most ONE short sentence", msg)
+        self.assertIn("One-shot style example", msg)
+        self.assertIn("The last time was a win for KJ in 5m 50s", msg)
+
+    def test_run_known_opener_includes_order_profile_guidance(self):
+        bot = MagicMock()
+        bot.db = object()
+        log = MagicMock()
+        ctx = []
+        brief = PreGameBrief(
+            opponent_display_name="Link",
+            opponent_race="Zerg",
+            streamer_current_race="Terran",
+            streamer_race_compare="Terran",
+            today_streamer_race="Terran",
+            today_opponent_race="Zerg",
+            db_result=_minimal_db_row(Map="White Rabbit LE", Date_Played="2026-04-20 10:00:00"),
+            how_long_ago="12 hours ago",
+            record_vs=(17, 16),
+            player_comments=[],
+            first_few_build_steps=["Pool at 0:20"],
+            inline_saved_notes_in_last_meeting=True,
+        )
+        with patch("core.pregame_intel.processMessageForOpenAI") as oai, \
+             patch("core.pregame_intel.get_ml_analyzer") as gma, \
+             patch("core.pregame_intel.msgToChannel"):
+            gma.return_value = _ml_analyzer_mock(chat_returns=False, analysis_data=None)
+            run_known_opponent_pregame(bot, brief, log, ctx, "MapX")
+        prompt = oai.call_args[0][1]
+        self.assertIn("Required opener facts (include each exactly once; order can vary)", prompt)
+        self.assertIn("Order profile for this message:", prompt)
+        self.assertIn("- ", prompt)
 
 
 class TestFormatRecordLine(unittest.TestCase):

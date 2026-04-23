@@ -232,7 +232,7 @@ class OpponentAnalysisService:
             opponent_race=display_opp_race,
             streamer_current_race=streamer_race,
             streamer_race_compare=streamer_picked_race,
-            today_streamer_race=streamer_picked_race,
+            today_streamer_race=streamer_race,
             today_opponent_race=display_opp_race,
             db_result=db_result,
             how_long_ago=how_long_ago,
