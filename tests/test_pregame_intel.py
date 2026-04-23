@@ -6,6 +6,7 @@ from settings import config
 
 from core.pregame_intel import (
     PreGameBrief,
+    abbreviated_grouped_build_string,
     _replay_summary_sanitize_for_inline_prompt,
     compose_last_meeting_user_message,
     compose_build_order_user_message,
@@ -92,6 +93,39 @@ class TestInlineReplaySanitize(unittest.TestCase):
         self.assertIn("Game Duration", out)
 
 
+class TestAbbreviatedGroupedBuild(unittest.TestCase):
+    def test_pool_preserves_sequence_before_hatch(self):
+        steps = [
+            "Drone at 0:03",
+            "Drone at 0:12",
+            "SpawningPool at 0:22",
+            "Drone at 0:25",
+            "Hatchery at 0:45",
+        ]
+        out = abbreviated_grouped_build_string(steps)
+        self.assertIn("Pool", out)
+        ip = out.find("Pool")
+        ih = out.find("Hatch")
+        self.assertGreaterEqual(ip, 0)
+        self.assertGreater(ih, ip)
+
+    def test_coerces_name_upgrade_line_to_abbrev(self):
+        steps = [
+            "Drone at 0:01",
+            "Time: 1:30, Name: Metabolic Boost, Supply: 28",
+        ]
+        out = abbreviated_grouped_build_string(steps)
+        self.assertIn("Ling Speed", out)
+
+    @patch.object(config, "PREGAME_OPENING_SUFFIX_MAX_GROUPS", 3, create=True)
+    @patch.object(config, "PREGAME_OPENING_SUFFIX_MAX_CHARS", 0, create=True)
+    def test_for_chat_suffix_caps_groups(self):
+        steps = ["Drone at 0:01", "Pool at 0:20", "Hatch at 0:40", "Spine at 1:00"]
+        out = abbreviated_grouped_build_string(steps, for_chat_suffix=True)
+        self.assertTrue(out.endswith(" …"))
+        self.assertLessEqual(out.count(","), 2)
+
+
 class TestComposeLastMeeting(unittest.TestCase):
     def test_trivial_duration_override_branch(self):
         summ = "Game Duration: 45s\nWinners: X"
@@ -131,6 +165,32 @@ class TestComposeLastMeeting(unittest.TestCase):
         self.assertIn("Do these 2", msg)
         self.assertIn(config.STREAMER_NICKNAME, msg)
         self.assertIn("RACE CONSTRAINT", msg)
+        self.assertNotIn("{Map name}", msg)
+        self.assertNotIn("{game duration}", msg)
+
+    def test_prompt_fills_map_and_substitutes_streamer_alias(self):
+        summ = (
+            "Players: X vs Y Map: Echo LE Region: us Winners: wingingIt Losers: Bob\n"
+            "Game Duration: 4m 39s\n"
+        )
+        brief = PreGameBrief(
+            opponent_display_name="Bob",
+            opponent_race="Zerg",
+            streamer_current_race="Terran",
+            streamer_race_compare="Terran",
+            today_streamer_race="Terran",
+            today_opponent_race="Zerg",
+            db_result=_minimal_db_row(Replay_Summary=summ),
+            how_long_ago="long ago",
+            record_vs=None,
+            player_comments=[],
+            first_few_build_steps=None,
+        )
+        with patch.object(config, "SC2_PLAYER_ACCOUNTS", ["Streamer", "wingingIt"]):
+            msg = compose_last_meeting_user_message(brief)
+        self.assertIn("Echo LE", msg)
+        self.assertIn("win for", msg.lower())
+        self.assertNotIn("wingingIt", msg)
 
 
 class TestFormatRecordLine(unittest.TestCase):
@@ -252,7 +312,10 @@ class TestRunKnownOpponentPregame(unittest.TestCase):
             first_few_build_steps=["Drone at 12"],
         )
         run_known_opponent_pregame(self.bot, brief, self.log, self.ctx, "MapX")
-        self.assertEqual(oai.call_count, 2)
+        self.assertEqual(oai.call_count, 1)
+        suf = oai.call_args.kwargs.get("response_suffix") or ""
+        self.assertIn("opening:", suf)
+        self.assertIn("Drone", suf)
         mch.assert_not_called()
 
     @patch("core.pregame_intel.get_ml_analyzer")
@@ -282,6 +345,7 @@ class TestRunKnownOpponentPregame(unittest.TestCase):
             if len(args) >= 2 and isinstance(args[1], str):
                 self.assertNotIn("GLHF", args[1])
 
+    @patch.object(config, "PREGAME_SEND_SEPARATE_GLHF_LINE", True, create=True)
     @patch("core.pregame_intel.get_ml_analyzer")
     @patch("core.pregame_intel.processMessageForOpenAI")
     @patch("core.pregame_intel.msgToChannel")
@@ -305,9 +369,11 @@ class TestRunKnownOpponentPregame(unittest.TestCase):
             quiet_when_no_build_extract=False,
         )
         oai.assert_called()
+        phrase = getattr(config, "PREGAME_GLHF_PHRASE", "GLHFGG")
         glhf_calls = [
-            c for c in mch.call_args_list
-            if len(c[0]) >= 2 and "GLHF" in str(c[0][1])
+            c
+            for c in mch.call_args_list
+            if len(c[0]) >= 2 and (phrase in str(c[0][1]) or "GLHF" in str(c[0][1]))
         ]
         self.assertEqual(len(glhf_calls), 1)
 
@@ -362,7 +428,10 @@ class TestRunKnownOpponentPregame(unittest.TestCase):
         self.bot.db = None
         run_known_opponent_pregame(self.bot, brief, self.log, self.ctx, "MapX")
         combined = oai.call_args[0][1]
-        self.assertIn("=== Opponent opening", combined)
+        self.assertNotIn("=== Opponent opening", combined)
+        suffix = oai.call_args.kwargs.get("response_suffix", "")
+        self.assertIn("Bob opening:", suffix)
+        self.assertIn("Drone", suffix)
 
     @patch("core.pregame_intel.get_ml_analyzer")
     @patch("core.pregame_intel.twitch_notes_from_saved_comments", return_value="")

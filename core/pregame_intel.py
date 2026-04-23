@@ -1,7 +1,7 @@
 """
 Pre-game intel: gather facts into PreGameBrief, then run_known_opponent_pregame executes
 saved-notes formatting → pattern/ML check (always when DB available) → ML chat line only if no formatted notes
-→ last-meeting LLM → optional DB build LLM (skipped when notes or strong pattern/learning intel) → GLHF → record.
+→ last-meeting LLM → optional DB build LLM (skipped when notes or strong pattern/learning intel) → optional GLHF line → record.
 
 Uses conversation_mode \"last_time_played\" for factual OpenAI lines (no mood/perspective).
 """
@@ -17,6 +17,7 @@ from api.chat_utils import (
     format_saved_notes_for_direct_chat,
     processMessageForOpenAI,
     msgToChannel,
+    substitute_streamer_aliases_for_chat_display,
     twitch_notes_from_saved_comments,
 )
 from api.ml_opponent_analyzer import get_ml_analyzer
@@ -47,6 +48,8 @@ class PreGameBrief:
     random_race_intel: Tuple[
         Tuple[str, Dict[str, Any], List[Any], Optional[List[str]]], ...
     ] = field(default_factory=tuple)
+    # Set by run_known_opponent_pregame when DB opening is appended verbatim after the LLM line.
+    suppress_opponent_training_narrative: bool = False
 
 
 def _streamer_accounts_lower() -> List[str]:
@@ -200,6 +203,175 @@ def prev_streamer_race_from_row(db_result: Dict[str, Any]) -> str:
     return str(prev_player2_race)
 
 
+_STEP_NAME_FROM_LINE = re.compile(r"(?i)\bName:\s*([^,\n]+)")
+_MAX_RAW_STEP_CHARS = 400
+
+
+def _coerce_step_to_unit_label(step: str) -> Optional[str]:
+    """Normalize DB/replay lines to a single unit/building name for abbreviation."""
+    if not step or not isinstance(step, str):
+        return None
+    s = step.strip()
+    if len(s) > _MAX_RAW_STEP_CHARS:
+        return None
+    if " at " in s:
+        left = s.split(" at ", 1)[0].strip()
+        return left if left else None
+    m = _STEP_NAME_FROM_LINE.search(s)
+    if m:
+        return m.group(1).strip()
+    first = s.split(",", 1)[0].strip()
+    if len(first) <= 80 and re.match(r"^[A-Za-z][A-Za-z0-9\s\-]{1,79}$", first):
+        return first
+    return None
+
+
+def abbreviated_grouped_build_string(
+    first_few_build_steps: Optional[List[str]],
+    *,
+    for_chat_suffix: bool = False,
+) -> str:
+    """
+    Same grouping as ``compose_build_order_user_message`` — preserves strict training order
+    (e.g. Drone x2, Pool, Hatch). ``for_chat_suffix`` applies Twitch length caps from config.
+    """
+    if not first_few_build_steps:
+        return ""
+    from utils.sc2_abbreviations import abbreviate_unit_name
+
+    abbreviated_steps: List[str] = []
+    for step in first_few_build_steps:
+        label = _coerce_step_to_unit_label(step)
+        if not label:
+            continue
+        abbreviated_steps.append(abbreviate_unit_name(label.strip()))
+
+    grouped_build: List[str] = []
+    prev_unit: Optional[str] = None
+    count = 0
+    for unit in abbreviated_steps:
+        if not unit:
+            continue
+        if unit == prev_unit:
+            count += 1
+        else:
+            if prev_unit:
+                grouped_build.append(f"{prev_unit} x{count}" if count > 1 else prev_unit)
+            prev_unit = unit
+            count = 1
+    if prev_unit:
+        grouped_build.append(f"{prev_unit} x{count}" if count > 1 else prev_unit)
+
+    if for_chat_suffix:
+        max_groups = max(0, int(getattr(config, "PREGAME_OPENING_SUFFIX_MAX_GROUPS", 28)))
+        max_chars = max(0, int(getattr(config, "PREGAME_OPENING_SUFFIX_MAX_CHARS", 220)))
+        truncated_groups = bool(max_groups and len(grouped_build) > max_groups)
+        if truncated_groups:
+            grouped_build = grouped_build[:max_groups]
+        pieces = list(grouped_build)
+        out = ", ".join(pieces)
+        truncated_chars = False
+        if max_chars > 0 and len(out) > max_chars:
+            while len(pieces) > 1 and len(", ".join(pieces)) > max_chars:
+                pieces.pop()
+                truncated_chars = True
+            out = ", ".join(pieces)
+            if len(out) > max_chars:
+                out = out[: max_chars - 3].rstrip(", ") + " …"
+                truncated_chars = True
+            elif truncated_chars or truncated_groups:
+                out += " …"
+        elif truncated_groups:
+            out += " …"
+        return out
+
+    return ", ".join(grouped_build)
+
+
+def deterministic_opponent_opening_suffix(brief: PreGameBrief) -> str:
+    """Verbatim ordered opening from DB extract (abbrev + grouping). Empty if nothing to say."""
+    od = brief.opponent_display_name.strip()
+    if brief.random_race_intel:
+        parts: List[str] = []
+        for race, _, _, steps in brief.random_race_intel:
+            if not steps:
+                continue
+            s = abbreviated_grouped_build_string(steps, for_chat_suffix=True)
+            if s:
+                parts.append(f"{race}: {s}")
+        if not parts:
+            return ""
+        return f"{od} opening ({' | '.join(parts)})"
+    if brief.first_few_build_steps:
+        s = abbreviated_grouped_build_string(brief.first_few_build_steps, for_chat_suffix=True)
+        if not s:
+            return ""
+        return f"{od} opening: {s}"
+    return ""
+
+
+def _extract_map_display_from_summary(summary: str) -> str:
+    if not summary:
+        return "the map named in the excerpt below"
+    m_map = re.search(
+        r"(?i)\bMap:\s*([^\n]+?)(?:\s*(?:Region:|Timestamp:|Winners:)|\n|\Z)",
+        summary,
+    )
+    if m_map:
+        return m_map.group(1).strip()
+    return "the map named in the excerpt below"
+
+
+def _extract_duration_display_from_summary(summary: str) -> str:
+    if not summary:
+        return "the duration in the excerpt"
+    m = re.search(r"(?i)Game\s+Duration:\s*([^\n]+)", summary)
+    if m:
+        return m.group(1).strip()
+    secs = parse_game_duration_seconds_from_summary(summary)
+    if secs is None:
+        return "the duration in the excerpt"
+    if secs >= 3600:
+        h, r = divmod(secs, 3600)
+        m, s = divmod(r, 60)
+        return f"{h}h {m}m {s}s"
+    if secs >= 60:
+        m, s = divmod(secs, 60)
+        return f"{m}m {s}s"
+    return f"{secs}s"
+
+
+def _streamer_outcome_display_phrase(summary: str) -> str:
+    nick = getattr(config, "STREAMER_NICKNAME", "Streamer")
+    # Replay blobs often put Map/Region/Winners/Losers on one line — do not require ^Winners.
+    mw = re.search(
+        r"(?i)Winners:\s*([^\n]+?)(?=\s*(?:Losers:|Game\s+Duration)|\n|$)",
+        summary or "",
+    )
+    ml = re.search(
+        r"(?i)Losers:\s*([^\n]+?)(?=\s*(?:Game\s+Duration)|\n|$)",
+        summary or "",
+    )
+    win_blob = (mw.group(1).strip() if mw else "") or ""
+    lose_blob = (ml.group(1).strip() if ml else "") or ""
+
+    def line_mentions_streamer(blob: str) -> bool:
+        if not blob:
+            return False
+        if re.search(r"\b" + re.escape(nick) + r"\b", blob, re.I):
+            return True
+        for acct in getattr(config, "SC2_PLAYER_ACCOUNTS", []) or []:
+            if re.search(r"\b" + re.escape(str(acct)) + r"\b", blob, re.I):
+                return True
+        return False
+
+    if line_mentions_streamer(win_blob):
+        return f"a win for {nick}"
+    if line_mentions_streamer(lose_blob):
+        return f"a loss for {nick}"
+    return f"who won or lost for {nick} (from Winners/Losers in the excerpt)"
+
+
 def compose_last_meeting_user_message(
     brief: PreGameBrief,
     *,
@@ -218,6 +390,8 @@ def compose_last_meeting_user_message(
         replay_snip = _replay_summary_sanitize_for_inline_prompt(replay_snip)
     elif isinstance(replay_snip, str):
         replay_snip = _replay_summary_strip_units_lost_blocks(replay_snip)
+    if isinstance(replay_snip, str):
+        replay_snip = substitute_streamer_aliases_for_chat_display(replay_snip)
     short_thr = int(getattr(config, "SHORT_LAST_GAME_DURATION_SECONDS", 120))
     prev_secs = parse_game_duration_seconds_from_summary(replay_snip)
     trivial_prev = prev_secs is not None and prev_secs <= short_thr
@@ -284,9 +458,13 @@ def compose_last_meeting_user_message(
         msg += (
             f"The last time {sn} played the {brief.today_opponent_race} player "
         )
+    map_disp = _extract_map_display_from_summary(replay_snip)
+    dur_disp = _extract_duration_display_from_summary(replay_snip)
+    outcome_disp = _streamer_outcome_display_phrase(replay_snip)
     msg += (
-        f"{brief.opponent_display_name} was {brief.how_long_ago} in {{Map name}}, "
-        f"a {{Win/Loss for {sn}}} in {{game duration}}. \n"
+        f"{brief.opponent_display_name} was {brief.how_long_ago} on map {map_disp}, "
+        f"{outcome_disp} in {dur_disp}. "
+        f"(These values are filled from the archive — use them in chat as plain words, never brace placeholders.)\n"
     )
     if inline:
         if bundled_saved_notes:
@@ -300,6 +478,15 @@ def compose_last_meeting_user_message(
                 "Avoid 'Players:', timestamps, comma-chained archive dumps from the excerpt.\n"
                 "Do not repeat the head-to-head opener lines. Write plain sentences — do not mention meta rules about naming.\n"
                 "Never cite unit-loss tallies or who lost how many of which unit — excerpt may omit those on purpose.\n"
+            )
+        elif getattr(brief, "suppress_opponent_training_narrative", False):
+            msg += (
+                f"In the replay summary below, {sn} is the streamer; {brief.opponent_display_name} is the opponent. "
+                "After the fixed opener lines: at most TWO short sentences (under 45 words combined). "
+                "Focus on last meeting only: how long ago, map, duration, winner — omit opponent unit/build/training lists "
+                "(those facts are handled outside this sentence).\n"
+                f"Do not describe {sn}'s build or '{sn} trained'.\n"
+                "Do not repeat the head-to-head opener lines.\n"
             )
         else:
             msg += (
@@ -350,12 +537,14 @@ def compose_last_meeting_user_message(
         msg += (
             "Write ONE sentence (max 24 words) for this part.\n"
             "Include ONLY: roughly how long ago, map name, game duration, who won.\n"
-            "Prefer wording like 'The last time they played was about … ago in {map}, a win/loss in {duration}.' "
+            "Prefer wording like 'The last time they played was about … ago on that map, a win or loss in that duration.' "
             f"— use 'they' once {brief.opponent_display_name} was already named above; do not repeat the full opponent name in this sentence.\n"
             "If a saved-notes paragraph appears earlier in this full prompt, do not repeat it verbatim; at most one short nod.\n"
             "Do NOT list units, buildings, builds, or armies (opening summarized separately).\n"
         )
-    if inline and not bundled_saved_notes:
+    if inline and not bundled_saved_notes and not getattr(
+        brief, "suppress_opponent_training_narrative", False
+    ):
         msg += (
             "Do NOT list units, buildings, builds, or armies drawn only from the replay excerpt in sentence one "
             "when opening blocks already summarized them.\n"
@@ -363,6 +552,11 @@ def compose_last_meeting_user_message(
     if inline:
         msg += (
             "If any 'Time:' or ' at M:SS' build lines remain in the excerpt, IGNORE them completely.\n"
+        )
+    if not inline and getattr(brief, "suppress_opponent_training_narrative", False):
+        msg += (
+            "Do not summarize opponent buildings or unit training from the excerpt alone "
+            "(use facts only from Winners/Losers/duration/map as needed).\n"
         )
     msg += "-----\n" + f" \n {replay_snip} \n"
 
@@ -377,6 +571,8 @@ def compose_last_meeting_user_message(
                 extra = _replay_summary_sanitize_for_inline_prompt(extra)
             elif isinstance(extra, str):
                 extra = _replay_summary_strip_units_lost_blocks(extra)
+            if isinstance(extra, str):
+                extra = substitute_streamer_aliases_for_chat_display(extra)
             chunks.append(
                 f"----- Archived vs this opponent when they played as {race} "
                 f"(separate game from primary excerpt) -----\n{extra}"
@@ -388,31 +584,9 @@ def compose_last_meeting_user_message(
 
 def compose_build_order_user_message(opponent_display_name: str, first_few_build_steps: List[str]) -> str:
     """OpenAI user message for opponent build-from-DB extract (last_time_played)."""
-    from utils.sc2_abbreviations import abbreviate_unit_name
-
-    abbreviated_steps = []
-    for step in first_few_build_steps:
-        parts = step.split(" at ")
-        if len(parts) == 2:
-            abbreviated_steps.append(abbreviate_unit_name(parts[0]))
-        else:
-            abbreviated_steps.append(step)
-
-    grouped_build = []
-    prev_unit = None
-    count = 0
-    for unit in abbreviated_steps:
-        if unit == prev_unit:
-            count += 1
-        else:
-            if prev_unit:
-                grouped_build.append(f"{prev_unit} x{count}" if count > 1 else prev_unit)
-            prev_unit = unit
-            count = 1
-    if prev_unit:
-        grouped_build.append(f"{prev_unit} x{count}" if count > 1 else prev_unit)
-
-    abbreviated_build_string = ", ".join(grouped_build)
+    abbreviated_build_string = abbreviated_grouped_build_string(
+        first_few_build_steps, for_chat_suffix=False
+    )
     sn = config.STREAMER_NICKNAME
     msg = f"Opponent build focus — {opponent_display_name} only (not {sn}).\n"
     msg += (
@@ -667,6 +841,14 @@ def run_known_opponent_pregame(
             )
         )
 
+    use_det_opening = (
+        bool(getattr(config, "PREGAME_APPEND_DETERMINISTIC_OPENING", True))
+        and not has_saved_notes
+        and not ml_supersedes_build_intel
+        and bool(build_blocks)
+    )
+    brief.suppress_opponent_training_narrative = use_det_opening
+
     lm = compose_last_meeting_user_message(
         brief,
         bundled_saved_notes=bool(deferred_notes_text),
@@ -714,13 +896,13 @@ def run_known_opponent_pregame(
             + "\n\n"
         ) + lm
 
-    # Inline bundle: hierarchy notes → ML (folded above) → optional build abbrev → GenAI narrative.
-    # Expert Player_Comments / saved notes define strategy — never append replay build-order blocks then.
+    # Inline bundle: optional ML — opponent opening is either verbatim suffix (deterministic) or legacy LLM block.
     if (
         brief.inline_saved_notes_in_last_meeting
         and build_blocks
         and not has_saved_notes
         and not ml_supersedes_build_intel
+        and not use_det_opening
     ):
         lm += (
             "\n\n=== Opponent opening (same Twitch message; ONE new sentence after prior sentences) ===\n"
@@ -729,7 +911,16 @@ def run_known_opponent_pregame(
             + "\n\n".join(build_blocks)
         )
 
-    processMessageForOpenAI(bot, lm, "last_time_played", logger, context_history)
+    opening_suffix = deterministic_opponent_opening_suffix(brief) if use_det_opening else ""
+
+    processMessageForOpenAI(
+        bot,
+        lm,
+        "last_time_played",
+        logger,
+        context_history,
+        response_suffix=opening_suffix,
+    )
 
     if (
         build_blocks
@@ -737,11 +928,14 @@ def run_known_opponent_pregame(
         and not brief.inline_saved_notes_in_last_meeting
         and not has_saved_notes
         and not ml_supersedes_build_intel
+        and not use_det_opening
     ):
         for block in build_blocks:
             processMessageForOpenAI(bot, block, "last_time_played", logger, context_history)
     elif not build_blocks:
         if quiet_when_no_build_extract:
+            pass
+        elif not getattr(config, "PREGAME_SEND_SEPARATE_GLHF_LINE", False):
             pass
         elif brief.streamer_current_race == "Random":
             msg = (
@@ -750,9 +944,10 @@ def run_known_opponent_pregame(
             )
             processMessageForOpenAI(bot, msg, "last_time_played", logger, context_history)
         else:
+            glhf_phrase = getattr(config, "PREGAME_GLHF_PHRASE", "GLHFGG")
             msgToChannel(
                 bot,
-                f"GLHF vs {brief.opponent_display_name} ({brief.opponent_race}).",
+                f"{glhf_phrase} vs {brief.opponent_display_name} ({brief.opponent_race}).",
                 logger,
             )
 

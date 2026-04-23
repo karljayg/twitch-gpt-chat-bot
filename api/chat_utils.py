@@ -53,11 +53,24 @@ LAST_TIME_PLAYED_SYSTEM_SUFFIX = (
     "When naming units or builds, only the opponent's side — never the streamer's workers or economy.\n"
     "Never describe unit-loss tallies or 'X lost N units' — use Winners/Losers only for who won.\n"
     "Do not paste internal CONTEXT / ARCHIVE RACES prompt text into Twitch.\n"
+    "Do not write 'Opponent opening:' — the bot appends the opponent opening separately.\n"
+    "Do not paste or paraphrase technical instructions from the user prompt (nothing about DB extracts, "
+    "'appended after your reply', or 'verbatim ordered' lines).\n"
+    "If a short ordered opening line is appended by the bot after your message, do not repeat that list — "
+    "your text is only last-meeting facts (timing, map, duration, winner) plus any expert phrases you were given.\n"
+    "Never output curly-brace placeholders (e.g. map name or duration tokens in braces) — use normal words only.\n"
 )
 
 
 def send_prompt_to_openai_system_user(system_text: str, user_text: str):
     """Chat completion with instructions in system role so they are not echoed like user content."""
+    kwargs = {}
+    lt_temp = getattr(config, "LAST_TIME_PLAYED_TEMPERATURE", None)
+    if lt_temp is not None:
+        try:
+            kwargs["temperature"] = float(lt_temp)
+        except (TypeError, ValueError):
+            pass
     if hasattr(openai, "OpenAI"):
         client = openai.OpenAI(api_key=config.OPENAI_API_KEY)
         return client.chat.completions.create(
@@ -66,15 +79,106 @@ def send_prompt_to_openai_system_user(system_text: str, user_text: str):
                 {"role": "system", "content": system_text},
                 {"role": "user", "content": user_text},
             ],
+            **kwargs,
         )
     openai.api_key = config.OPENAI_API_KEY
-    return openai.ChatCompletion.create(
-        model=config.ENGINE,
-        messages=[
+    create_kw = {
+        "model": config.ENGINE,
+        "messages": [
             {"role": "system", "content": system_text},
             {"role": "user", "content": user_text},
         ],
-    )
+    }
+    create_kw.update(kwargs)
+    return openai.ChatCompletion.create(**create_kw)
+
+
+def substitute_streamer_aliases_for_chat_display(text: str) -> str:
+    """Replace SC2 ladder account names with STREAMER_NICKNAME so chat matches on-air identity."""
+    if not text or not isinstance(text, str):
+        return text
+    nick = getattr(config, "STREAMER_NICKNAME", "") or ""
+    out = text
+    for acct in getattr(config, "SC2_PLAYER_ACCOUNTS", []) or []:
+        if not acct:
+            continue
+        if str(acct).strip().lower() == str(nick).strip().lower():
+            continue
+        pat = re.compile(r"\b" + re.escape(str(acct)) + r"\b", re.I)
+        out = pat.sub(nick, out)
+    return out
+
+
+_LEAK_STRIP_PATTERNS = (
+    # Instruction leak from legacy user prompts — remove whole clause (non-greedy up to sentence end).
+    re.compile(
+        r"(?i)\s*The opponent opening is appended after your reply[^.!?]*(?:[.!?]+|$)\s*"
+    ),
+    re.compile(
+        r"(?i)\s*Do NOT describe opponent units, buildings, or training order from the replay excerpt[^.!?]*(?:[.!?]+|$)\s*"
+    ),
+    re.compile(
+        r"(?i)\s*\(same order as training steps\)\s*"
+    ),
+    re.compile(
+        r"(?i)\s*from the DB build extract[^.!?]*(?:[.!?]+|$)\s*"
+    ),
+    re.compile(
+        r"(?i)\s*verbatim DB opening order is appended after the reply[^.!?]*(?:[.!?]+|$)\s*"
+    ),
+)
+
+
+def _strip_last_time_prompt_leaks(response: str) -> str:
+    """Remove meta-instructions if the model echoes user-prompt wording into chat."""
+    if not response:
+        return response
+    cleaned = response
+    for _ in range(5):
+        prev = cleaned
+        for pat in _LEAK_STRIP_PATTERNS:
+            cleaned = pat.sub(" ", cleaned)
+        cleaned = re.sub(r"\s+", " ", cleaned).strip()
+        if cleaned == prev:
+            break
+    # Echoed template tokens from legacy prompts
+    cleaned = re.sub(r"(?i)\{Map name\}", "", cleaned)
+    cleaned = re.sub(r"(?i)\{game duration\}", "", cleaned)
+    cleaned = re.sub(r"\{Win/Loss for [^}]+\}", "", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned
+
+
+def _truncate_last_time_twitch_total(text: str, max_chars: int) -> str:
+    """Word-boundary trim so one Twitch line fits; adds ' [etc]' when truncated."""
+    etc = " [etc]"
+    if max_chars <= 0 or len(text) <= max_chars:
+        return text
+    budget = max_chars - len(etc)
+    if budget < 12:
+        return (text[: max_chars - len(etc)] + etc).strip()
+    words = text.split()
+    out = []
+    for w in words:
+        candidate = " ".join(out + [w]).strip()
+        if len(candidate) <= budget:
+            out.append(w)
+        else:
+            break
+    base = " ".join(out).rstrip(",;:")
+    if not base:
+        base = text[:budget].rsplit(" ", 1)[0].strip()
+    return base + etc
+
+
+def _strip_llm_opponent_opening_clause(response: str) -> str:
+    """Remove LLM echo of 'Opponent opening: ...' so it does not duplicate the deterministic suffix."""
+    if not response:
+        return response
+    m = re.search(r"(?i)(?:^|\s)Opponent\s+opening\s*:", response)
+    if not m:
+        return response
+    return response[: m.start()].rstrip()
 
 
 def _strip_instruction_echo_from_last_time_response(response: str) -> str:
@@ -1217,9 +1321,10 @@ def process_ai_message(user_message, conversation_mode="normal", contextHistory=
     logger.debug(
         'msg omitted in log, to see it, look in: "sent to OpenAI"')
 
-    # remove quotes
-    msg = msg.replace('"', '')
-    msg = msg.replace("'", '')
+    # remove quotes (last_time_played carries verbatim expert phrases — stripping breaks wording)
+    if conversation_mode != "last_time_played":
+        msg = msg.replace('"', '')
+        msg = msg.replace("'", '')
 
     # add line break to ensure separation
     msg = msg + "\n"
@@ -1368,7 +1473,9 @@ def process_ai_message(user_message, conversation_mode="normal", contextHistory=
             response = response.strip()  # Remove leading and trailing whitespace
 
             if conversation_mode == "last_time_played":
+                response = substitute_streamer_aliases_for_chat_display(response)
                 response = _strip_instruction_echo_from_last_time_response(response)
+                response = _strip_last_time_prompt_leaks(response)
 
             # dont make it too obvious its a bot
             response = response.replace("As an AI language model, ", "")
@@ -1433,15 +1540,27 @@ def process_ai_message(user_message, conversation_mode="normal", contextHistory=
         logger.error('Failed to generate response: %s', e)
         return 'oops, I have no response to that'
 
-def processMessageForOpenAI(self, msg, conversation_mode, logger, contextHistory):
+def processMessageForOpenAI(self, msg, conversation_mode, logger, contextHistory, *, response_suffix=""):
     """
     Legacy function for Twitch bot compatibility.
     Now uses the platform-agnostic process_ai_message function.
+
+    response_suffix: appended after the model reply (e.g. deterministic opponent opening from DB order).
     """
     
     # Use the new platform-agnostic function
     response = process_ai_message(msg, conversation_mode, contextHistory, "twitch", logger)
-    
+    if conversation_mode == "last_time_played":
+        response = _strip_llm_opponent_opening_clause(response)
+    if response_suffix:
+        rs = str(response_suffix).strip()
+        if rs:
+            response = (response.rstrip() + " " + rs).strip()
+
+    if conversation_mode == "last_time_played":
+        max_total = int(getattr(config, "LAST_TIME_TWITCH_REPLY_MAX_CHARS", 380))
+        response = _truncate_last_time_twitch_total(response, max_total)
+
     if len(response) >= 400:
         logger.debug(
             f"Chunking response since it's {len(response)} characters long")

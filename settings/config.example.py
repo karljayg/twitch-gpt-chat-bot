@@ -117,6 +117,20 @@ REPLAY_TEST_FILE = ("test/replays/Royal Blood LE (428).SC2Replay")
 
 BUILD_ORDER_STEPS_TO_ANALYZE = 120  # Step count for pattern signatures and matching
 EARLY_GAME_SUPPLY_THRESHOLD = 60     # Supply threshold for early game classification (not step count)
+# When True: known-opponent pregame appends a verbatim abbreviated build (DB order, Pool/Rax/etc. via UNIT_ABBREVIATIONS)
+# after the LLM line instead of asking the model to paraphrase opening — more reliable ordering.
+PREGAME_APPEND_DETERMINISTIC_OPENING = True
+# Twitch caps for deterministic opponent opening suffix (abbreviated grouped order). 0 = no limit for that axis.
+PREGAME_OPENING_SUFFIX_MAX_GROUPS = 28
+PREGAME_OPENING_SUFFIX_MAX_CHARS = 220
+# Second chat line after last-meeting facts (often redundant). When False: only optional Random restate-or-nothing.
+PREGAME_SEND_SEPARATE_GLHF_LINE = False
+# Word used instead of literal "GLHF" when separate line is enabled (your ladder tag / habit).
+PREGAME_GLHF_PHRASE = "GLHFGG"
+# Hard cap for full last_time_played Twitch line after LLM + deterministic suffix (word-trimmed; adds ' [etc]').
+LAST_TIME_TWITCH_REPLY_MAX_CHARS = 380
+# Lower = stabler factual replies for last-meeting opponent lines (None = API default / global TEMPERATURE)
+LAST_TIME_PLAYED_TEMPERATURE = 0.35
 # games less than this seconds will be considered abandoned for better commentary
 ABANDONED_GAME_THRESHOLD = 15
 # TODO: make this more intuitive and less confusing, as test modes are different from running replays period

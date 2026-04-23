@@ -399,11 +399,13 @@ def game_started(self, current_game, contextHistory, logger):
                                         logger,
                                     ),
                                 )
-                                msgToChannel(
-                                    self,
-                                    f"GLHF vs {player_name} ({player_current_race}).",
-                                    logger,
-                                )
+                                if getattr(config, "PREGAME_SEND_SEPARATE_GLHF_LINE", False):
+                                    glhf_phrase = getattr(config, "PREGAME_GLHF_PHRASE", "GLHFGG")
+                                    msgToChannel(
+                                        self,
+                                        f"{glhf_phrase} vs {player_name} ({player_current_race}).",
+                                        logger,
+                                    )
                                 min_h2h = int(getattr(config, "MIN_HEAD_TO_HEAD_GAMES_TO_SHOW_RECORD", 2))
                                 if (
                                     record_vs_o is not None
