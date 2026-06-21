@@ -164,13 +164,36 @@ def compose_build_followup_line(
         return f"{msg1} {prompt}".strip() if prompt else msg1
 
     build_part = msg1.split(marker, 1)[1].strip().rstrip(". ").strip()
-    vs = f" vs {versus_name}" if versus_name else ""
+    guest_tags = {
+        str(x).strip().lower()
+        for x in (getattr(config, "PREGAME_CO_CAST_LADDER_NAMES", ()) or ())
+        if str(x).strip()
+    }
+    streamer_accounts_only = [
+        acct
+        for acct in (getattr(config, "SC2_PLAYER_ACCOUNTS", []) or [])
+        if str(acct).strip().lower() not in guest_tags
+    ]
+    opp_disp = chat_utils.substitute_streamer_aliases_for_chat_display(
+        opponent_name, streamer_accounts_only
+    )
+    vs_disp = chat_utils.substitute_streamer_aliases_for_chat_display(
+        versus_name, streamer_accounts_only
+    )
+    vs = f" vs {vs_disp}" if vs_disp else ""
+    logger.debug(
+        "[pattern_followup_compose] raw_opponent=%r raw_versus=%r disp_opponent=%r disp_versus=%r",
+        opponent_name,
+        versus_name,
+        opp_disp,
+        vs_disp,
+    )
     templates = (
-        f"{opponent_name}{vs}'s build: {build_part}. {prompt}",
-        f"{opponent_name}{vs} opened with {build_part}. {prompt}",
-        f"{opponent_name}{vs} showed {build_part}. {prompt}",
-        f"From {opponent_name}{vs}: {build_part}. {prompt}",
-        f"{opponent_name}{vs} started {build_part}. {prompt}",
+        f"{opp_disp}{vs}'s build: {build_part}. {prompt}",
+        f"{opp_disp}{vs} opened with {build_part}. {prompt}",
+        f"{opp_disp}{vs} showed {build_part}. {prompt}",
+        f"From {opp_disp}{vs}: {build_part}. {prompt}",
+        f"{opp_disp}{vs} started {build_part}. {prompt}",
     )
 
     global _LAST_BUILD_TEMPLATE_INDEX
@@ -182,7 +205,9 @@ def compose_build_followup_line(
             available.remove(_LAST_BUILD_TEMPLATE_INDEX)
         choice_idx = random.choice(available)
     _LAST_BUILD_TEMPLATE_INDEX = choice_idx
-    return templates[choice_idx].strip()
+    out = templates[choice_idx].strip()
+    logger.debug("[pattern_followup_compose] selected=%d out=%r", choice_idx, out)
+    return out
 
 
 def compose_strategy_line(opponent_name: str, strategy_label: str, versus_name: str = "") -> str:
@@ -190,11 +215,35 @@ def compose_strategy_line(opponent_name: str, strategy_label: str, versus_name: 
     label = (strategy_label or "").strip().strip(".")
     if not label:
         return ""
-    vs = f" vs {versus_name}" if versus_name else ""
+    guest_tags = {
+        str(x).strip().lower()
+        for x in (getattr(config, "PREGAME_CO_CAST_LADDER_NAMES", ()) or ())
+        if str(x).strip()
+    }
+    streamer_accounts_only = [
+        acct
+        for acct in (getattr(config, "SC2_PLAYER_ACCOUNTS", []) or [])
+        if str(acct).strip().lower() not in guest_tags
+    ]
+    opp_disp = chat_utils.substitute_streamer_aliases_for_chat_display(
+        opponent_name, streamer_accounts_only
+    )
+    vs_disp = chat_utils.substitute_streamer_aliases_for_chat_display(
+        versus_name, streamer_accounts_only
+    )
+    vs = f" vs {vs_disp}" if vs_disp else ""
+    logger.debug(
+        "[pattern_strategy_compose] raw_opponent=%r raw_versus=%r disp_opponent=%r disp_versus=%r label=%r",
+        opponent_name,
+        versus_name,
+        opp_disp,
+        vs_disp,
+        label,
+    )
     templates = (
-        f"{opponent_name}{vs} looks like {label}.",
-        f"{opponent_name}{vs} seems like {label}.",
-        f"{opponent_name}{vs} reads as {label}.",
+        f"{opp_disp}{vs} looks like {label}.",
+        f"{opp_disp}{vs} seems like {label}.",
+        f"{opp_disp}{vs} reads as {label}.",
     )
     global _LAST_STRATEGY_TEMPLATE_INDEX
     available = list(range(len(templates)))
@@ -202,7 +251,9 @@ def compose_strategy_line(opponent_name: str, strategy_label: str, versus_name: 
         available.remove(_LAST_STRATEGY_TEMPLATE_INDEX)
     choice_idx = random.choice(available)
     _LAST_STRATEGY_TEMPLATE_INDEX = choice_idx
-    return templates[choice_idx]
+    out = templates[choice_idx]
+    logger.debug("[pattern_strategy_compose] selected=%d out=%r", choice_idx, out)
+    return out
 
 # The contextHistory array is a list of tuples, where each tuple contains two elements: the message string and its
 # corresponding token size. This allows us to keep track of both the message content and its size in the array. When
@@ -956,7 +1007,8 @@ class TwitchBot(irc.bot.SingleServerIRCBot):
                 'wiki', 'career', 'history', 'head to head',
                 'player comment', 'analyze', 'fsl_review',
                 'please retry', 'please replay', 'please preview', 'please review',
-                'accept ratings', 'end ratings', '!ratings',
+                'accept ratings', 'open ratings', 'start ratings',
+                'end ratings', 'close ratings', '!ratings',
             ]
             
             # CommandService uses strict prefix matching usually, but legacy was loose.
@@ -1494,7 +1546,8 @@ Just the JSON object."""
             
             opponent_name = game_data.get('opponent_name', 'Unknown')
             opponent_race = game_data.get('opponent_race', 'Unknown')
-            versus_name = game_data.get('versus_name', config.STREAMER_NICKNAME)
+            # Empty when unknown — never assume the streamer is the other slot (observer / house accounts).
+            versus_name = (game_data.get('versus_name') or "").strip()
             suppress_followup_prompt = bool(game_data.get('suppress_followup_prompt', False))
             force_followup_prompt = bool(game_data.get('force_followup_prompt', False))
             suppress_pattern_validation_line = bool(game_data.get('suppress_pattern_validation_line', False))

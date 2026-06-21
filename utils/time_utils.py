@@ -8,6 +8,17 @@ from typing import Optional
 import pytz
 
 
+def convert_unix_to_datetime(timestamp, timezone='US/Eastern'):
+    """Convert Unix timestamp to formatted datetime string (default US/Eastern)."""
+    utc_dt = datetime.utcfromtimestamp(int(timestamp))
+    if timezone == "US/Eastern":
+        eastern = pytz.timezone('US/Eastern')
+        utc_dt = pytz.utc.localize(utc_dt)
+        eastern_dt = utc_dt.astimezone(eastern)
+        return eastern_dt.strftime('%Y-%m-%d %H:%M:%S')
+    raise ValueError(f"Timezone not supported: {timezone}")
+
+
 def calculate_time_ago(date_played):
     """
     Calculate human-readable time since date.

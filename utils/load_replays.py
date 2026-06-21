@@ -12,8 +12,8 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from settings import config
-from models.mathison_db import Database
 from adapters.database.database_client_factory import create_database_client
+from utils.time_utils import convert_unix_to_datetime
 from datetime import datetime
 # Date range input
 start_date, end_date = input('Enter the date range (YYYY-MM-DD to YYYY-MM-DD): ').split(' to ')
@@ -88,7 +88,7 @@ class ReplayLoader:
 
                     # Check if the file modification date is within the range
                     if start_date <= file_date <= end_date:
-                        formatted_timestamp = self.db.convertUnixToDatetime(file_mod_time)
+                        formatted_timestamp = convert_unix_to_datetime(file_mod_time)
                         logging.debug(
                             f"{files_count}/{files_processed} - Found this file: {filename} \n dated: {formatted_timestamp}")
                         # debug mode here, make it stop on each insert attempt
@@ -121,10 +121,10 @@ class ReplayLoader:
             winner = winning_players[0] if winning_players else None
             loser = losing_players[0] if losing_players else None
 
-            # Save the replay JSON to a file
-            filename = config.LAST_REPLAY_JSON_FILE
-            with open(filename, 'w') as file:
-                json.dump(replay_data, file, indent=4)
+            # NOTE: Do NOT write LAST_REPLAY_JSON_FILE here. This is a bulk importer that
+            # walks files in arbitrary (non-chronological) order; writing the live "last game"
+            # cache would leave 'please preview' pointing at whatever file was processed last.
+            # Those caches belong to the live game-end / 'please retry' flow only.
 
             # First, create a mapping of player names to their display names (with alias replacement)
             player_display_names = {}
@@ -212,10 +212,8 @@ class ReplayLoader:
                 pattern = re.compile(r'\b' + re.escape(player_name) + r'\b', re.IGNORECASE)
                 replay_summary = pattern.sub(config.STREAMER_NICKNAME, replay_summary)
 
-            # Save the replay summary to a file
-            filename = config.LAST_REPLAY_SUMMARY_FILE
-            with open(filename, 'w') as file:
-                file.write(replay_summary)
+            # NOTE: Do NOT write LAST_REPLAY_SUMMARY_FILE here either (same reason as the JSON
+            # cache above) — bulk import must not clobber the live "last game" summary cache.
         except Exception as e:
             self.logger.debug(f"error parsing replay: {e}")
             return False

@@ -44,6 +44,7 @@ from adapters.twitch_adapter import TwitchAdapter
 from adapters.discord_adapter import DiscordAdapter
 from adapters.sc2_adapter import SC2Adapter
 from adapters.openai_adapter import OpenAIAdapter
+from adapters.stream_production_adapter import StreamProductionAdapter
 
 # Import New Services & Repositories
 from core.repositories.sql_replay_repository import SqlReplayRepository
@@ -213,12 +214,13 @@ async def main():
     if getattr(config, "ENABLE_FSL_DB_COMMANDS", True):
         command_service.register_handler("fsl", FslQueryHandler(player_repo))
     if getattr(config, "ENABLE_FSL_CHAT_VOTING", False):
-        command_service.register_handler(
-            "accept ratings", AcceptRatingsHandler(twitch_bot_legacy)
-        )
-        command_service.register_handler(
-            "end ratings", EndRatingsHandler(twitch_bot_legacy)
-        )
+        accept_ratings_handler = AcceptRatingsHandler(twitch_bot_legacy)
+        command_service.register_handler("accept ratings", accept_ratings_handler)
+        command_service.register_handler("open ratings", accept_ratings_handler)
+        command_service.register_handler("start ratings", accept_ratings_handler)
+        end_ratings_handler = EndRatingsHandler(twitch_bot_legacy)
+        command_service.register_handler("end ratings", end_ratings_handler)
+        command_service.register_handler("close ratings", end_ratings_handler)
         command_service.register_handler(
             "!ratings", RatingsHelpHandler(twitch_bot_legacy)
         )
@@ -264,6 +266,15 @@ async def main():
     
     # Update Core
     bot_core.game_state = sc2_adapter
+
+    # Stream Production Adapter (broadcast context: series score, scenes, GG, intros)
+    stream_production_adapter = None
+    if getattr(config, "ENABLE_STREAM_PRODUCTION_API", False):
+        if getattr(config, "STREAM_PRODUCTION_API_URL", ""):
+            stream_production_adapter = StreamProductionAdapter(bot_core)
+            logger.info("Stream Production adapter enabled.")
+        else:
+            logger.warning("ENABLE_STREAM_PRODUCTION_API is True but STREAM_PRODUCTION_API_URL is empty; skipping.")
     
     # 6. Start Background Tasks
     tasks = []
@@ -286,6 +297,10 @@ async def main():
     # B) SC2 Monitoring Loop (New Adapter)
     if config.ENABLE_SC2_MONITORING:
         tasks.append(asyncio.create_task(sc2_adapter.start_monitoring()))
+    
+    # B2) Stream Production Monitoring Loop
+    if stream_production_adapter:
+        tasks.append(asyncio.create_task(stream_production_adapter.start_monitoring()))
     
     # C) Twitch Bot (Run in Daemon Thread)
     logger.info("Starting Twitch Bot (Daemon Thread)...")
@@ -353,6 +368,10 @@ async def main():
         
         # 3. Stop SC2 Adapter (stops monitoring loop)
         sc2_adapter.stop()
+        
+        # 3b. Stop Stream Production Adapter
+        if stream_production_adapter:
+            stream_production_adapter.stop()
         
         # 4. Cleanly close Discord
         if config.DISCORD_ENABLED and not discord_bot_legacy.is_closed():

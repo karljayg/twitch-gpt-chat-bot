@@ -52,7 +52,7 @@ async def test_preview_handler_success(mock_opponent_analysis_service, mock_twit
         # Verify preview message sent
         mock_chat_service.send_message.assert_called()
         calls = mock_chat_service.send_message.call_args_list
-        assert any("Previewing opponent analysis" in str(call) for call in calls)
+        assert any("Previewing" in str(call) for call in calls)
 
 @pytest.mark.asyncio
 async def test_preview_handler_not_broadcaster(mock_opponent_analysis_service, mock_twitch_bot,
@@ -195,4 +195,25 @@ Time: 0:00, Name: Drone, Supply: 12
     assert opponent_race == "Zerg"
     assert streamer_race == "Terran"
     assert versus_name == "NuKLeO"
+
+
+def test_extract_opponent_info_observer_two_non_accounts(mock_opponent_analysis_service, mock_twitch_bot):
+    """Neither player in SC2_PLAYER_ACCOUNTS: neutral pairing for preview/retry flows."""
+    from core.handlers.preview_handler import PreviewHandler
+
+    handler = PreviewHandler(mock_opponent_analysis_service, mock_twitch_bot)
+    replay = {
+        "map": "M",
+        "players": {
+            "2": {"name": "LittleReaper", "race": "Zerg"},
+            "1": {"name": "McDavid", "race": "Protoss"},
+        },
+    }
+    with patch.object(config, "SC2_PLAYER_ACCOUNTS", ["KJ", "Stradale"]):
+        info = handler._extract_opponent_info(replay)
+    assert info is not None
+    assert info["name"] == "McDavid"
+    assert info["race"] == "Protoss"
+    assert info["versus_name"] == "LittleReaper"
+    assert info["streamer_race"] == "Zerg"
 

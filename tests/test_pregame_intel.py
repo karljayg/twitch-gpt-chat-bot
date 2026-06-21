@@ -6,6 +6,7 @@ from settings import config
 
 from core.pregame_intel import (
     PreGameBrief,
+    compute_suppress_last_time_sc2_alias_substitution,
     abbreviated_grouped_build_string,
     _replay_summary_sanitize_for_inline_prompt,
     compose_last_meeting_user_message,
@@ -355,6 +356,35 @@ class TestRunKnownOpponentPregame(unittest.TestCase):
         self.ctx = []
 
     @patch("core.pregame_intel.get_ml_analyzer")
+    @patch("core.pregame_intel.processMessageForOpenAI")
+    def test_observer_suppress_does_not_emit_separate_h2h_line(self, oai, gma):
+        """Regress: trailing format_record_line must respect suppress (no streamer-nick h2h line)."""
+        gma.return_value = _ml_analyzer_mock(chat_returns=False, analysis_data=None)
+        brief = PreGameBrief(
+            opponent_display_name="LittleReaper",
+            opponent_race="Zerg",
+            streamer_current_race="Protoss",
+            streamer_race_compare="Zerg",
+            today_streamer_race="Protoss",
+            today_opponent_race="Zerg",
+            db_result=_minimal_db_row(),
+            how_long_ago="1h ago",
+            record_vs=(2, 4),
+            player_comments=[],
+            first_few_build_steps=None,
+            suppress_last_time_sc2_alias_substitution=True,
+            versus_display_name="McDavid",
+            inline_saved_notes_in_last_meeting=True,
+        )
+        with patch("core.pregame_intel.msgToChannel") as mch:
+            run_known_opponent_pregame(self.bot, brief, self.log, self.ctx, "M")
+        nick = config.STREAMER_NICKNAME
+        for c in mch.call_args_list:
+            if len(c[0]) > 1:
+                msg = c[0][1]
+                self.assertNotIn(f"{nick}'s record", msg)
+
+    @patch("core.pregame_intel.get_ml_analyzer")
     @patch("core.pregame_intel.twitch_notes_from_saved_comments", return_value="NOTE_LINE")
     @patch("core.pregame_intel.msgToChannel")
     def test_notes_last_meeting_only_skips_separate_build_llm(self, _mch, _notes_fn, gma):
@@ -505,7 +535,7 @@ class TestRunKnownOpponentPregame(unittest.TestCase):
     @patch("core.pregame_intel.twitch_notes_from_saved_comments", return_value="NOTE_LINE")
     @patch("core.pregame_intel.msgToChannel")
     @patch("core.pregame_intel.processMessageForOpenAI")
-    def test_inline_preview_skips_build_appendix_when_saved_notes(self, oai, _mch, _notes, gma):
+    def test_inline_preview_includes_build_suffix_when_saved_notes(self, oai, _mch, _notes, gma):
         gma.return_value = _ml_analyzer_mock(chat_returns=False, analysis_data=None)
         comments = [{"date_played": "2024-01-01", "text": "x"}]
         brief = PreGameBrief(
@@ -527,8 +557,9 @@ class TestRunKnownOpponentPregame(unittest.TestCase):
         self.assertEqual(oai.call_count, 1)
         combined = oai.call_args[0][1]
         self.assertIn("NOTE_LINE", combined)
-        # Saved notes present — opener must not duplicate DB replay build (expert text is source of truth).
-        self.assertNotIn("=== Opponent opening", combined)
+        suffix = oai.call_args.kwargs.get("response_suffix", "")
+        self.assertIn("Bob opening:", suffix)
+        self.assertIn("Drone", suffix)
 
     @patch("core.pregame_intel.get_ml_analyzer")
     @patch("core.pregame_intel.processMessageForOpenAI")
@@ -606,6 +637,84 @@ class TestSupplementPlayerComments(unittest.TestCase):
         existing = [{"player_comments": "same note"}]
         out = supplement_player_comments_from_db_row(db_row, existing)
         self.assertEqual(len(out), 1)
+
+
+class TestAliasSubstitutionPolicy(unittest.TestCase):
+    def test_auto_suppresses_when_nick_not_in_pair_and_guest_not_streamer_ladder(
+        self,
+    ):
+        with patch.object(config, "STREAMER_NICKNAME", "KJ"):
+            with patch.object(config, "PREGAME_ALIAS_SUBSTITUTION_MODE", "auto"):
+                with patch.object(
+                    config, "PREGAME_CO_CAST_LADDER_NAMES", ("LittleReaper",)
+                ):
+                    with patch.object(
+                        config, "SC2_PLAYER_ACCOUNTS", ["KJ", "LittleReaper", "GLHFGG"]
+                    ):
+                        self.assertTrue(
+                            compute_suppress_last_time_sc2_alias_substitution(
+                                "Juanette", "LittleReaper"
+                            )
+                        )
+
+    def test_auto_does_not_suppress_when_ladder_is_streamer_alias_not_twitch_nick(
+        self,
+    ):
+        with patch.object(config, "STREAMER_NICKNAME", "KJ"):
+            with patch.object(config, "PREGAME_ALIAS_SUBSTITUTION_MODE", "auto"):
+                with patch.object(config, "PREGAME_CO_CAST_LADDER_NAMES", ()):
+                    with patch.object(
+                        config, "SC2_PLAYER_ACCOUNTS", ["KJ", "GLHFGG"]
+                    ):
+                        self.assertFalse(
+                            compute_suppress_last_time_sc2_alias_substitution(
+                                "SweetNesS", "GLHFGG"
+                            )
+                        )
+
+    def test_auto_does_not_suppress_when_nick_matches_player(self):
+        with patch.object(config, "STREAMER_NICKNAME", "KJ"):
+            with patch.object(config, "PREGAME_ALIAS_SUBSTITUTION_MODE", "auto"):
+                self.assertFalse(
+                    compute_suppress_last_time_sc2_alias_substitution("KJ", "ZergGuy")
+                )
+
+    def test_compose_respects_suppress_leaves_ladder_name_in_snippet(self):
+        summ = (
+            "Players: X Map: M Winners: LittleReaper Losers: Juanette\n"
+            "Game Duration: 9m 43s\n"
+        )
+        brief = PreGameBrief(
+            opponent_display_name="Juanette",
+            opponent_race="Terran",
+            streamer_current_race="Zerg",
+            streamer_race_compare="Terran",
+            today_streamer_race="Zerg",
+            today_opponent_race="Terran",
+            db_result=_minimal_db_row(Replay_Summary=summ),
+            how_long_ago="36 minutes ago",
+            record_vs=None,
+            player_comments=[],
+            first_few_build_steps=None,
+            suppress_last_time_sc2_alias_substitution=True,
+            versus_display_name="LittleReaper",
+        )
+        with patch.object(config, "SC2_PLAYER_ACCOUNTS", ["KJ", "LittleReaper"]):
+            msg = compose_last_meeting_user_message(brief)
+        self.assertIn("LittleReaper", msg)
+
+    def test_always_mode_never_suppresses_via_compute(self):
+        with patch.object(config, "PREGAME_ALIAS_SUBSTITUTION_MODE", "always"):
+            self.assertFalse(
+                compute_suppress_last_time_sc2_alias_substitution("A", "B")
+            )
+
+    def test_auto_no_suppress_when_versus_empty_even_if_opponent_name_only(self):
+        with patch.object(config, "STREAMER_NICKNAME", "KJ"):
+            with patch.object(config, "PREGAME_ALIAS_SUBSTITUTION_MODE", "auto"):
+                self.assertFalse(
+                    compute_suppress_last_time_sc2_alias_substitution("Serral", "")
+                )
 
 
 if __name__ == "__main__":

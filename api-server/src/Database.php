@@ -39,23 +39,56 @@ class Database {
     
     // ===== Player Methods =====
     
+    private function streamerAccountNamesLower(): array {
+        global $sc2_player_accounts, $sc2_barcode_accounts;
+        $accounts = array_merge($sc2_player_accounts ?? [], $sc2_barcode_accounts ?? []);
+        $seen = [];
+        $out = [];
+        foreach ($accounts as $name) {
+            $low = strtolower(trim((string) $name));
+            if ($low === '' || isset($seen[$low])) {
+                continue;
+            }
+            $seen[$low] = true;
+            $out[] = $low;
+        }
+        return $out;
+    }
+
     public function checkPlayerAndRaceExists($player_name, $player_race) {
+        $streamerLower = $this->streamerAccountNamesLower();
+        if (!$streamerLower) {
+            return null;
+        }
+        $placeholders = implode(', ', array_fill(0, count($streamerLower), '?'));
         $sql = "
-            SELECT r.*, 
+            SELECT r.*,
                    p1.SC2_UserId AS Player1_Name,
                    p2.SC2_UserId AS Player2_Name
             FROM Replays r
             JOIN Players p1 ON r.Player1_Id = p1.Id
             JOIN Players p2 ON r.Player2_Id = p2.Id
-            WHERE ((p1.SC2_UserId = ? AND r.Player1_Race = ?)
-                OR (p2.SC2_UserId = ? AND r.Player2_Race = ?))
-            ORDER BY (r.Player_Comments IS NOT NULL AND r.Player_Comments != '') DESC,
-                     r.Date_Played DESC
+            WHERE r.GameType = '1v1'
+              AND (
+                (p1.SC2_UserId = ? AND r.Player1_Race = ?
+                 AND LOWER(p2.SC2_UserId) IN ($placeholders))
+                OR
+                (p2.SC2_UserId = ? AND r.Player2_Race = ?
+                 AND LOWER(p1.SC2_UserId) IN ($placeholders))
+              )
+            ORDER BY r.Date_Played DESC
             LIMIT 1
         ";
-        
+
+        $params = array_merge(
+            [$player_name, $player_race],
+            $streamerLower,
+            [$player_name, $player_race],
+            $streamerLower
+        );
+
         $stmt = $this->conn->prepare($sql);
-        $stmt->execute([$player_name, $player_race, $player_name, $player_race]);
+        $stmt->execute($params);
         $result = $stmt->fetch();
         return $result ?: null;
     }
@@ -69,24 +102,78 @@ class Database {
     }
     
     public function getPlayerRecords($player_name) {
+        global $sc2_player_accounts, $sc2_barcode_accounts;
+        $streamerAccounts = array_merge($sc2_player_accounts ?? [], $sc2_barcode_accounts ?? []);
+        $seen = [];
+        $streamerLower = [];
+        foreach ($streamerAccounts as $name) {
+            $low = strtolower(trim((string) $name));
+            if ($low === '' || isset($seen[$low])) {
+                continue;
+            }
+            $seen[$low] = true;
+            $streamerLower[] = $low;
+        }
+
         $sql = "
             SELECT 
-                CONCAT(p1.SC2_UserId, ', ', p2.SC2_UserId, ', ',
-                       COALESCE(SUM(CASE WHEN r.Player1_Result = 'Win' THEN 1 ELSE 0 END), 0), ' wins, ',
-                       COALESCE(SUM(CASE WHEN r.Player1_Result = 'Lose' THEN 1 ELSE 0 END), 0), ' losses') as record
+                CASE 
+                    WHEN LOWER(p1.SC2_UserId) = LOWER(?) THEN p2.SC2_UserId
+                    ELSE p1.SC2_UserId 
+                END AS Opponent,
+                SUM(CASE WHEN (LOWER(p1.SC2_UserId) = LOWER(?) AND r.Player1_Result = 'Win') OR 
+                              (LOWER(p2.SC2_UserId) = LOWER(?) AND r.Player2_Result = 'Win') THEN 1 ELSE 0 END) AS Wins,
+                SUM(CASE WHEN (LOWER(p1.SC2_UserId) = LOWER(?) AND r.Player1_Result = 'Lose') OR 
+                              (LOWER(p2.SC2_UserId) = LOWER(?) AND r.Player2_Result = 'Lose') THEN 1 ELSE 0 END) AS Losses,
+                MAX(r.Date_Played) AS Last_Played
             FROM Replays r
             JOIN Players p1 ON r.Player1_Id = p1.Id
             JOIN Players p2 ON r.Player2_Id = p2.Id
-            WHERE p1.SC2_UserId = ?
-            GROUP BY p1.SC2_UserId, p2.SC2_UserId
+            WHERE (LOWER(p1.SC2_UserId) = LOWER(?) OR LOWER(p2.SC2_UserId) = LOWER(?))
+              AND r.GameType = '1v1'
+            GROUP BY Opponent
+            ORDER BY Last_Played DESC
         ";
-        
+
         $stmt = $this->conn->prepare($sql);
-        $stmt->execute([$player_name]);
-        return $stmt->fetchAll(PDO::FETCH_COLUMN);
+        $stmt->execute([
+            $player_name, $player_name, $player_name, $player_name, $player_name,
+            $player_name, $player_name,
+        ]);
+        $results = $stmt->fetchAll();
+
+        $formattedResults = [];
+        $totalWins = 0;
+        $totalLosses = 0;
+        $streamerNick = $GLOBALS['streamer_nickname'] ?? 'KJ';
+
+        foreach ($results as $row) {
+            $opponent = $row['Opponent'];
+            $wins = (int) $row['Wins'];
+            $losses = (int) $row['Losses'];
+            if (in_array(strtolower($opponent), $streamerLower, true)) {
+                $totalWins += $wins;
+                $totalLosses += $losses;
+            }
+            $formattedResults[] = "{$player_name}, {$opponent}, {$wins} wins, {$losses} losses";
+        }
+
+        if ($totalWins > 0 || $totalLosses > 0) {
+            array_unshift(
+                $formattedResults,
+                "{$player_name}, {$streamerNick}, {$totalWins} wins, {$totalLosses} losses"
+            );
+        }
+
+        return $formattedResults;
     }
     
     public function getPlayerComments($player_name, $player_race) {
+        $streamerLower = $this->streamerAccountNamesLower();
+        if (!$streamerLower) {
+            return [];
+        }
+        $placeholders = implode(', ', array_fill(0, count($streamerLower), '?'));
         $sql = "
             SELECT 
                 r.Player_Comments,
@@ -96,16 +183,29 @@ class Database {
             FROM Replays r
             JOIN Players p1 ON r.Player1_Id = p1.Id
             JOIN Players p2 ON r.Player2_Id = p2.Id
-            WHERE ((p1.SC2_UserId = ? AND r.Player1_Race = ?)
-                OR (p2.SC2_UserId = ? AND r.Player2_Race = ?))
-                AND r.Player_Comments IS NOT NULL
-                AND TRIM(r.Player_Comments) <> ''
+            WHERE r.GameType = '1v1'
+              AND (
+                (p1.SC2_UserId = ? AND r.Player1_Race = ?
+                 AND LOWER(p2.SC2_UserId) IN ($placeholders))
+                OR
+                (p2.SC2_UserId = ? AND r.Player2_Race = ?
+                 AND LOWER(p1.SC2_UserId) IN ($placeholders))
+              )
+              AND r.Player_Comments IS NOT NULL
+              AND TRIM(r.Player_Comments) <> ''
             ORDER BY r.Date_Played DESC
         ";
-        
+
+        $params = array_merge(
+            [$player_name, $player_race],
+            $streamerLower,
+            [$player_name, $player_race],
+            $streamerLower
+        );
+
         $stmt = $this->conn->prepare($sql);
-        $stmt->execute([$player_name, $player_race, $player_name, $player_race]);
-        
+        $stmt->execute($params);
+
         $results = [];
         foreach ($stmt->fetchAll() as $row) {
             $results[] = [

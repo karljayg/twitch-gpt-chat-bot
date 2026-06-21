@@ -120,6 +120,11 @@ EARLY_GAME_SUPPLY_THRESHOLD = 60     # Supply threshold for early game classific
 # When True: known-opponent pregame appends a verbatim abbreviated build (DB order, Pool/Rax/etc. via UNIT_ABBREVIATIONS)
 # after the LLM line instead of asking the model to paraphrase opening — more reliable ordering.
 PREGAME_APPEND_DETERMINISTIC_OPENING = True
+# last_meeting prompts: "always" = rewrite all SC2_PLAYER_ACCOUNTS to STREAMER_NICKNAME (legacy).
+# "never" = never rewrite. "auto" = skip rewrite when STREAMER_NICKNAME is not either live 1v1 name (co-cast).
+PREGAME_ALIAS_SUBSTITUTION_MODE = "auto"
+# Optional: guest ladder tags listed in SC2_PLAYER_ACCOUNTS but not the streamer (auto two-name mode).
+PREGAME_CO_CAST_LADDER_NAMES: tuple = ()
 # Twitch caps for deterministic opponent opening suffix (abbreviated grouped order). 0 = no limit for that axis.
 PREGAME_OPENING_SUFFIX_MAX_GROUPS = 28
 PREGAME_OPENING_SUFFIX_MAX_CHARS = 220
@@ -227,6 +232,40 @@ FSL_ASK_FORMAT_WITH_LLM = True  # second LLM shapes the reply to the QUESTION us
 # FSL_RATINGS_ADMIN_LOGINS = []  # optional extra Twitch logins allowed to start/end (PAGE/OWNER always)
 # FSL_TUNNEL_TEST_MATCH_ID = 99001  # reserved fsl_match_id for tunnel tests (Freeedom vs SirMalagant); see schema_changes.sql
 # FSL_VOTING_SUBMIT_BUFFER_SEC = 15.0  # auto-submit this many seconds before API expires_at (reduces 403 VOTING_CLOSED)
+
+# Stream Production Status API Settings
+# Read-only feed from the FSL broadcast production tool (scenes, music mood, team-league
+# series scores, GG flashes, player intros). Fills context the SC2 client cannot see.
+# See docs/STREAM_PRODUCTION_API.md (or the spec) for field semantics.
+ENABLE_STREAM_PRODUCTION_API = False  # master switch for polling the production feed
+# Base URL of the production tool (the part BEFORE /status); the client appends /status.
+# Local test example: "http://localhost/psistorm.com/tools/stream_greenscreen_production"
+STREAM_PRODUCTION_API_URL = ""  # leave empty to disable even if the master switch is on
+STREAM_PRODUCTION_API_KEY = ""  # optional Bearer token; leave empty for public feed
+STREAM_PRODUCTION_VERIFY_SSL = False  # set True if the host has a valid cert
+STREAM_PRODUCTION_API_TIMEOUT_SECONDS = 5
+STREAM_PRODUCTION_POLL_SECONDS = 2  # how often to poll /status?since=<seq>
+# Stale-feed guard: ignore state if the producer browser heartbeat is older than this.
+STREAM_PRODUCTION_MAX_HEARTBEAT_AGE_MS = 30000
+# Anti-spam coalescing windows (seconds). Bias toward grouping / less chatter.
+STREAM_PRODUCTION_QUIET_WINDOW_SECONDS = 20   # flush after this much silence (resets per event)
+STREAM_PRODUCTION_MAX_WINDOW_SECONDS = 60     # hard cap from first buffered event
+STREAM_PRODUCTION_WINNER_QUIET_WINDOW_SECONDS = 5  # series-clinch speaks faster
+STREAM_PRODUCTION_COOLDOWN_SECONDS = 30       # minimum gap between spoken updates
+# Output behavior. Safe default: announce OFF = log-only (watch traffic, tune windows).
+STREAM_PRODUCTION_ANNOUNCE_ENABLED = False    # flip True to let Mathison speak in chat
+# Reliability: build score/series statements deterministically (winner, score, who-leads all
+# computed in code, not by the LLM, which kept flipping scores). Recommended True.
+STREAM_PRODUCTION_DETERMINISTIC_STATEMENTS = True
+STREAM_PRODUCTION_USE_LLM_FOR_BATCH = False   # only used when DETERMINISTIC_STATEMENTS is False
+# Per-player head-to-head so Mathison can say e.g. "now 4-1 vs NukLeo". Two sources, both relative to
+# STREAM_PRODUCTION_API_URL; on a score change the bot diffs them and uses whichever scoreboard changed.
+# Set a path to "" to disable that source.
+STREAM_PRODUCTION_USE_SCOREBOARDS = True
+STREAM_PRODUCTION_TEAMLEAGUE_CSV_PATH = "2026/scoreboard.csv"      # team-league (all matchup rows)
+STREAM_PRODUCTION_CUSTOM_SCOREBOARD_PATH = "data/custom_scoreboard.json"  # custom-game featured matchup
+STREAM_PRODUCTION_MEANINGFUL_SCENES = ["pog", "scoreboard", "custom-scoreboard"]  # scenes worth mentioning
+STREAM_PRODUCTION_ACTIVITY_LOG = "stream_production_activity_log.txt"
 
 # Pattern Learning System Settings
 ENABLE_PATTERN_LEARNING = True  # Enable SC2 build pattern learning from player comments

@@ -6,6 +6,7 @@ Can be called from:
 """
 
 import logging
+from typing import Optional
 
 from settings import config
 import utils.tokensArray as tokensArray
@@ -13,7 +14,11 @@ from api.chat_utils import processMessageForOpenAI
 from utils.time_utils import calculate_time_ago
 from utils.streamer_record_parse import parse_streamer_record_vs_opponent
 
-from core.pregame_intel import PreGameBrief, run_known_opponent_pregame
+from core.pregame_intel import (
+    PreGameBrief,
+    run_known_opponent_pregame,
+    compute_suppress_last_time_sc2_alias_substitution,
+)
 from core.random_opponent_intel import gather_concrete_race_intel_for_random_opponent
 from core.pregame_matchup_blurb import replay_h2h_streamer_vs_opponent
 
@@ -41,6 +46,7 @@ class OpponentAnalysisService:
         context_history: list = None,
         *,
         inline_saved_notes_in_last_meeting: bool = False,
+        versus_display_name: Optional[str] = None,
     ):
         """
         Run opponent analysis - looks up DB records, previous games, comments, etc.
@@ -51,6 +57,7 @@ class OpponentAnalysisService:
             streamer_race: Race of the streamer in this game
             current_map: Current map name (for ML analysis)
             context_history: Conversation context (can be None for preview)
+            versus_display_name: Other 1v1 player's name when previewing a neutral match (co-cast).
 
         Returns:
             bool: True if analysis was successful
@@ -86,6 +93,7 @@ class OpponentAnalysisService:
                     random_race_intel=random_intel,
                     merged_comments_override=merged_comments_rb,
                     lookup_name_original=opponent_name,
+                    versus_display_name=versus_display_name,
                 )
             result = None
         else:
@@ -102,6 +110,7 @@ class OpponentAnalysisService:
                 result,
                 context_history,
                 inline_saved_notes_in_last_meeting=inline_saved_notes_in_last_meeting,
+                versus_display_name=versus_display_name,
             )
         else:
             # New opponent
@@ -122,6 +131,7 @@ class OpponentAnalysisService:
         random_race_intel: tuple = (),
         merged_comments_override: list = None,
         lookup_name_original: str = None,
+        versus_display_name: Optional[str] = None,
     ) -> bool:
         """Analyze a known opponent with DB history."""
 
@@ -197,6 +207,11 @@ class OpponentAnalysisService:
 
         opponent_name = canonical_opponent
 
+        suppress_aliases = compute_suppress_last_time_sc2_alias_substitution(
+            opponent_name,
+            versus_display_name or "",
+        )
+
         if record_vs is None:
             _hints = [original_opponent_for_hints]
             if str(opponent_name).strip().lower() != str(original_opponent_for_hints).strip().lower():
@@ -242,6 +257,8 @@ class OpponentAnalysisService:
             opponent_lookup_hints=tuple(_lookup_hints),
             inline_saved_notes_in_last_meeting=inline_saved_notes_in_last_meeting,
             random_race_intel=random_race_intel,
+            suppress_last_time_sc2_alias_substitution=suppress_aliases,
+            versus_display_name=(versus_display_name or "").strip(),
         )
         run_known_opponent_pregame(
             self.twitch_bot,

@@ -328,37 +328,69 @@ class Database:
             self.logger.error(f"SQL Error updating replay {replay_id}: {e}")
             raise
 
+    def _streamer_account_names_lower(self):
+        """Lowercase SC2 ladder ids for the streamer (accounts + barcodes)."""
+        from settings import config
+
+        accounts = list(config.SC2_PLAYER_ACCOUNTS) + list(
+            getattr(config, "SC2_BARCODE_ACCOUNTS", [])
+        )
+        seen = set()
+        out = []
+        for name in accounts:
+            low = str(name).strip().lower()
+            if not low or low in seen:
+                continue
+            seen.add(low)
+            out.append(low)
+        return out
+
     def check_player_and_race_exists(self, player_name, player_race):
         """
-        Check if player exists with specific race.
-        Prioritizes replays with player_comments, then by most recent date.
-        Filters to only return games where the player played as the specified race.
+        Most recent 1v1 replay where player_name played as player_race vs a streamer account.
         """
         try:
             self.ensure_connection()
             self.cursor.reset()
-            
-            query = """
-                SELECT 
-                    r.*, 
-                    p1.SC2_UserId AS Player1_Name, 
+
+            streamer_lower = self._streamer_account_names_lower()
+            if not streamer_lower:
+                self.logger.warning(
+                    "check_player_and_race_exists: no SC2_PLAYER_ACCOUNTS configured"
+                )
+                return None
+
+            placeholders = ", ".join(["%s"] * len(streamer_lower))
+            query = f"""
+                SELECT
+                    r.*,
+                    p1.SC2_UserId AS Player1_Name,
                     p2.SC2_UserId AS Player2_Name
-                FROM 
+                FROM
                     Replays r
                     JOIN Players p1 ON r.Player1_Id = p1.Id
                     JOIN Players p2 ON r.Player2_Id = p2.Id
-                WHERE 
-                    ((p1.SC2_UserId = %s AND r.Player1_Race = %s) 
-                    OR 
-                    (p2.SC2_UserId = %s AND r.Player2_Race = %s))
-                ORDER BY 
-                    (r.Player_Comments IS NOT NULL AND r.Player_Comments != '') DESC,
+                WHERE
+                    r.GameType = '1v1'
+                    AND (
+                        (p1.SC2_UserId = %s AND r.Player1_Race = %s
+                         AND LOWER(p2.SC2_UserId) IN ({placeholders}))
+                        OR
+                        (p2.SC2_UserId = %s AND r.Player2_Race = %s
+                         AND LOWER(p1.SC2_UserId) IN ({placeholders}))
+                    )
+                ORDER BY
                     r.Date_Played DESC
                 LIMIT 1;
             """
 
-            # Execute the query
-            self.cursor.execute(query, (player_name, player_race, player_name, player_race))
+            params = (
+                [player_name, player_race]
+                + streamer_lower
+                + [player_name, player_race]
+                + streamer_lower
+            )
+            self.cursor.execute(query, params)
 
             # Fetch the result
             result = self.cursor.fetchone()
@@ -1026,8 +1058,16 @@ class Database:
         """
         self.cursor.reset()
         try:
-            # SQL query to retrieve relevant games
-            query = """
+            streamer_lower = self._streamer_account_names_lower()
+            if not streamer_lower:
+                self.logger.warning(
+                    "get_player_comments: no SC2_PLAYER_ACCOUNTS configured"
+                )
+                return []
+
+            placeholders = ", ".join(["%s"] * len(streamer_lower))
+            # SQL query to retrieve relevant games vs streamer accounts only
+            query = f"""
             SELECT 
                 r.Player_Comments,
                 r.Map,
@@ -1039,15 +1079,26 @@ class Database:
                 Players p1 ON r.Player1_Id = p1.Id
                 JOIN Players p2 ON r.Player2_Id = p2.Id
             WHERE 
-                ((p1.SC2_UserId = %s AND r.Player1_Race = %s) OR
-                (p2.SC2_UserId = %s AND r.Player2_Race = %s))
+                r.GameType = '1v1'
+                AND (
+                    (p1.SC2_UserId = %s AND r.Player1_Race = %s
+                     AND LOWER(p2.SC2_UserId) IN ({placeholders}))
+                    OR
+                    (p2.SC2_UserId = %s AND r.Player2_Race = %s
+                     AND LOWER(p1.SC2_UserId) IN ({placeholders}))
+                )
                 AND r.Player_Comments IS NOT NULL
                 AND TRIM(r.Player_Comments) <> ''
             ORDER BY 
                 r.Date_Played DESC;
             """
-            # Execute the query with parameters
-            self.cursor.execute(query, (player_name, player_race, player_name, player_race))
+            params = (
+                [player_name, player_race]
+                + streamer_lower
+                + [player_name, player_race]
+                + streamer_lower
+            )
+            self.cursor.execute(query, params)
             results = self.cursor.fetchall()
 
             if not results:

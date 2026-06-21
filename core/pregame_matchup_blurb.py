@@ -131,13 +131,26 @@ def replay_archive_head_to_head_totals_multi(
 def replay_h2h_streamer_vs_opponent(
     db: Any, opponent_hints: Sequence[str]
 ) -> Optional[Tuple[int, int]]:
-    """(streamer_wins, streamer_losses) from replay DB when record lines did not parse."""
-    tot = replay_archive_head_to_head_totals_multi(
-        db, list(_streamer_name_hints()), list(opponent_hints)
-    )
-    if not tot:
+    """(streamer_wins, streamer_losses) summed across all streamer ladder accounts vs opponent."""
+    streamer_hints = _dedupe_name_hints(_streamer_name_hints())
+    opp_hints = _dedupe_name_hints(opponent_hints)
+    if not streamer_hints or not opp_hints:
         return None
-    return tot[0], tot[1]
+
+    total_sw = 0
+    total_ol = 0
+    found = False
+    for a in streamer_hints:
+        for b in opp_hints:
+            tot = replay_archive_head_to_head_totals(db, a, b)
+            if not tot:
+                continue
+            found = True
+            total_sw += tot[0]
+            total_ol += tot[1]
+    if not found:
+        return None
+    return total_sw, total_ol
 
 
 def replay_archive_head_to_head_totals(
@@ -234,9 +247,7 @@ def build_streamer_vs_opponent_tidbit(
         s = fsl_career_maps_sentence(db, sn, opponent_display, r_s, r_o)
         if s:
             return s
-    tot = replay_archive_head_to_head_totals_multi(
-        db, list(_streamer_name_hints()), hints_o
-    )
+    tot = replay_h2h_streamer_vs_opponent(db, hints_o)
     if tot:
         wa, wb = tot
         return replay_h2h_sentence(sn, opponent_display, wa, wb)

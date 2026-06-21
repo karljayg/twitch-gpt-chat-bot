@@ -20,6 +20,77 @@ from api.chat_utils import (
     substitute_streamer_aliases_for_chat_display,
     twitch_notes_from_saved_comments,
 )
+
+
+def _co_cast_guest_ladder_names_lower() -> set:
+    raw = getattr(config, "PREGAME_CO_CAST_LADDER_NAMES", None) or ()
+    return {str(x).strip().lower() for x in raw if str(x).strip()}
+
+
+def _is_streamer_in_two_name_match(name: str) -> bool:
+    """True if this 1v1 name is the streamer on air (Twitch nick) or a non-guest SC2_PLAYER_ACCOUNTS tag."""
+    if not name or not str(name).strip():
+        return False
+    low = str(name).strip().lower()
+    nick = (getattr(config, "STREAMER_NICKNAME", "") or "").strip().lower()
+    if not nick:
+        return False
+    if low == nick:
+        return True
+    if low in _co_cast_guest_ladder_names_lower():
+        return False
+    for acct in getattr(config, "SC2_PLAYER_ACCOUNTS", None) or ():
+        if not acct:
+            continue
+        if str(acct).strip().lower() == low:
+            return True
+    return False
+
+
+def compute_suppress_last_time_sc2_alias_substitution(
+    opponent_display_name: str,
+    versus_display_name: Optional[str],
+) -> bool:
+    """When True, skip SC2→streamer-nick substitution in last-meeting prompts and replies.
+
+    PREGAME_ALIAS_SUBSTITUTION_MODE:
+      - always: never suppress (legacy).
+      - never: always suppress.
+      - auto: only when the UI gives two live 1v1 names (preview / neutral) and neither name is
+        the streamer: not STREAMER_NICKNAME, and (for accounts in SC2_PLAYER_ACCOUNTS) not a
+        streamer tag — i.e. list guest-only tags in PREGAME_CO_CAST_LADDER_NAMES so they are not
+        treated as the streamer. Ladder alts (e.g. GLHFGG) count as the streamer.
+        When ``versus_display_name`` is empty, auto never suppresses (normal your-game pregame).
+    """
+    mode = (getattr(config, "PREGAME_ALIAS_SUBSTITUTION_MODE", "always") or "always").strip().lower()
+    if mode == "never":
+        return True
+    if mode == "always":
+        return False
+    nick = (getattr(config, "STREAMER_NICKNAME", "") or "").strip()
+    if not nick:
+        return False
+    vs = (versus_display_name or "").strip()
+    if not vs:
+        return False
+    od = (opponent_display_name or "").strip()
+    if not od:
+        return False
+    od_is_streamer = _is_streamer_in_two_name_match(od)
+    vs_is_streamer = _is_streamer_in_two_name_match(vs)
+    suppress = not (od_is_streamer or vs_is_streamer)
+    import logging
+    logging.getLogger(__name__).debug(
+        "[pregame_alias_gate] mode=%s nick=%r opponent=%r versus=%r opponent_is_streamer=%s versus_is_streamer=%s suppress=%s",
+        mode,
+        nick,
+        od,
+        vs,
+        od_is_streamer,
+        vs_is_streamer,
+        suppress,
+    )
+    return suppress
 from api.ml_opponent_analyzer import get_ml_analyzer
 from utils.time_utils import parse_game_duration_seconds_from_summary
 
@@ -51,6 +122,10 @@ class PreGameBrief:
     ] = field(default_factory=tuple)
     # Set by run_known_opponent_pregame when DB opening is appended verbatim after the LLM line.
     suppress_opponent_training_narrative: bool = False
+    # When True, skip ladder→STREAMER_NICKNAME in DB replay excerpts and last_time_played reply cleanup.
+    suppress_last_time_sc2_alias_substitution: bool = False
+    # Other 1v1 competitor (ladder name) when previewing a neutral match — drives observer phrasing.
+    versus_display_name: str = ""
 
 
 def _streamer_accounts_lower() -> List[str]:
@@ -204,6 +279,20 @@ def prev_streamer_race_from_row(db_result: Dict[str, Any]) -> str:
     return str(prev_player2_race)
 
 
+def _race_for_named_player_in_row(db_result: Dict[str, Any], player_name: str) -> str:
+    """Race column for this player on the archived replay row (1v1)."""
+    if not player_name:
+        return ""
+    nl = str(player_name).strip().lower()
+    p1n = str(db_result.get("Player1_Name", "")).strip().lower()
+    p2n = str(db_result.get("Player2_Name", "")).strip().lower()
+    if nl == p1n:
+        return str(db_result.get("Player1_Race", "") or "")
+    if nl == p2n:
+        return str(db_result.get("Player2_Race", "") or "")
+    return ""
+
+
 _STEP_NAME_FROM_LINE = re.compile(r"(?i)\bName:\s*([^,\n]+)")
 _MAX_RAW_STEP_CHARS = 400
 
@@ -342,7 +431,12 @@ def _extract_duration_display_from_summary(summary: str) -> str:
     return f"{secs}s"
 
 
-def _streamer_outcome_display_phrase(summary: str) -> str:
+def _streamer_outcome_display_phrase(summary: str, *, neutral: bool = False) -> str:
+    if neutral:
+        return (
+            "who won (use the exact names from Winners/Losers in the excerpt — "
+            "do not rename players to the channel owner's on-air name unless it appears there)"
+        )
     nick = getattr(config, "STREAMER_NICKNAME", "Streamer")
     # Replay blobs often put Map/Region/Winners/Losers on one line — do not require ^Winners.
     mw = re.search(
@@ -384,15 +478,33 @@ def compose_last_meeting_user_message(
     bundled_saved_notes: True when the full prompt bundles expert player_comment text for the LLM
     (please preview / inline bundle). Strategy wording must follow those notes, not generic replay units.
     """
+    peer = (getattr(brief, "versus_display_name", "") or "").strip()
+    neutral_lm = bool(
+        getattr(brief, "suppress_last_time_sc2_alias_substitution", False) and peer
+    )
+
     prev_streamer_race = prev_streamer_race_from_row(brief.db_result)
-    same_matchup = prev_streamer_race.lower() == brief.streamer_race_compare.lower()
+    if neutral_lm:
+        r_arch_a = _race_for_named_player_in_row(brief.db_result, brief.opponent_display_name)
+        r_arch_b = _race_for_named_player_in_row(brief.db_result, peer)
+        same_matchup = {
+            str(r_arch_a).strip().lower(),
+            str(r_arch_b).strip().lower(),
+        } == {
+            str(brief.today_streamer_race).strip().lower(),
+            str(brief.today_opponent_race).strip().lower(),
+        }
+    else:
+        same_matchup = prev_streamer_race.lower() == brief.streamer_race_compare.lower()
     replay_snip = brief.db_result.get("Replay_Summary") or ""
     inline = getattr(brief, "inline_saved_notes_in_last_meeting", False)
     if isinstance(replay_snip, str) and inline:
         replay_snip = _replay_summary_sanitize_for_inline_prompt(replay_snip)
     elif isinstance(replay_snip, str):
         replay_snip = _replay_summary_strip_units_lost_blocks(replay_snip)
-    if isinstance(replay_snip, str):
+    if isinstance(replay_snip, str) and not getattr(
+        brief, "suppress_last_time_sc2_alias_substitution", False
+    ):
         replay_snip = substitute_streamer_aliases_for_chat_display(replay_snip)
     short_thr = int(getattr(config, "SHORT_LAST_GAME_DURATION_SECONDS", 120))
     prev_secs = parse_game_duration_seconds_from_summary(replay_snip)
@@ -440,15 +552,31 @@ def compose_last_meeting_user_message(
         )
 
     msg = opener_ctx + "Do these 2: \n"
-    if not same_matchup:
-        msg += (
-            f"NOTE: The previous game was {prev_streamer_race}v{opp_for_narr}, "
-            f"but TODAY's game is {brief.today_streamer_race}v{brief.today_opponent_race}. "
-            f"When describing the previous game, use the CORRECT races from that game "
-            f"(previous matchup was {prev_streamer_race}v{opp_for_narr}). "
-        )
     sn = config.STREAMER_NICKNAME
-    if brief.today_streamer_race == "Random":
+    if not same_matchup:
+        if neutral_lm:
+            pa, pb = brief.opponent_display_name, peer
+            r_a = _race_for_named_player_in_row(brief.db_result, pa) or opp_for_narr
+            r_b = _race_for_named_player_in_row(brief.db_result, pb) or brief.today_streamer_race
+            msg += (
+                f"NOTE: The archived game below was {r_a} vs {r_b} ({pa} vs {pb}), "
+                f"but TODAY's watched match is {brief.today_streamer_race} vs {brief.today_opponent_race}. "
+                "Use archive races when talking about the excerpt; use today's races for the live match.\n"
+            )
+        else:
+            msg += (
+                f"NOTE: The previous game was {prev_streamer_race}v{opp_for_narr}, "
+                f"but TODAY's game is {brief.today_streamer_race}v{brief.today_opponent_race}. "
+                f"When describing the previous game, use the CORRECT races from that game "
+                f"(previous matchup was {prev_streamer_race}v{opp_for_narr}). "
+            )
+    if neutral_lm:
+        pa, pb = brief.opponent_display_name, peer
+        if brief.today_opponent_race == "Random" or brief.today_streamer_race == "Random":
+            msg += f"Today's match includes Random on ladder; the archived line is {pa} vs {pb}; "
+        else:
+            msg += f"The last time in the archive ({pa} vs {pb}) "
+    elif brief.today_streamer_race == "Random":
         msg += f"Even though {sn} is Random, the last time "
     elif random_opp:
         msg += f"The last time (vs {brief.opponent_display_name}, archive race {archive_opp_race}) "
@@ -458,7 +586,7 @@ def compose_last_meeting_user_message(
         replay_snip, fallback_map=str(brief.db_result.get("Map", "") or "")
     )
     dur_disp = _extract_duration_display_from_summary(replay_snip)
-    outcome_disp = _streamer_outcome_display_phrase(replay_snip)
+    outcome_disp = _streamer_outcome_display_phrase(replay_snip, neutral=neutral_lm)
     notes_blob = str(saved_notes_text or "")
     notes_has_time = bool(notes_blob and re.search(r"\bago\b|~\d+\s*[hmwd]\b", notes_blob, re.I))
     notes_has_map = bool(map_disp and notes_blob and map_disp.lower() in notes_blob.lower())
@@ -478,57 +606,111 @@ def compose_last_meeting_user_message(
         f"{last_meeting_fact_clause} "
         f"(These values are filled from the archive — use them in chat as plain words, never brace placeholders.)\n"
     )
+    pa, pb = brief.opponent_display_name, peer
     if inline:
         if bundled_saved_notes:
-            msg += (
-                "After fixed lines and your casual expert-strategy wording (verbatim DB phrases): add exactly ONE sentence "
-                "(max 28 words). Facts only: roughly how long ago, game duration, who won. "
-                "If expert lines already include the map name, omit the map here (say it once total). "
-                "If expert lines already include relative time, omit it here (say it once total). "
-                "If winner/duration/map/time are already covered by fixed lines + expert lines, do not add another fact sentence. "
-                "Add at most ONE short sentence only when a core fact is still missing. "
-                "Do not repeat unit names, build shorthand, or strategy wording already stated in expert lines.\n"
-                "Do not repeat the opponent name back-to-back; use 'they' after first mention.\n"
-                "One-shot style example:\n"
-                "'KJ is 1-0 vs Chiewy, who went cannon to proxy gateway robo immortal. "
-                "The last time was a win for KJ in 5m 50s on Celestial Enclave LE about 10 hours ago.'\n"
-                f"Do not describe {sn}'s build or '{sn} trained'.\n"
-                "Avoid 'Players:', timestamps, comma-chained archive dumps from the excerpt.\n"
-                "Do not repeat the head-to-head opener lines. Write plain sentences — do not mention meta rules about naming.\n"
-                "Never cite unit-loss tallies or who lost how many of which unit — excerpt may omit those on purpose.\n"
-            )
+            if neutral_lm:
+                msg += (
+                    "After fixed lines and your casual expert-strategy wording (verbatim DB phrases): add exactly ONE sentence "
+                    "(max 28 words). Facts only: roughly how long ago, game duration, who won. "
+                    "If expert lines already include the map name, omit the map here (say it once total). "
+                    "If expert lines already include relative time, omit it here (say it once total). "
+                    "If winner/duration/map/time are already covered by fixed lines + expert lines, do not add another fact sentence. "
+                    "Add at most ONE short sentence only when a core fact is still missing. "
+                    "Do not repeat unit names, build shorthand, or strategy wording already stated in expert lines.\n"
+                    "Do not repeat the same player name back-to-back; use 'they' after first mention.\n"
+                    "One-shot style example (names are placeholders — use the real ladder names from this match):\n"
+                    f"'{pa} is 1-0 vs {pb}, who went cannon to proxy gateway robo immortal. "
+                    f"The last time was a win for {pa} in 5m 50s on Celestial Enclave LE about 10 hours ago.'\n"
+                    f"Do not describe {pb}'s build as {pa}'s unless the excerpt supports it.\n"
+                    f"Do NOT substitute either player's name with '{sn}' unless '{sn}' literally appears in the excerpt.\n"
+                    "Avoid 'Players:', timestamps, comma-chained archive dumps from the excerpt.\n"
+                    "Do not repeat the head-to-head opener lines. Write plain sentences — do not mention meta rules about naming.\n"
+                    "Never cite unit-loss tallies or who lost how many of which unit — excerpt may omit those on purpose.\n"
+                )
+            else:
+                msg += (
+                    "After fixed lines and your casual expert-strategy wording (verbatim DB phrases): add exactly ONE sentence "
+                    "(max 28 words). Facts only: roughly how long ago, game duration, who won. "
+                    "If expert lines already include the map name, omit the map here (say it once total). "
+                    "If expert lines already include relative time, omit it here (say it once total). "
+                    "If winner/duration/map/time are already covered by fixed lines + expert lines, do not add another fact sentence. "
+                    "Add at most ONE short sentence only when a core fact is still missing. "
+                    "Do not repeat unit names, build shorthand, or strategy wording already stated in expert lines.\n"
+                    "Do not repeat the opponent name back-to-back; use 'they' after first mention.\n"
+                    "One-shot style example:\n"
+                    "'KJ is 1-0 vs Chiewy, who went cannon to proxy gateway robo immortal. "
+                    "The last time was a win for KJ in 5m 50s on Celestial Enclave LE about 10 hours ago.'\n"
+                    f"Do not describe {sn}'s build or '{sn} trained'.\n"
+                    "Avoid 'Players:', timestamps, comma-chained archive dumps from the excerpt.\n"
+                    "Do not repeat the head-to-head opener lines. Write plain sentences — do not mention meta rules about naming.\n"
+                    "Never cite unit-loss tallies or who lost how many of which unit — excerpt may omit those on purpose.\n"
+                )
         elif getattr(brief, "suppress_opponent_training_narrative", False):
+            if neutral_lm:
+                msg += (
+                    f"In the replay summary below, the two competitors are {pa} and {pb} — not '{sn}' unless that name "
+                    "appears in the excerpt. After the fixed opener lines: at most TWO short sentences (under 45 words combined). "
+                    "Focus on last meeting only: how long ago, map, duration, winner — omit unit/build training lists "
+                    "(those facts are handled outside this sentence).\n"
+                    f"Do not credit the result to {sn} unless Winners/Losers name {sn}.\n"
+                    "Do not repeat the head-to-head opener lines.\n"
+                )
+            else:
+                msg += (
+                    f"In the replay summary below, {sn} is the streamer; {brief.opponent_display_name} is the opponent. "
+                    "After the fixed opener lines: at most TWO short sentences (under 45 words combined). "
+                    "Focus on last meeting only: how long ago, map, duration, winner — omit opponent unit/build/training lists "
+                    "(those facts are handled outside this sentence).\n"
+                    f"Do not describe {sn}'s build or '{sn} trained'.\n"
+                    "Do not repeat the head-to-head opener lines.\n"
+                )
+        else:
+            if neutral_lm:
+                msg += (
+                    f"In the replay summary below, the match is between {pa} and {pb}. "
+                    f"Do not call either player '{sn}' unless that name appears in the excerpt. "
+                    "Build-order step lists and unit-training tallies are removed from the excerpt — do NOT reconstruct, "
+                    "quote, or invent timestamps, supply chains, or any 'Name trained' lists from the archive.\n"
+                    f"If you mention a training/unit list at all, it MUST be for {pa} only when the notes concern {pa} — "
+                    f"never describe {pb}'s units as {pa}'s build.\n"
+                    "Avoid in the Twitch sentence: 'Players:', 'Timestamp:', comma-chained building/unit counts, "
+                    "or pasting any line marked omitted below.\n"
+                    "After the fixed opener lines (copy exactly), at most TWO short sentences for the rest "
+                    "(under 40 words total). Do not repeat the head-to-head record — the opener already gave it. "
+                    f"Prefer 'they/them' for {pa} after the first mention of their name.\n"
+                    "Do not name the map twice across the two sentences; do not repeat the same unit list in both.\n"
+                )
+            else:
+                msg += (
+                    f"In the replay summary below, {sn} is the streamer. "
+                    f"{brief.opponent_display_name} is the opponent. "
+                    "Build-order step lists and unit-training tallies are removed from the excerpt — do NOT reconstruct, "
+                    "quote, or invent timestamps, supply chains, or any 'Name trained' lists from the archive.\n"
+                    f"If you mention a training/unit list at all, it MUST be for {brief.opponent_display_name} only — "
+                    f"never describe {sn}'s units as the opponent's build (saved notes and the Opponent opening block, if any, "
+                    f"describe {brief.opponent_display_name}).\n"
+                    "Avoid in the Twitch sentence: 'Players:', 'Timestamp:', "
+                    f"'{sn} trained', comma-chained building/unit counts, or pasting any line marked omitted below.\n"
+                    "After the fixed opener lines (copy exactly), at most TWO short sentences for the rest "
+                    "(under 40 words total). Do not repeat the head-to-head record — the opener already gave it. "
+                    f"Prefer 'they/them' for {brief.opponent_display_name} after the first mention of their name.\n"
+                    "Do not name the map twice across the two sentences; do not repeat the same unit list in both.\n"
+                )
+    else:
+        if neutral_lm:
             msg += (
-                f"In the replay summary below, {sn} is the streamer; {brief.opponent_display_name} is the opponent. "
-                "After the fixed opener lines: at most TWO short sentences (under 45 words combined). "
-                "Focus on last meeting only: how long ago, map, duration, winner — omit opponent unit/build/training lists "
-                "(those facts are handled outside this sentence).\n"
-                f"Do not describe {sn}'s build or '{sn} trained'.\n"
-                "Do not repeat the head-to-head opener lines.\n"
+                f"In the replay summary below, the competitors are {pa} and {pb}. "
+                f"When mentioning units/buildings, attribute them to the correct player from section headers. "
+                f"Never use '{sn}' for a player unless that exact name appears in the excerpt.\n"
             )
         else:
             msg += (
                 f"In the replay summary below, {sn} is the streamer. "
                 f"{brief.opponent_display_name} is the opponent. "
-                "Build-order step lists and unit-training tallies are removed from the excerpt — do NOT reconstruct, "
-                "quote, or invent timestamps, supply chains, or any 'Name trained' lists from the archive.\n"
-                f"If you mention a training/unit list at all, it MUST be for {brief.opponent_display_name} only — "
-                f"never describe {sn}'s units as the opponent's build (saved notes and the Opponent opening block, if any, "
-                f"describe {brief.opponent_display_name}).\n"
-                "Avoid in the Twitch sentence: 'Players:', 'Timestamp:', "
-                f"'{sn} trained', comma-chained building/unit counts, or pasting any line marked omitted below.\n"
-                "After the fixed opener lines (copy exactly), at most TWO short sentences for the rest "
-                "(under 40 words total). Do not repeat the head-to-head record — the opener already gave it. "
-                f"Prefer 'they/them' for {brief.opponent_display_name} after the first mention of their name.\n"
-                "Do not name the map twice across the two sentences; do not repeat the same unit list in both.\n"
+                "When mentioning units/buildings, make sure you correctly identify which player built them. "
+                f"Look at the section headers (e.g., '{sn}'s Build Order' vs '{brief.opponent_display_name}'s Build Order'). "
             )
-    else:
-        msg += (
-            f"In the replay summary below, {sn} is the streamer. "
-            f"{brief.opponent_display_name} is the opponent. "
-            "When mentioning units/buildings, make sure you correctly identify which player built them. "
-            f"Look at the section headers (e.g., '{sn}'s Build Order' vs '{brief.opponent_display_name}'s Build Order'). "
-        )
     if random_opp:
         msg += (
             "[Archive only — do not quote in chat] "
@@ -536,16 +718,31 @@ def compose_last_meeting_user_message(
             "today they are Random on ladder — use each excerpt's header for race.\n"
         )
     elif same_matchup:
-        msg += (
-            f"RACE CONSTRAINT: {sn} is {brief.today_streamer_race}, "
-            f"{brief.opponent_display_name} is {brief.today_opponent_race}. "
-            "ONLY mention units that exist for these races. Do NOT mention units from other races. "
-        )
+        if neutral_lm:
+            msg += (
+                f"RACE CONSTRAINT (today's watched match): {peer} is {brief.today_streamer_race}, "
+                f"{brief.opponent_display_name} is {brief.today_opponent_race}. "
+                "ONLY mention units that exist for these races. Do NOT mention units from other races. "
+            )
+        else:
+            msg += (
+                f"RACE CONSTRAINT: {sn} is {brief.today_streamer_race}, "
+                f"{brief.opponent_display_name} is {brief.today_opponent_race}. "
+                "ONLY mention units that exist for these races. Do NOT mention units from other races. "
+            )
     else:
-        msg += (
-            f"In the PREVIOUS game: {sn} was {prev_streamer_race}, "
-            f"{brief.opponent_display_name} was {opp_for_narr}. Use these races. "
-        )
+        if neutral_lm:
+            r_a = _race_for_named_player_in_row(brief.db_result, brief.opponent_display_name)
+            r_b = _race_for_named_player_in_row(brief.db_result, peer)
+            msg += (
+                f"In the PREVIOUS archived game: {brief.opponent_display_name} was {r_a or opp_for_narr}, "
+                f"{peer} was {r_b or brief.today_streamer_race}. Use these races for the archive. "
+            )
+        else:
+            msg += (
+                f"In the PREVIOUS game: {sn} was {prev_streamer_race}, "
+                f"{brief.opponent_display_name} was {opp_for_narr}. Use these races. "
+            )
     if bundled_saved_notes and inline:
         msg += (
             "Use the replay excerpt below only to confirm time ago, duration, and winner — "
@@ -589,7 +786,9 @@ def compose_last_meeting_user_message(
                 extra = _replay_summary_sanitize_for_inline_prompt(extra)
             elif isinstance(extra, str):
                 extra = _replay_summary_strip_units_lost_blocks(extra)
-            if isinstance(extra, str):
+            if isinstance(extra, str) and not getattr(
+                brief, "suppress_last_time_sc2_alias_substitution", False
+            ):
                 extra = substitute_streamer_aliases_for_chat_display(extra)
             chunks.append(
                 f"----- Archived vs this opponent when they played as {race} "
@@ -600,13 +799,19 @@ def compose_last_meeting_user_message(
     return msg
 
 
-def compose_build_order_user_message(opponent_display_name: str, first_few_build_steps: List[str]) -> str:
+def compose_build_order_user_message(
+    opponent_display_name: str,
+    first_few_build_steps: List[str],
+    *,
+    peer_competitor_name: str = "",
+) -> str:
     """OpenAI user message for opponent build-from-DB extract (last_time_played)."""
     abbreviated_build_string = abbreviated_grouped_build_string(
         first_few_build_steps, for_chat_suffix=False
     )
-    sn = config.STREAMER_NICKNAME
-    msg = f"Opponent build focus — {opponent_display_name} only (not {sn}).\n"
+    peer = (peer_competitor_name or "").strip()
+    sn = peer if peer else config.STREAMER_NICKNAME
+    msg = f"Opponent build focus — {opponent_display_name} only (not {sn}'s build).\n"
     msg += (
         f"If you mention training at all, phrase it as '{opponent_display_name} trained …' "
         f"— never '{sn} trained' for this block.\n"
@@ -624,7 +829,7 @@ def compose_build_order_user_message(opponent_display_name: str, first_few_build
     msg += "   - 'Fast expand into roach timing' (speculates intent)\n"
     msg += "   - 'Gateway expand into blink stalker pressure' (uses strategy terms)\n"
     msg += "   - '2 base banshee into mech turtle' (speculates purpose)\n"
-    msg += f"6. DO NOT mention {sn}'s play - ONLY describe {opponent_display_name}'s build\n"
+    msg += f"6. DO NOT mention {sn}'s play — ONLY describe {opponent_display_name}'s build\n"
     msg += (
         "7. ONE sentence only, max 18 words total. Do not use: timestamps (0:00), the word 'Time:', "
         "comma-chained step dumps, listing more than 5 distinct unit/building names, bullet lists, "
@@ -844,24 +1049,33 @@ def run_known_opponent_pregame(
         except Exception as e:
             log.error("Error emitting ML opponent analysis: %s", e)
 
+    peer_cc = ""
+    if getattr(brief, "suppress_last_time_sc2_alias_substitution", False):
+        peer_cc = (getattr(brief, "versus_display_name", "") or "").strip()
+
     build_blocks: List[str] = []
     if brief.random_race_intel:
         for race, _, _, steps in brief.random_race_intel:
             if steps:
                 build_blocks.append(
                     f"=== Opponent opening as {race} (archived — they are Random today) ===\n"
-                    + compose_build_order_user_message(brief.opponent_display_name, steps)
+                    + compose_build_order_user_message(
+                        brief.opponent_display_name,
+                        steps,
+                        peer_competitor_name=peer_cc,
+                    )
                 )
     elif brief.first_few_build_steps:
         build_blocks.append(
             compose_build_order_user_message(
-                brief.opponent_display_name, brief.first_few_build_steps
+                brief.opponent_display_name,
+                brief.first_few_build_steps,
+                peer_competitor_name=peer_cc,
             )
         )
 
     use_det_opening = (
         bool(getattr(config, "PREGAME_APPEND_DETERMINISTIC_OPENING", True))
-        and not has_saved_notes
         and not ml_supersedes_build_intel
         and bool(build_blocks)
     )
@@ -884,7 +1098,9 @@ def run_known_opponent_pregame(
     )
     opener_lines: List[str] = []
     tid: Optional[str] = None
-    if db is not None:
+    if db is not None and not getattr(
+        brief, "suppress_last_time_sc2_alias_substitution", False
+    ):
         try:
             from core.pregame_matchup_blurb import build_streamer_vs_opponent_tidbit
 
@@ -899,6 +1115,7 @@ def run_known_opponent_pregame(
     rl = (
         format_record_line(brief.record_vs, brief.opponent_display_name)
         if brief.record_vs is not None
+        and not getattr(brief, "suppress_last_time_sc2_alias_substitution", False)
         else None
     )
     # Tidbit already states H2H (FSL or replay); do not add a second record line with a different source.
@@ -932,7 +1149,6 @@ def run_known_opponent_pregame(
     if (
         brief.inline_saved_notes_in_last_meeting
         and build_blocks
-        and not has_saved_notes
         and not ml_supersedes_build_intel
         and not use_det_opening
     ):
@@ -952,18 +1168,29 @@ def run_known_opponent_pregame(
         logger,
         context_history,
         response_suffix=opening_suffix,
+        suppress_last_time_sc2_alias_substitution=getattr(
+            brief, "suppress_last_time_sc2_alias_substitution", False
+        ),
     )
 
     if (
         build_blocks
         and not ml_analysis_ran
         and not brief.inline_saved_notes_in_last_meeting
-        and not has_saved_notes
         and not ml_supersedes_build_intel
         and not use_det_opening
     ):
         for block in build_blocks:
-            processMessageForOpenAI(bot, block, "last_time_played", logger, context_history)
+            processMessageForOpenAI(
+                bot,
+                block,
+                "last_time_played",
+                logger,
+                context_history,
+                suppress_last_time_sc2_alias_substitution=getattr(
+                    brief, "suppress_last_time_sc2_alias_substitution", False
+                ),
+            )
     elif not build_blocks:
         if quiet_when_no_build_extract:
             pass
@@ -974,7 +1201,16 @@ def run_known_opponent_pregame(
                 f"restate this:  good luck playing {brief.opponent_display_name} in this "
                 f"{brief.streamer_current_race} versus {brief.opponent_race} matchup.  Random is tricky."
             )
-            processMessageForOpenAI(bot, msg, "last_time_played", logger, context_history)
+            processMessageForOpenAI(
+                bot,
+                msg,
+                "last_time_played",
+                logger,
+                context_history,
+                suppress_last_time_sc2_alias_substitution=getattr(
+                    brief, "suppress_last_time_sc2_alias_substitution", False
+                ),
+            )
         else:
             glhf_phrase = getattr(config, "PREGAME_GLHF_PHRASE", "GLHFGG")
             msgToChannel(
@@ -986,9 +1222,10 @@ def run_known_opponent_pregame(
     line = (
         format_record_line(brief.record_vs, brief.opponent_display_name)
         if brief.record_vs is not None
+        and not getattr(brief, "suppress_last_time_sc2_alias_substitution", False)
         else None
     )
     if line and not had_matchup_openers:
         msgToChannel(bot, line, logger)
     elif not line:
-        log.debug("[RECORD] Skipping record line (threshold or no parsed head-to-head)")
+        log.debug("[RECORD] Skipping record line (threshold, no h2h, or observer suppress)")

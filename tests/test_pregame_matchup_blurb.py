@@ -114,6 +114,20 @@ class TestReplayMultiHints(unittest.TestCase):
         tot = replay_archive_head_to_head_totals_multi(D(), ["S"], ["Wrong", "Right"])
         self.assertEqual(tot, (2, 1))
 
+    @patch("core.pregame_matchup_blurb._streamer_name_hints", return_value=("KJ", "wingingIt"))
+    def test_streamer_h2h_sums_all_ladder_accounts(self, _hints):
+        class D:
+            def get_head_to_head_matchup(self, a, b):
+                if a == "KJ" and b == "FMage":
+                    return ["KJ (Z) vs FMage (P), 0 wins - 10 wins"]
+                if a == "wingingIt" and b == "FMage":
+                    return ["wingingIt (Z) vs FMage (P), 1 wins - 1 wins"]
+                return []
+
+        from core.pregame_matchup_blurb import replay_h2h_streamer_vs_opponent
+
+        self.assertEqual(replay_h2h_streamer_vs_opponent(D(), ("FMage",)), (1, 11))
+
 
 class TestAsciiFoldHints(unittest.TestCase):
     def test_dedupe_adds_folded_spelling(self):

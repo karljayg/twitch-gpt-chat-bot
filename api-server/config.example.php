@@ -38,3 +38,8 @@ $base_path = '';
 
 // Note: This same API key must be set in the bot's config.py as DB_API_KEY
 
+// Streamer ladder ids — must match settings/config.py SC2_PLAYER_ACCOUNTS + SC2_BARCODE_ACCOUNTS
+$sc2_player_accounts = ['KJ'];
+$sc2_barcode_accounts = [];
+$streamer_nickname = 'KJ';
+

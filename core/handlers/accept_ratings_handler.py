@@ -23,7 +23,7 @@ def _allowed(author: str) -> bool:
 
 
 class AcceptRatingsHandler(ICommandHandler):
-    """accept ratings <fsl_match_id> — opens FSL voting window and captures chat tokens."""
+    """accept ratings | open ratings <fsl_match_id> — opens FSL voting window and captures chat tokens."""
 
     def __init__(self, twitch_bot):
         self.twitch_bot = twitch_bot
@@ -56,7 +56,8 @@ class AcceptRatingsHandler(ICommandHandler):
             else:
                 await context.chat_service.send_message(
                     context.channel,
-                    "Usage: accept ratings <fsl_match_id> (or set FSL_TUNNEL_TEST_MATCH_ID for default).",
+                    "Usage: open/start/accept ratings <fsl_match_id> "
+                    "(or set FSL_TUNNEL_TEST_MATCH_ID for default).",
                 )
                 return
 
@@ -64,7 +65,7 @@ class AcceptRatingsHandler(ICommandHandler):
         if getattr(tb, "fsl_voting_session", None) and tb.fsl_voting_session.is_active():
             await context.chat_service.send_message(
                 context.channel,
-                "A ratings session is already active. Type: end ratings",
+                "A ratings session is already active. Type: end ratings (or close ratings)",
             )
             return
 
@@ -122,7 +123,7 @@ class RatingsHelpHandler(ICommandHandler):
         if not sess or not sess.is_active():
             await context.chat_service.send_message(
                 context.channel,
-                "No ratings window is open. (Mods: accept ratings <match id> when ready.)",
+                "No ratings window is open. (Mods: accept ratings or open ratings <match id> when ready.)",
             )
             return
         if not sess.try_claim_long_help():

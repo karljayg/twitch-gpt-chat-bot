@@ -3,6 +3,7 @@ import openai
 import re
 import random
 import hashlib
+import logging
 from datetime import datetime
 import sys
 import time
@@ -102,19 +103,41 @@ def send_prompt_to_openai_system_user(system_text: str, user_text: str):
     return openai.ChatCompletion.create(**create_kw)
 
 
-def substitute_streamer_aliases_for_chat_display(text: str) -> str:
-    """Replace SC2 ladder account names with STREAMER_NICKNAME so chat matches on-air identity."""
+def substitute_streamer_aliases_for_chat_display(text: str, account_names=None) -> str:
+    """Replace SC2 ladder account names with STREAMER_NICKNAME so chat matches on-air identity.
+
+    If account_names is None, uses config.SC2_PLAYER_ACCOUNTS (legacy).
+    If account_names is an empty iterable, returns text unchanged (co-cast / observer snippets).
+    Otherwise only names in account_names are substituted (excluding the nick itself).
+    """
     if not text or not isinstance(text, str):
         return text
     nick = getattr(config, "STREAMER_NICKNAME", "") or ""
+    if account_names is None:
+        accounts = list(getattr(config, "SC2_PLAYER_ACCOUNTS", []) or [])
+    else:
+        accounts = list(account_names)
+    if not accounts:
+        return text
     out = text
-    for acct in getattr(config, "SC2_PLAYER_ACCOUNTS", []) or []:
+    replaced = []
+    for acct in accounts:
         if not acct:
             continue
         if str(acct).strip().lower() == str(nick).strip().lower():
             continue
         pat = re.compile(r"\b" + re.escape(str(acct)) + r"\b", re.I)
-        out = pat.sub(nick, out)
+        if pat.search(out):
+            replaced.append(str(acct))
+            out = pat.sub(nick, out)
+    if replaced:
+        logging.getLogger(__name__).debug(
+            "[alias_subst] nick=%r replaced=%s before=%r after=%r",
+            nick,
+            replaced,
+            text,
+            out,
+        )
     return out
 
 
@@ -893,7 +916,8 @@ def process_pubmsg(self, event, logger, contextHistory):
     # Skip command messages that are handled by CommandService (don't send to OpenAI)
     command_prefixes = ['please retry', 'please preview', 'please review', 'please replay',
                         'player comment', 'player comments', 'head to head', 'accept ratings',
-                        'end ratings', '!accept ratings', '!end ratings', '!ratings', 'fsl', 'analyze', 'wiki', 'career', 'history']
+                        'open ratings', 'start ratings', 'end ratings', 'close ratings',
+                        '!accept ratings', '!open ratings', '!start ratings', '!end ratings', '!close ratings', '!ratings', 'fsl', 'analyze', 'wiki', 'career', 'history']
     if any(msg.startswith(prefix) for prefix in command_prefixes):
         logger.debug(f"Skipping command message from OpenAI processing: {msg[:30]}...")
         return
@@ -1725,7 +1749,15 @@ def sanitize_retry_replay_commentary(text: str, max_words: int = 0) -> str:
     out = out.rstrip(",;:")
     return out + "."
 
-def process_ai_message(user_message, conversation_mode="normal", contextHistory=None, platform="twitch", logger=None):
+def process_ai_message(
+    user_message,
+    conversation_mode="normal",
+    contextHistory=None,
+    platform="twitch",
+    logger=None,
+    *,
+    suppress_last_time_sc2_alias_substitution: bool = False,
+):
     """
     Platform-agnostic AI message processing.
     Returns the AI response without platform-specific handling.
@@ -1902,7 +1934,7 @@ def process_ai_message(user_message, conversation_mode="normal", contextHistory=
             response = re.sub(' +', ' ', response)  # Remove extra spaces
             response = response.strip()  # Remove leading and trailing whitespace
 
-            if conversation_mode == "last_time_played":
+            if conversation_mode == "last_time_played" and not suppress_last_time_sc2_alias_substitution:
                 response = substitute_streamer_aliases_for_chat_display(response)
                 response = _collapse_duplicate_played_name(response)
                 response = _strip_instruction_echo_from_last_time_response(response)
@@ -1917,6 +1949,12 @@ def process_ai_message(user_message, conversation_mode="normal", contextHistory=
                 response = _drop_second_map_mention(response)
                 response = _reorder_last_time_segments(response)
                 response = _vary_record_sentence_wording(response)
+            elif conversation_mode == "last_time_played":
+                logger.debug(
+                    "[last_time] skipped alias/style pipeline suppress_last_time_sc2_alias_substitution=%s raw_response=%r",
+                    suppress_last_time_sc2_alias_substitution,
+                    response,
+                )
 
             # dont make it too obvious its a bot
             response = response.replace("As an AI language model, ", "")
@@ -1981,7 +2019,16 @@ def process_ai_message(user_message, conversation_mode="normal", contextHistory=
         logger.error('Failed to generate response: %s', e)
         return 'oops, I have no response to that'
 
-def processMessageForOpenAI(self, msg, conversation_mode, logger, contextHistory, *, response_suffix=""):
+def processMessageForOpenAI(
+    self,
+    msg,
+    conversation_mode,
+    logger,
+    contextHistory,
+    *,
+    response_suffix="",
+    suppress_last_time_sc2_alias_substitution: bool = False,
+):
     """
     Legacy function for Twitch bot compatibility.
     Now uses the platform-agnostic process_ai_message function.
@@ -1990,7 +2037,14 @@ def processMessageForOpenAI(self, msg, conversation_mode, logger, contextHistory
     """
     
     # Use the new platform-agnostic function
-    response = process_ai_message(msg, conversation_mode, contextHistory, "twitch", logger)
+    response = process_ai_message(
+        msg,
+        conversation_mode,
+        contextHistory,
+        "twitch",
+        logger,
+        suppress_last_time_sc2_alias_substitution=suppress_last_time_sc2_alias_substitution,
+    )
     if conversation_mode == "last_time_played":
         response = _strip_llm_opponent_opening_clause(response)
     if response_suffix:

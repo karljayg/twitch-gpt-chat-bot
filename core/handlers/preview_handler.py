@@ -69,6 +69,7 @@ class PreviewHandler(ICommandHandler):
                     opponent_name = opponent_info['name']
                     opponent_race = opponent_info['race']
                     streamer_race = opponent_info['streamer_race']
+                    versus_name = (opponent_info.get('versus_name') or "").strip()
                     current_map = replay_data.get('map', 'Unknown')
                     replay_target_label = f"{n_back} game(s) ago"
                 elif replay_id == 0:
@@ -103,8 +104,10 @@ class PreviewHandler(ICommandHandler):
                     replay_duration = replay_info.get("duration", "Unknown")
                     use_pattern_validation_preview = True
             else:
-                # Load last replay data
-                replay_data = self._load_last_replay_data()
+                # No-arg preview = the latest game. Prefer the freshest of (cached JSON,
+                # newest on-disk replay) so a stale cache (e.g. left behind by a bulk import)
+                # can never make this point at an old game.
+                replay_data = await self._load_latest_replay_data()
 
                 if not replay_data:
                     await context.chat_service.send_message(
@@ -126,14 +129,28 @@ class PreviewHandler(ICommandHandler):
                 opponent_name = opponent_info['name']
                 opponent_race = opponent_info['race']
                 streamer_race = opponent_info['streamer_race']
+                versus_name = (opponent_info.get('versus_name') or "").strip()
                 current_map = replay_data.get('map', 'Unknown')
             
-            logger.info(f"Running preview for: {opponent_name} ({opponent_race}) vs {streamer_race} on {current_map}")
-            
-            await context.chat_service.send_message(
-                context.channel,
-                f"Previewing opponent analysis for {opponent_name} ({opponent_race}) from {replay_target_label}..."
+            logger.info(
+                "Running preview for: %s (%s) vs %s on %s",
+                opponent_name,
+                opponent_race,
+                versus_name or streamer_race,
+                current_map,
             )
+
+            if versus_name:
+                ack = (
+                    f"Previewing {opponent_name} ({opponent_race}) vs {versus_name} "
+                    f"({streamer_race}) from {replay_target_label}..."
+                )
+            else:
+                ack = (
+                    f"Previewing opponent analysis for {opponent_name} ({opponent_race}) "
+                    f"from {replay_target_label}..."
+                )
+            await context.chat_service.send_message(context.channel, ack)
             
             success = False
             if use_pattern_validation_preview and hasattr(self.twitch_bot, "_display_pattern_validation"):
@@ -172,6 +189,7 @@ class PreviewHandler(ICommandHandler):
                         current_map,
                         [],
                         inline_saved_notes_in_last_meeting=True,
+                        versus_display_name=versus_name or None,
                     ),
                 )
             
@@ -317,6 +335,27 @@ class PreviewHandler(ICommandHandler):
             logger.error(f"Preview - error parsing replay file {replay_path}: {e}")
             return None
     
+    async def _load_latest_replay_data(self) -> dict:
+        """No-arg preview source: freshest of cached JSON vs newest on-disk replay.
+
+        The cached JSON (temp/last_replay_data.json) is kept current by the live
+        game-end flow and 'please retry', but it can be left stale by other tooling
+        (e.g. a bulk import). Whenever the newest replay file on disk has a more recent
+        game timestamp, use it instead so 'please preview' always reflects the last game.
+        """
+        cached = self._load_last_replay_data()
+        disk = await self._load_replay_data_n_games_ago(0)
+        if not disk:
+            return cached
+        if not cached:
+            return disk
+        try:
+            cached_ts = int(cached.get('unix_timestamp') or 0)
+            disk_ts = int(disk.get('unix_timestamp') or 0)
+        except (TypeError, ValueError):
+            return disk
+        return disk if disk_ts >= cached_ts else cached
+
     def _load_last_replay_data(self) -> dict:
         """Load the last_replay_data.json file."""
         json_path = os.path.join('temp', 'last_replay_data.json')
@@ -333,42 +372,71 @@ class PreviewHandler(ICommandHandler):
             return None
     
     def _extract_opponent_info(self, replay_data: dict) -> dict:
-        """Extract opponent name, race, and streamer race from replay data."""
+        """Extract opponent name, race, and the other player's race from replay data.
+
+        When no SC2_PLAYER_ACCOUNTS name appears (observer / two guests), treat as a
+        neutral 1v1: first player by key is the preview focus, second is the other.
+        """
         players = replay_data.get('players', {})
-        
+
         if not players:
             logger.warning("No players found in replay data")
             return None
-        
+
         streamer_accounts_lower = [name.lower() for name in config.SC2_PLAYER_ACCOUNTS]
-        
-        opponent_name = None
-        opponent_race = None
-        streamer_race = None
-        
-        # Players dict uses "1", "2" as keys, actual name is in player_data['name']
+        in_account = []
+        out_account = []
         for player_id, player_data in players.items():
-            player_name = player_data.get('name', '')
-            
-            if player_name.lower() in streamer_accounts_lower:
-                # This is the streamer
-                streamer_race = player_data.get('race', 'Unknown')
-            else:
-                # This is the opponent
-                opponent_name = player_name
-                opponent_race = player_data.get('race', 'Unknown')
-        
-        if not opponent_name:
-            logger.warning("Could not identify opponent in replay data")
-            return None
-        
-        if not streamer_race:
-            # Fallback - assume first non-opponent is streamer
-            streamer_race = "Unknown"
-        
-        return {
-            'name': opponent_name,
-            'race': opponent_race,
-            'streamer_race': streamer_race
-        }
+            player_name = (player_data.get('name') or '').strip()
+            if not player_name:
+                continue
+            bucket = in_account if player_name.lower() in streamer_accounts_lower else out_account
+            bucket.append((player_id, player_data))
+
+        # Observer-style: neither side is a configured ladder identity
+        if not in_account and len(out_account) >= 2:
+            out_account.sort(key=lambda x: str(x[0]))
+            _, pd_a = out_account[0]
+            _, pd_b = out_account[1]
+            return {
+                'name': pd_a.get('name'),
+                'race': pd_a.get('race', 'Unknown'),
+                'streamer_race': pd_b.get('race', 'Unknown'),
+                'versus_name': pd_b.get('name'),
+            }
+
+        # Ladder identity in match: non-account is DB/opponent focus; account side supplies other race
+        if in_account and out_account:
+            streamer_pd = in_account[0][1]
+            opp_pd = out_account[0][1]
+            return {
+                'name': opp_pd.get('name'),
+                'race': opp_pd.get('race', 'Unknown'),
+                'streamer_race': streamer_pd.get('race', 'Unknown'),
+                'versus_name': streamer_pd.get('name'),
+            }
+
+        # Both names are configured accounts (e.g. two alts): still neutral pairing
+        if len(in_account) >= 2 and not out_account:
+            in_account.sort(key=lambda x: str(x[0]))
+            _, pd_a = in_account[0]
+            _, pd_b = in_account[1]
+            return {
+                'name': pd_a.get('name'),
+                'race': pd_a.get('race', 'Unknown'),
+                'streamer_race': pd_b.get('race', 'Unknown'),
+                'versus_name': pd_b.get('name'),
+            }
+
+        if out_account and not in_account and len(out_account) == 1:
+            _, pd = out_account[0]
+            return {
+                'name': pd.get('name'),
+                'race': pd.get('race', 'Unknown'),
+                'streamer_race': 'Unknown',
+                'versus_name': '',
+            }
+
+        logger.warning("Could not identify opponent in replay data (unexpected player layout)")
+        return None
 

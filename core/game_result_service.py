@@ -614,11 +614,20 @@ Generate ONE short message only, no explanation."""
                                         elif p.get("is_winner") is False:
                                             result_rel = "Victory"
                                         break
+                                versus_seed = ""
+                                if opp_name != "Unknown" and replay_data.get("players"):
+                                    onl = opp_name.lower()
+                                    for _k, p in replay_data["players"].items():
+                                        oth = (p.get("name") or "").strip()
+                                        if oth and oth.lower() != onl:
+                                            versus_seed = oth
+                                            break
                                 retry_flags = _retry_prompt_flags(retry_followup_in_commentary)
                                 game_data_now = {
                                     "retry_ref": retry_ref,
                                     "opponent_name": opp_name,
                                     "opponent_race": opp_race,
+                                    "versus_name": versus_seed,
                                     "map": replay_data.get("map", "Unknown"),
                                     "date": replay_data.get("unix_timestamp", int(time.time())),
                                     "result": result_rel,
@@ -771,12 +780,22 @@ Generate ONE short message only, no explanation."""
                         
                         if opponent_name == "Unknown":
                             logger.warning(f"Could not identify opponent - all players may be in SC2_PLAYER_ACCOUNTS: {all_players}")
-                                
+
+                        versus_name = ""
+                        if opponent_name != "Unknown" and replay_data.get("players"):
+                            on_lower = opponent_name.lower()
+                            for _pk, _pd in replay_data["players"].items():
+                                other = (_pd.get("name") or "").strip()
+                                if other and other.lower() != on_lower:
+                                    versus_name = other
+                                    break
+
                         retry_flags = _retry_prompt_flags(retry_followup_in_commentary) if is_retry else {}
                         game_data = {
                             'retry_ref': retry_ref,
                             'opponent_name': opponent_name,
                             'opponent_race': opponent_race,
+                            'versus_name': versus_name,
                             'map': replay_data['map'],
                             'date': replay_data['unix_timestamp'],
                             'result': result,
