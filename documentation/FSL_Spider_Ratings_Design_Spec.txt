@@ -1,0 +1,217 @@
+
+FSL Spider Chart System — Database Design Spec
+Overview
+The Spider Chart system collects per-attribute, per-match comparison votes from a pool of weighted reviewers and aggregates them into a single set of six skill scores per player per division. Those scores drive the radar/"spider" chart displayed on-stream and in the admin dashboard.
+
+Tables
+Players
+The source-of-truth for player identity.
+Column
+Type
+Notes
+Player_ID
+INT PK auto_increment
+Used as FK in all vote/score tables
+Real_Name
+VARCHAR(255) UNIQUE
+Display name; used in lookups by ?name= param
+Team_ID
+INT FK ? Teams.Team_ID
+Nullable
+Status
+ENUM('active','inactive','banned','other')
+Only active players appear on charts
+User_ID
+VARCHAR(36)
+Links to site account (nullable)
+Championship_Record
+JSON
+Historical; not used in voting
+Teams_History
+JSON
+Historical; not used in voting
+
+Key constraint: Player_Attribute_Votes and Player_Attributes both FK to Players.Player_ID with ON DELETE CASCADE.
+
+fsl_matches
+Matches are the unit of review — votes are always cast for a specific match.
+Column
+Type
+Notes
+fsl_match_id
+INT PK auto_increment
+Referenced by Player_Attribute_Votes.fsl_match_id
+season
+INT
+e.g., 10
+t_code
+VARCHAR(50)
+Division code: 'S', 'A', or 'B' — this is how division is inferred from a vote
+winner_player_id
+INT FK ? Players.Player_ID
+
+
+loser_player_id
+INT FK ? Players.Player_ID
+
+
+winner_team_id
+INT FK ? Teams.Team_ID
+Nullable
+loser_team_id
+INT FK ? Teams.Team_ID
+Nullable
+best_of
+INT
+e.g., 3 or 5
+map_win / map_loss
+INT
+Map score
+vod
+VARCHAR(255)
+VOD URL
+notes
+VARCHAR(255)
+Free-form label shown in voting activity
+
+Important: t_code on fsl_matches is the authoritative source for which division a vote belongs to. The aggregation script maps t_code ? division as 'S'?S, 'A'?A, 'B'?B.
+
+reviewers
+Human or bot reviewers who cast votes. Each gets a unique URL token for authentication.
+Column
+Type
+Notes
+id
+INT PK auto_increment
+Referenced as Player_Attribute_Votes.reviewer_id
+name
+VARCHAR(255)
+Display name
+unique_url
+VARCHAR(255) UNIQUE
+Token used in reviewer-facing vote URL (e.g., spider_vote.php?reviewer=<token>)
+weight
+DECIMAL(3,2) default 1.00
+Multiplier applied during score aggregation. Range typically 0.5–2.0
+status
+ENUM('active','inactive')
+Only active reviewers' votes are aggregated
+created_at / updated_at
+TIMESTAMP
+Audit fields
+
+"Deleting" a reviewer is a soft-delete: status = 'inactive'.
+
+Player_Attribute_Votes
+One row per reviewer × match × attribute comparison vote. This is the raw event log.
+Column
+Type
+Notes
+id
+INT PK auto_increment
+
+
+fsl_match_id
+INT FK ? fsl_matches.fsl_match_id
+Which match is being reviewed
+reviewer_id
+INT FK ? reviewers.id
+Who cast the vote
+attribute
+ENUM('micro','macro','clutch','creativity','aggression','strategy')
+Which of the 6 skill axes
+vote
+INT
+0 = tie, 1 = player1 won this attribute, 2 = player2 won this attribute
+player1_id
+INT FK ? Players.Player_ID
+Left player in the comparison
+player2_id
+INT FK ? Players.Player_ID
+Right player in the comparison
+created_at
+TIMESTAMP
+Auto-set on insert
+
+Critical semantics for vote:
+1 ? player1_id won this attribute
+2 ? player2_id won this attribute
+0 ? tie (neither player credited a win)
+Tie votes contribute neither positive nor negative weight during aggregation — they're simply excluded from the win/loss counts but do not reduce total_weight (every vote row adds its reviewer's weight to total_weight).
+Uniqueness constraint: (reviewer_id, fsl_match_id, attribute) — one vote per reviewer per match per attribute. Attempting to insert a duplicate will fail.
+Indexes: fsl_match_id, reviewer_id, (player1_id, player2_id), attribute, created_at.
+
+Player_Attributes
+Aggregated spider chart scores. Computed and fully overwritten by aggregate_scores.php. Do not treat as a primary source of truth — it's a materialized view.
+Column
+Type
+Notes
+id
+INT PK auto_increment
+
+
+player_id
+INT FK ? Players.Player_ID
+
+
+division
+ENUM('A','B','S')
+Derived from fsl_matches.t_code
+micro
+DECIMAL(4,2)
+Aggregated score, range 5.00–10.00
+macro
+DECIMAL(4,2)
+
+
+clutch
+DECIMAL(4,2)
+
+
+creativity
+DECIMAL(4,2)
+
+
+aggression
+DECIMAL(4,2)
+
+
+strategy
+DECIMAL(4,2)
+
+
+last_updated
+TIMESTAMP
+Auto-updated on write
+
+Uniqueness constraint: UNIQUE(player_id, division) — one row per player per division.
+Note on score range: Scores are not raw win rates. The aggregation formula is:
+win_rate = positive_weighted_votes / total_weighted_votes   (0.0–1.0)
+normalized = win_rate * 10                                   (0.0–10.0)
+final_score = (normalized / 2) + 5                          (5.0–10.0)
+So even a player who loses every attribute vote still gets 5.00, not 0. The chart axis displays 2–10 (configured in config.php).
+
+Relationships Diagram
+fsl_matches (fsl_match_id, t_code ? division)
+   ¦
+   +--- Player_Attribute_Votes ------ Players (player1_id)
+        (reviewer_id, attribute,  ¦-- Players (player2_id)
+         vote: 0/1/2)             +-- reviewers (id, weight, status)
+             ¦
+             ? (aggregate_scores.php)
+        Player_Attributes
+        (player_id, division, micro…strategy: 5.00–10.00)
+
+What an External Program Needs to Know
+To insert votes (Player_Attribute_Votes):
+Resolve Players.Player_ID for both players by matching Players.Real_Name
+Resolve fsl_matches.fsl_match_id (and confirm winner_player_id/loser_player_id are correct)
+Resolve reviewers.id by reviewers.unique_url token (or name)
+Insert one row per attribute (6 total per match review)
+vote must be 0, 1, or 2 — not a score
+Constraint (reviewer_id, fsl_match_id, attribute) is unique — use INSERT … ON DUPLICATE KEY UPDATE vote = VALUES(vote) if re-voting is allowed, or check first
+To trigger score recalculation after inserting votes:
+Run aggregate_scores.php (CLI: php aggregate_scores.php) — it does a full DELETE + recalculate on Player_Attributes. There is no incremental update path currently.
+To read a player's current chart:
+SELECT * FROM Player_Attributes WHERE player_id = ? AND division = ?
+Divisions in use: 'S', 'A', 'B' (determined by fsl_matches.t_code)

@@ -1,0 +1,22 @@
+{
+    "name": "psistorm/database-api",
+    "description": "Generic REST API for PsiStorm database with flexible table queries",
+    "type": "project",
+    "require": {
+        "php": ">=7.4",
+        "slim/slim": "^4.10",
+        "slim/psr7": "^1.5",
+        "ext-pdo": "*",
+        "ext-json": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "PsiStorm\\API\\": "src/"
+        }
+    },
+    "scripts": {
+    },
+    "config": {
+        "optimize-autoloader": true
+    }
+}
