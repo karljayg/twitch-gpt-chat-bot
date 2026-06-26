@@ -26,6 +26,9 @@ class SC2Adapter(IGameStateProvider):
         self.running = False
         self.heartbeat_counter = 0
         self.heartbeat_interval = config.HEARTBEAT_MYSQL  # Number of iterations before DB heartbeat
+        # The game we last saw end; used to re-trigger processing when the user EXITS the
+        # replay/score screen (the replay file is usually unlocked by then).
+        self._pending_end_game = None
         
     def get_current_game_state(self) -> Any:
         return self.current_game
@@ -87,11 +90,29 @@ class SC2Adapter(IGameStateProvider):
                     
                     # 2. Trigger GameResultService (New Architecture)
                     # Handle both MATCH_ENDED and REPLAY_ENDED (user watched replay immediately after game)
+                    ended_states = ("MATCH_ENDED", "REPLAY_ENDED")
                     status = current_game.get_status() if current_game else "None"
-                    if status in ("MATCH_ENDED", "REPLAY_ENDED") and self.game_result_service:
+                    if status in ended_states and self.game_result_service:
+                        # Remember this ended game so we can retry on exit if the file is still locked now.
+                        self._pending_end_game = current_game
                         logger.info(f"Triggering GameResultService.process_game_end for {status} (Async Task)")
                         # Run as task to not block monitoring loop
                         asyncio.create_task(self.game_result_service.process_game_end(current_game))
+                    elif (
+                        old_status in ended_states
+                        and new_status not in ended_states
+                        and self._pending_end_game is not None
+                        and self.game_result_service
+                    ):
+                        # User left the score/replay screen. The replay file is typically unlocked
+                        # now, so re-run processing. Dedup in GameResultService (claim-lock on
+                        # last_processed_replay) makes this a no-op if it was already handled,
+                        # so this never double-prompts alongside the deferred unlock retry.
+                        logger.info(
+                            f"Exited {old_status} -> {new_status}; re-triggering process_game_end for the ended game"
+                        )
+                        asyncio.create_task(self.game_result_service.process_game_end(self._pending_end_game))
+                        self._pending_end_game = None
                     
                     # Note: Legacy logic (handle_SC2_game_results) is intentionally disabled
                     # to prevent double processing of game results. All logic is now in GameResultService.

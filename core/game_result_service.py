@@ -88,6 +88,73 @@ class GameResultService:
         self.chat_services = chat_services
         self.pattern_learner = pattern_learner
         self.last_processed_replay = None
+        # Serializes the "claim" of a replay so concurrent triggers (initial game-end,
+        # exit re-trigger, deferred unlock retry) never double-process the same game.
+        self._process_lock = asyncio.Lock()
+        # Replay paths that currently have a background "wait until file unlocks" retry running.
+        self._deferred_unlock_active = set()
+        # Replay paths that were locked at game end (file held open while viewing the replay).
+        # Used to post a one-time "after replay viewing... retrying" notice when they finally process.
+        self._locked_replays_awaiting = set()
+
+    def _is_file_unlocked(self, path: str) -> bool:
+        """Best-effort check that the replay file exists and isn't held open by SC2."""
+        try:
+            if not os.path.exists(path):
+                return False
+            with open(path, 'a+b'):
+                pass
+            return True
+        except (IOError, OSError, PermissionError):
+            return False
+
+    async def _handle_locked_replay(self, replay_path, game_info, skip_duplicate_check, defer_on_lock):
+        """When the replay file is locked, release our claim and (optionally) keep retrying in the background."""
+        # Release the claim so a later attempt (exit re-trigger or the deferred loop) can reprocess.
+        if not skip_duplicate_check and self.last_processed_replay == replay_path:
+            self.last_processed_replay = None
+        # Remember it was locked so we can post a recovery notice when it finally processes.
+        self._locked_replays_awaiting.add(replay_path)
+        if defer_on_lock:
+            self._schedule_unlock_retry(replay_path, game_info)
+
+    def _schedule_unlock_retry(self, replay_path, game_info):
+        """Background loop that reprocesses the replay once SC2 releases the file lock.
+
+        This is what fixes the 'I stayed in the replay too long, so it never prompted me'
+        case: the file stays locked while you watch it, and we keep checking until you exit.
+        """
+        if replay_path in self._deferred_unlock_active:
+            logger.debug(f"Deferred unlock retry already active: {replay_path}")
+            return
+        self._deferred_unlock_active.add(replay_path)
+        interval = getattr(config, "LOCKED_REPLAY_RETRY_INTERVAL_SECONDS", 15)
+        max_attempts = getattr(config, "LOCKED_REPLAY_RETRY_MAX_ATTEMPTS", 24)
+        logger.info(
+            f"Replay file locked; will retry every {interval}s (up to {max_attempts}x) until it unlocks: {replay_path}"
+        )
+
+        async def _runner():
+            try:
+                for attempt in range(max_attempts):
+                    await asyncio.sleep(interval)
+                    if self.last_processed_replay == replay_path:
+                        logger.info(f"Deferred unlock retry: already processed elsewhere, stopping: {replay_path}")
+                        return
+                    if not self._is_file_unlocked(replay_path):
+                        logger.debug(f"Deferred unlock retry {attempt + 1}/{max_attempts}: still locked: {replay_path}")
+                        continue
+                    logger.info(f"Deferred unlock retry: file unlocked, processing now: {replay_path}")
+                    # defer_on_lock=False: don't schedule a nested retry from inside the loop.
+                    await self.process_game_end(game_info, defer_on_lock=False)
+                    if self.last_processed_replay == replay_path:
+                        return
+                    # Rare: file re-locked between the unlock check and processing; keep looping.
+                logger.warning(f"Deferred unlock retry: gave up after {max_attempts} attempts: {replay_path}")
+            finally:
+                self._deferred_unlock_active.discard(replay_path)
+
+        asyncio.create_task(_runner())
 
     def _get_twitch_bot(self):
         twitch_service = next((s for s in self.chat_services if s.get_platform_name() == 'twitch'), None)
@@ -187,6 +254,7 @@ class GameResultService:
         *,
         is_retry: bool = False,
         retry_ref: Optional[int] = None,
+        defer_on_lock: bool = True,
     ):
         logger.debug(f"process_game_end called: replay_data={'provided' if replay_data else 'None'}, skip_duplicate_check={skip_duplicate_check}")
         """
@@ -271,12 +339,14 @@ class GameResultService:
                 logger.warning("No recent replay file found.")
                 return
                 
-            if replay_path == self.last_processed_replay and not skip_duplicate_check:
-                logger.info("Replay already processed. Skipping.")
-                return
-                
-            if not skip_duplicate_check:
-                self.last_processed_replay = replay_path
+            async with self._process_lock:
+                if replay_path == self.last_processed_replay and not skip_duplicate_check:
+                    logger.info("Replay already processed. Skipping.")
+                    return
+                if not skip_duplicate_check:
+                    # Claim this replay so concurrent triggers (initial game-end, exit re-trigger,
+                    # deferred unlock retry) don't all process it. Released again if the file is locked.
+                    self.last_processed_replay = replay_path
             logger.info(f"Found new replay: {replay_path}")
 
             # 2. Parse Replay
@@ -334,11 +404,13 @@ class GameResultService:
                         await asyncio.sleep(retry_delay)
                         retry_delay += 1  # Increase delay for each retry (3s, 4s, 5s, 6s, 7s)
                     else:
-                        logger.error(f"Replay file still locked after {max_retries} attempts, skipping: {replay_path} - {e}")
+                        logger.error(f"Replay file still locked after {max_retries} attempts: {replay_path} - {e}")
+                        await self._handle_locked_replay(replay_path, game_info, skip_duplicate_check, defer_on_lock)
                         return
             
             if file_locked:
                 logger.error(f"Cannot parse locked replay file: {replay_path}")
+                await self._handle_locked_replay(replay_path, game_info, skip_duplicate_check, defer_on_lock)
                 return
             
             try:
@@ -356,6 +428,17 @@ class GameResultService:
                     save_file(replay_data, 'json', logger)
                 except Exception as e:
                     logger.warning(f"Failed to save JSON file for retry: {e}")
+
+                # If this replay was locked at game end (you were watching the replay), let chat know
+                # we've picked it back up now that the file is free. Sent once, right before commentary.
+                if replay_path in self._locked_replays_awaiting:
+                    self._locked_replays_awaiting.discard(replay_path)
+                    recovery_notice = "After replay viewing... retrying that game now."
+                    for service in self.chat_services:
+                        try:
+                            await service.send_message("channel", recovery_notice)
+                        except Exception as e:
+                            logger.debug(f"Could not send replay-recovery notice: {e}")
             except Exception as e:
                 logger.error(f"Error parsing replay: {e}", exc_info=True)
                 # Don't crash the bot - just skip this replay
@@ -565,7 +648,8 @@ Generate ONE short message only, no explanation."""
                 # One casual sentence; facts only from the lines below (no invented story or strategy).
                 concise_prompt = (
                     "Write ONE casual Twitch-chat sentence (max 22 words).\n"
-                    "Use ONLY these facts — do not infer how the game went or anyone's style.\n\n"
+                    "Use ONLY these facts — do not infer how the game went or anyone's style.\n"
+                    "You MUST name BOTH the winner and the loser (opponent) explicitly.\n\n"
                 )
                 concise_prompt += f"Winner: {winning_players_str}\n"
                 concise_prompt += f"Loser: {losing_players_str}\n"
@@ -963,6 +1047,8 @@ Generate ONE short message only, no explanation."""
                 is_retry=True,
                 retry_ref=(-offset if offset > 0 else None),
             )
+            # Mark as handled so any in-flight deferred unlock retry for this file stops.
+            self.last_processed_replay = replay_path
             logger.info("Retry processing completed successfully")
             return True
         except Exception as e:

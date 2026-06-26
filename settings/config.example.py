@@ -168,6 +168,10 @@ IGNORE = ["psistorm_mathison", "psi_mathison", "Streamelements", "StreamElements
 RESPONSE_PROBABILITY = 0.2  # how often to respond? 1.0 = 100%  0.7 = 70%
 # sleep time between execution, any less than 7 risks new replay not done yet
 MONITOR_GAME_SLEEP_SECONDS = 5
+# When the replay file is still locked at game end (e.g. you're watching the replay), keep retrying
+# in the background until it unlocks, so the post-game comment prompt still fires without "please retry".
+LOCKED_REPLAY_RETRY_INTERVAL_SECONDS = 15  # how often to re-check a locked replay file
+LOCKED_REPLAY_RETRY_MAX_ATTEMPTS = 24      # ~6 minutes total at 15s intervals
 GREETINGS_LIST_FROM_OTHERS = ['HeyGuys', 'Hello']  # Mathison will say hi
 # override any delays/blocks and Mathison will respond
 OPEN_SESAME_SUBSTITUTES = "open sesame"
