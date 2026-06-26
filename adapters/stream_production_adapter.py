@@ -124,7 +124,8 @@ class StreamProductionAdapter:
 
     def _note_liveness(self, alive: bool):
         if alive != self._was_alive:
-            logger.info(f"Stream production feed {'ALIVE' if alive else 'stale/offline'}")
+            # Compact keep-alive indicator: 'a' = alive, 's' = stale/offline
+            print("a" if alive else "s", end="", flush=True)
             self._was_alive = alive
 
     # --- batch handling ---------------------------------------------------
